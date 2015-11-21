@@ -76,7 +76,7 @@ class wstring
 				
 				//! Assignment operator
 				wstring_raw_reference& operator=( wchar_t ch ){
-					this->instance.raw_replace( this->raw_index , this->instance.getIndexBytes( this->raw_index ) , wstring( 1 , ch ) );
+					this->instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , ch ) );
 					return *this;
 				}
 		};
@@ -101,25 +101,25 @@ class wstring
 				wstring_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Get the index
-				ptrdiff_t getIndex() const {
+				ptrdiff_t index() const {
 					return this->raw_index;
 				}
 				
 				//! Set the index
-				void setIndex( ptrdiff_t raw_index ){
+				void set_index( ptrdiff_t raw_index ){
 					this->raw_index = raw_index;
 				}
 				
 				//! Returns the wstring instance the iterator refers to
-				wstring& getInstance() const { return this->instance; }
+				wstring& get_instance() const { return this->instance; }
 				
 				//! Increase the Iterator by one
 				wstring_iterator&  operator++(){ // prefix ++iter
-					this->raw_index += this->instance.getIndexBytes( this->raw_index );
+					this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
 				wstring_iterator& operator++( int ){ // postfix iter++
-					this->raw_index += this->instance.getIndexBytes( this->raw_index );
+					this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -127,7 +127,7 @@ class wstring
 				friend wstring_iterator operator+( const wstring_iterator& it , size_t nth );
 				wstring_iterator& operator+=( size_t nth ){
 					while( nth-- > 0 )
-						this->raw_index += this->instance.getIndexBytes( this->raw_index );
+						this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -143,16 +143,16 @@ class wstring
 				bool operator<=( const wstring_iterator& it ) const { return this->raw_index <= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
-				wchar_t getValue(){ return this->instance.raw_at( this->raw_index ); }
+				wchar_t get(){ return this->instance.raw_at( this->raw_index ); }
 				
 				//! Returns the value of the codepoint behind the iterator
 				wstring_raw_reference operator*(){ return this->instance( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
-				bool hasNext() const { return this->instance.raw_at( this->raw_index + this->instance.getIndexBytes( this->raw_index ) ) != 0; }
+				bool has_next() const { return this->instance.raw_at( this->raw_index + this->instance.get_index_bytes( this->raw_index ) ) != 0; }
 				
 				//! Sets the codepoint
-				void setValue( wchar_t value ){ instance.raw_replace( this->raw_index , this->instance.getIndexBytes( this->raw_index ) , wstring( 1 , value ) ); }
+				void set( wchar_t value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , value ) ); }
 				
 				//! Check if the Iterator is valid
 				explicit operator bool() const { return this->valid(); }
@@ -171,15 +171,15 @@ class wstring
 				{}
 				
 				//! Cast ctor
-				wstring_const_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.getIndex(); this->instance = it.getInstance(); return *this; }
-				wstring_const_iterator( const wstring_iterator& it ) : wstring_iterator( it.getIndex() , it.getInstance() ) { }
+				wstring_const_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				wstring_const_iterator( const wstring_iterator& it ) : wstring_iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default function
 				wstring_const_iterator( const wstring_const_iterator& ) = default;
 				wstring_const_iterator& operator=( const wstring_const_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Remove setter
-				void setValue( wchar_t value ) = delete;
+				void set( wchar_t value ) = delete;
 				
 				//! Returns the value behind the iterator
 				wchar_t operator*(){ return this->instance.raw_at( this->raw_index ); }
@@ -205,34 +205,34 @@ class wstring
 				wstring_reverse_iterator& operator=( const wstring_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! From wstring_iterator to wstring_reverse_iterator
-				wstring_reverse_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.getIndex(); this->instance = it.getInstance(); return *this; }
-				wstring_reverse_iterator( const wstring_iterator& it ) : raw_index( it.getIndex() ) , instance( it.getInstance() ) { }
+				wstring_reverse_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				wstring_reverse_iterator( const wstring_iterator& it ) : raw_index( it.index() ) , instance( it.get_instance() ) { }
 				
 				//! Get the index
-				ptrdiff_t getIndex() const {
+				ptrdiff_t index() const {
 					return this->raw_index;
 				}
 				
 				//! Set the index
-				void setIndex( ptrdiff_t raw_index ){
+				void set_index( ptrdiff_t raw_index ){
 					this->raw_index = raw_index;
 				}
 				
 				//! Returns the wstring instance the iterator refers to
-				wstring& getInstance() const { return this->instance; }
+				wstring& get_instance() const { return this->instance; }
 				
 				wstring_reverse_iterator& operator++(){ // prefix iter++
-					this->raw_index -= this->instance.getIndexPreBytes( this->raw_index );
+					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				wstring_reverse_iterator& operator++( int ){ // postfix iter++
-					this->raw_index -= this->instance.getIndexPreBytes( this->raw_index );
+					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				friend wstring_reverse_iterator operator+( const wstring_reverse_iterator& it , size_t nth );
 				wstring_reverse_iterator& operator+=( size_t nth ){
 					while( nth-- > 0 )
-						this->raw_index -= this->instance.getIndexPreBytes( this->raw_index );
+						this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -248,16 +248,16 @@ class wstring
 				bool operator<=( const wstring_reverse_iterator& it ) const { return this->raw_index >= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
-				wchar_t getValue(){ return this->instance.raw_at( this->raw_index ); }
+				wchar_t get(){ return this->instance.raw_at( this->raw_index ); }
 				
 				//! Sets the codepoint
-				void setValue( wchar_t value ){ instance.raw_replace( this->raw_index , this->instance.getIndexBytes( this->raw_index ) , wstring( 1 , value ) ); }
+				void set( wchar_t value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , value ) ); }
 				
 				//! Returns the value of the codepoint behind the iterator
 				wstring_raw_reference operator*(){ return this->instance( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
-				bool hasNext() const { return this->raw_index > 0; }
+				bool has_next() const { return this->raw_index > 0; }
 				
 				//! Check if the Iterator is valid
 				operator bool() const { return this->valid(); }
@@ -276,15 +276,15 @@ class wstring
 				{}
 				
 				//! Cast ctor
-				wstring_const_reverse_iterator& operator=( const wstring_reverse_iterator& it ){ this->setIndex( it.getIndex() ); this->instance = it.getInstance(); return *this; }
-				wstring_const_reverse_iterator( const wstring_reverse_iterator& it ) : wstring_reverse_iterator( it.getIndex() , it.getInstance() ) { }
+				wstring_const_reverse_iterator& operator=( const wstring_reverse_iterator& it ){ this->set_index( it.index() ); this->instance = it.get_instance(); return *this; }
+				wstring_const_reverse_iterator( const wstring_reverse_iterator& it ) : wstring_reverse_iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default functions
 				wstring_const_reverse_iterator( const wstring_const_reverse_iterator& ) = default;
 				wstring_const_reverse_iterator& operator=( const wstring_const_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Remove setter
-				void setValue( wchar_t value ) = delete;
+				void set( wchar_t value ) = delete;
 				
 				//! Returns the value behind the iterator
 				wchar_t operator*(){ return this->instance.raw_at( this->raw_index ); }
@@ -292,32 +292,32 @@ class wstring
 		
 		//! Attributes
 		char*			buffer;
-		size_t			bufferLen;
-		size_t			stringLen;
-		size_t*			indicesOfMultibyte;
-		size_t			indicesLen;
-		mutable bool	misFormated;
+		size_t			buffer_len;
+		size_t			string_len;
+		size_t*			indices_of_multibyte;
+		size_t			indices_len;
+		mutable bool	misformated;
 		
 		//! Frees the internal buffer of indices and sets it to the supplied value
-		void reset_indices( size_t* indicesOfMultibyte = nullptr , size_t indicesLen = 0 ){
-			if( this->indicesOfMultibyte )
-				delete[] this->indicesOfMultibyte;
-			this->indicesLen = indicesLen;
-			this->indicesOfMultibyte = indicesOfMultibyte;
+		void reset_indices( size_t* indices_of_multibyte = nullptr , size_t indices_len = 0 ){
+			if( this->indices_of_multibyte )
+				delete[] this->indices_of_multibyte;
+			this->indices_len = indices_len;
+			this->indices_of_multibyte = indices_of_multibyte;
 		}
 		
 		//! Frees the internal buffer of indices
-		void resetBuffer( char* buffer = nullptr , size_t bufferLen = 0 ){
+		void reset_buffer( char* buffer = nullptr , size_t buffer_len = 0 ){
 			if( this->buffer )
 				delete[] this->buffer;
-			this->bufferLen = bufferLen;
+			this->buffer_len = buffer_len;
 			this->buffer = buffer;
 		}
 		
 		/**
 		 * Returns the number of bytes to expect behind this one (including this one) that belong to this utf8 char
 		 */
-		static unsigned char getNumBytesOfUTF8Char( unsigned char firstByte )
+		static unsigned char get_num_bytes_of_utf8_char( unsigned char firstByte )
 		{
 			if( (firstByte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
 				return 2;
@@ -335,7 +335,7 @@ class wstring
 		/**
 		 * Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
 		 */
-		static unsigned char getNumBytesOfUTF8CharBefore( const char* data )
+		static unsigned char get_num_bytes_of_utf8_char_before( const char* data )
 		{
 			if( (data[-2] & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
 				return 2;
@@ -353,7 +353,7 @@ class wstring
 		/**
 		 * Returns the number of bytes to expect behind this one that belong to this utf8 char
 		 */
-		static unsigned char getNumBytesOfUTF8Codepoint( wchar_t codepoint )
+		static unsigned char get_num_bytes_of_utf8_codepoint( wchar_t codepoint )
 		{
 			if( codepoint <= 0x7F )
 				return 1;
@@ -371,27 +371,27 @@ class wstring
 		}
 		
 		//! Returns the actual byte index of the supplied codepoint index
-		size_t getActualIndex( size_t codepointIndex ) const ;
+		size_t get_actual_index( size_t codepoint_index ) const ;
 		
 		/**
 		 * Get the byte index of the last codepoint
 		 */
-		size_t backIndex() const { return size() - getIndexPreBytes( size() ); }
+		size_t back_index() const { return size() - get_index_pre_bytes( size() ); }
 		/**
 		 * Get the byte index of the index behind the last codepoint
 		 */
-		size_t endIndex() const { return size(); }
+		size_t end_index() const { return size(); }
 		
 		/**
 		 * Decodes a given input of rle utf8 data to a
 		 * unicode codepoint and returns the number of bytes it used
 		 */
-		static unsigned char decodeUTF8( const char* data , wchar_t& codepoint , bool& hasError );
+		static unsigned char decode_utf8( const char* data , wchar_t& codepoint , bool& hasError );
 		
 		/**
 		 * Encodes a given codepoint to a character buffer of at least 7 bytes
 		 */
-		static unsigned char encodeUTF8( wchar_t codepoint , char* dest , bool& hasError );
+		static unsigned char encode_utf8( wchar_t codepoint , char* dest , bool& hasError );
 		
 		/**
 		 * Counts the number of bytes required
@@ -399,28 +399,28 @@ class wstring
 		 * numBytes is set to the number of multibyte
 		 * codepoints (ones that consume mor than 1 byte).
 		 */
-		static size_t getNumberOfRequiredBytes( const wchar_t* lit , size_t& numMultibytes );
+		static size_t get_num_required_bytes( const wchar_t* lit , size_t& numMultibytes );
 		
 		/**
 		 * Counts the number of codepoints
 		 * that are built up of the supplied amout of bytes
 		 */
-		size_t getNumberOfResultingCodepoints( size_t byteStart , size_t byteCount ) const ;
+		size_t get_num_resulting_codepoints( size_t byte_start , size_t byte_count ) const ;
 		
 		/**
 		 * Counts the number of bytes
 		 * required to hold the supplied amount of codepoints starting at the supplied byte index
 		 */
-		size_t getNumberOfResultingBytes( size_t byteStart , size_t codepointCount ) const ;
+		size_t get_num_resulting_bytes( size_t byte_start , size_t codepoint_count ) const ;
 		
 		//! Ctor from buffer and indices
-		wstring( char* buffer , wchar_t bufferLen , size_t stringLen , size_t* indicesOfMultibyte , size_t indicesLen ) :
+		wstring( char* buffer , wchar_t buffer_len , size_t string_len , size_t* indices_of_multibyte , size_t indices_len ) :
 			buffer( buffer )
-			, bufferLen( bufferLen )
-			, stringLen( stringLen )
-			, indicesOfMultibyte( indicesOfMultibyte )
-			, indicesLen( indicesLen )
-			, misFormated( false )
+			, buffer_len( buffer_len )
+			, string_len( string_len )
+			, indices_of_multibyte( indices_of_multibyte )
+			, indices_len( indices_len )
+			, misformated( false )
 		{}
 		
 	public:
@@ -441,11 +441,11 @@ class wstring
 		 */
 		wstring() :
 			buffer( new char[1]{0} )
-			, bufferLen( 1 )
-			, stringLen( 0 )
-			, indicesOfMultibyte( nullptr )
-			, indicesLen( 0 )
-			, misFormated( false )
+			, buffer_len( 1 )
+			, string_len( 0 )
+			, indices_of_multibyte( nullptr )
+			, indices_len( 0 )
+			, misformated( false )
 		{}
 		
 		/**
@@ -548,7 +548,7 @@ class wstring
 		 */
 		~wstring(){
 			this->reset_indices();
-			this->resetBuffer();
+			this->reset_buffer();
 		}
 		
 		
@@ -588,9 +588,9 @@ class wstring
 		 * @note	Resets the data to an empty string ("")
 		 */
 		void clear(){
-			this->stringLen = 0;
-			this->misFormated = false;
-			resetBuffer( new char[1]{0} , 1 );
+			this->string_len = 0;
+			this->misformated = false;
+			reset_buffer( new char[1]{0} , 1 );
 			reset_indices();
 		}
 		
@@ -600,7 +600,7 @@ class wstring
 		 * 
 		 * @return	True, if there is an encoding error, false, if the contained data is properly encoded
 		 */
-		bool isMisFormated() const { return this->misFormated; }
+		bool is_misformated() const { return this->misformated; }
 		
 		
 		/**
@@ -615,14 +615,14 @@ class wstring
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	byteIndex	The byte position of the codepoint to receive
+		 * @param	byte_index	The byte position of the codepoint to receive
 		 * @return	The codepoint at the supplied position
 		 */
-		wchar_t raw_at( size_t byteIndex ) const {
-			if( !this->requiresUnicode() )
-				return this->buffer[byteIndex];
+		wchar_t raw_at( size_t byte_index ) const {
+			if( !this->requires_unicode() )
+				return this->buffer[byte_index];
 			wchar_t dest;
-			decodeUTF8( this->buffer + byteIndex , dest , this->misFormated );
+			decode_utf8( this->buffer + byte_index , dest , this->misformated );
 			return dest;
 		}
 		
@@ -633,8 +633,8 @@ class wstring
 		 * @param	n	The index of the codepoint to get the iterator to
 		 * @return	An iterator pointing to the specified codepoint index
 		 */
-		iterator get( size_t n ){ return iterator( getActualIndex(n) , *this ); }
-		const_iterator get( size_t n ) const { return const_iterator( getActualIndex(n) , *this ); }
+		iterator get( size_t n ){ return iterator( get_actual_index(n) , *this ); }
+		const_iterator get( size_t n ) const { return const_iterator( get_actual_index(n) , *this ); }
 		/**
 		 * Returns an iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -653,8 +653,8 @@ class wstring
 		 * @param	n	The index of the codepoint to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified codepoint index
 		 */
-		reverse_iterator rget( size_t n ){ return reverse_iterator( getActualIndex(n) , *this ); }
-		const_reverse_iterator rget( size_t n ) const { return const_reverse_iterator( getActualIndex(n) , *this ); }
+		reverse_iterator rget( size_t n ){ return reverse_iterator( get_actual_index(n) , *this ); }
+		const_reverse_iterator rget( size_t n ) const { return const_reverse_iterator( get_actual_index(n) , *this ); }
 		/**
 		 * Returns a reverse iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -713,7 +713,7 @@ class wstring
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		size_t length() const { return this->stringLen; }
+		size_t length() const { return this->string_len; }
 		
 		
 		/**
@@ -723,7 +723,7 @@ class wstring
 		 *			That is, without counting the trailling '\0'
 		 * @return	Number of bytes (not codepoints!)
 		 */
-		size_t size() const { return this->bufferLen - 1; }
+		size_t size() const { return this->buffer_len - 1; }
 		
 		
 		/**
@@ -742,7 +742,7 @@ class wstring
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ANSI characters inside
 		 */
-		bool requiresUnicode() const { return this->indicesLen > 0; }
+		bool requires_unicode() const { return this->indices_len > 0; }
 		
 		
 		/**
@@ -767,8 +767,8 @@ class wstring
 		 * 
 		 * @return	An iterator class pointing to the end of this wstring, that is pointing behind the last codepoint
 		 */
-		iterator end(){ return iterator( endIndex() , *this ); }
-		const_iterator end() const { return const_iterator( endIndex() , *this ); }
+		iterator end(){ return iterator( end_index() , *this ); }
+		const_iterator end() const { return const_iterator( end_index() , *this ); }
 		
 		
 		/**
@@ -777,8 +777,8 @@ class wstring
 		 * @return	A reverse iterator class pointing to the end of this wstring,
 		 *			that is exactly to the last codepoint
 		 */
-		reverse_iterator rbegin(){ return reverse_iterator( backIndex() , *this ); }
-		const_reverse_iterator rbegin() const { return const_reverse_iterator( backIndex() , *this ); }
+		reverse_iterator rbegin(){ return reverse_iterator( back_index() , *this ); }
+		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , *this ); }
 		/**
 		 * Get a reverse iterator to the beginning of this wstring
 		 * 
@@ -802,7 +802,7 @@ class wstring
 		 * @return	A const iterator class, which cannot alter this wstring, pointing to
 		 *			the end of this wstring, that is pointing behind the last codepoint
 		 */
-		wstring_const_iterator cend() const { return wstring_const_iterator( endIndex() , *this ); }
+		wstring_const_iterator cend() const { return wstring_const_iterator( end_index() , *this ); }
 		
 		
 		/**
@@ -811,7 +811,7 @@ class wstring
 		 * @return	A const reverse iterator class, which cannot alter this wstring, pointing to
 		 *			the end of this wstring, that is exactly to the last codepoint
 		 */
-		wstring_const_reverse_iterator crbegin() const { return wstring_const_reverse_iterator( backIndex() , *this ); }
+		wstring_const_reverse_iterator crbegin() const { return wstring_const_reverse_iterator( back_index() , *this ); }
 		/**
 		 * Get a const reverse iterator to the beginning of this wstring
 		 * 
@@ -833,8 +833,8 @@ class wstring
 		 * 
 		 * @return	A reference wrapper to the last codepoint in the wstring
 		 */
-		wstring_raw_reference back(){ return wstring_raw_reference( empty() ? 0 : backIndex() , *this ); }
-		wchar_t back() const { return raw_at( empty() ? 0 : backIndex() ); }
+		wstring_raw_reference back(){ return wstring_raw_reference( empty() ? 0 : back_index() , *this ); }
+		wchar_t back() const { return raw_at( empty() ? 0 : back_index() ); }
 		
 		
 		/**
@@ -873,7 +873,7 @@ class wstring
 		 * @return	A reference to this wstring, which now has the replaced part in it
 		 */
 		wstring& replace( wstring_iterator first , wstring_iterator last , wchar_t repl , size_t n = 1 ){
-			raw_replace( first.getIndex() , last.getIndex() - first.getIndex() , wstring( n , repl ) );
+			raw_replace( first.index() , last.index() - first.index() , wstring( n , repl ) );
 			return *this;
 		}
 		/**
@@ -885,7 +885,7 @@ class wstring
 		 * @return	A reference to this wstring, which now has the replaced part in it
 		 */
 		wstring& replace( wstring_iterator first , wstring_iterator last , const wstring& repl ){
-			raw_replace( first.getIndex() , last.getIndex() - first.getIndex() , repl );
+			raw_replace( first.index() , last.index() - first.index() , repl );
 			return *this;
 		}
 		/**
@@ -898,13 +898,13 @@ class wstring
 		 */
 		wstring& replace( size_t index , size_t count , const wstring& repl )
 		{
-			ptrdiff_t		actualStartIndex = getActualIndex( index );
+			ptrdiff_t		actualStartIndex = get_actual_index( index );
 			
 			if( count == wstring::npos )
 				raw_replace( actualStartIndex , wstring::npos , repl );
 			else
 			{
-				ptrdiff_t	actualEndIndex = count ? getActualIndex( index + count ) : actualStartIndex;
+				ptrdiff_t	actualEndIndex = count ? get_actual_index( index + count ) : actualStartIndex;
 				raw_replace( actualStartIndex , actualEndIndex - actualStartIndex , repl );
 			}
 			
@@ -915,12 +915,12 @@ class wstring
 		 * 
 		 * @note	As this function is raw, that is not having to compute byte indices,
 		 *			it is much faster than the codepoint-base replace function
-		 * @param	byteIndex	The byte position at which the replacement is being started
-		 * @param	byteCount	The number of bytes that are being replaced
+		 * @param	byte_index	The byte position at which the replacement is being started
+		 * @param	byte_count	The number of bytes that are being replaced
 		 * @param	repl		The wstring to replace all bytes inside the range
 		 * @return	A reference to this wstring, which now has the replaced part in it
 		 */
-		void raw_replace( size_t byteIndex , size_t byteCount , const wstring& repl );
+		void raw_replace( size_t byte_index , size_t byte_count , const wstring& repl );
 		
 		
 		/**
@@ -994,7 +994,7 @@ class wstring
 		 * @return	A reference to this wstring, with the supplied codepoint inserted
 		 */
 		wstring& insert( wstring_iterator it , wchar_t ch ){
-			raw_replace( it.getIndex() , 0 , wstring( 1 , ch ) );
+			raw_replace( it.index() , 0 , wstring( 1 , ch ) );
 			return *this;
 		}
 		/**
@@ -1019,7 +1019,7 @@ class wstring
 		 * @return	A reference to this wstring, which now has the codepoint erased
 		 */
 		wstring& erase( wstring_iterator pos ){
-			raw_replace( pos.getIndex() , getIndexBytes( pos.getIndex() )  , wstring() );
+			raw_replace( pos.index() , get_index_bytes( pos.index() )  , wstring() );
 			return *this;
 		}
 		/**
@@ -1030,7 +1030,7 @@ class wstring
 		 * @return	A reference to this wstring, which now has the codepoints erased
 		 */
 		wstring& erase( wstring_iterator first , wstring_iterator last ){
-			raw_replace( first.getIndex() , last.getIndex() - first.getIndex() , wstring() );
+			raw_replace( first.index() , last.index() - first.index() , wstring() );
 			return *this;
 		}
 		/**
@@ -1067,8 +1067,8 @@ class wstring
 		 * @return	The wstring holding the specified range
 		 */
 		wstring substr( wstring_iterator first , wstring_iterator last ) const {
-			size_t byteCount = last.getIndex() - first.getIndex();
-			return raw_substr( first.getIndex() , byteCount , getNumberOfResultingCodepoints( first.getIndex() , byteCount ) );
+			size_t byte_count = last.index() - first.index();
+			return raw_substr( first.index() , byte_count , get_num_resulting_codepoints( first.index() , byte_count ) );
 		}
 		/**
 		 * Returns a portion of the wstring
@@ -1079,12 +1079,12 @@ class wstring
 		 */
 		wstring substr( size_t pos , size_t len ) const
 		{
-			ptrdiff_t	actualStartIndex = getActualIndex( pos );
+			ptrdiff_t	actualStartIndex = get_actual_index( pos );
 			
 			if( len == wstring::npos )
 				return raw_substr( actualStartIndex , wstring::npos );
 			
-			ptrdiff_t	actualEndIndex = len ? getActualIndex( pos + len ) : actualStartIndex;
+			ptrdiff_t	actualEndIndex = len ? get_actual_index( pos + len ) : actualStartIndex;
 			
 			return raw_substr( actualStartIndex , actualEndIndex - actualStartIndex , len );
 		}
@@ -1093,17 +1093,17 @@ class wstring
 		 * 
 		 * @note	As this function is raw, that is without having to compute
 		 *			actual byte indices, it is much faster that substr()
-		 * @param	byteIndex		The byte position where the substring shall start
-		 * @param	byteCount		The number of bytes that the substring shall have
+		 * @param	byte_index		The byte position where the substring shall start
+		 * @param	byte_count		The number of bytes that the substring shall have
 		 * @param	numCodepoints	(Optional) The number of codepoints
 		 *							the substring will have, in case this is already known
 		 * @return	The wstring holding the specified bytes
 		 */
-		wstring raw_substr( size_t byteIndex , size_t byteCount , size_t numCodepoints ) const ;
-		wstring raw_substr( size_t byteIndex , size_t byteCount ) const {
-			if( byteCount == wstring::npos )
-				byteCount = size() - byteIndex;
-			return raw_substr( byteIndex , byteCount , getNumberOfResultingCodepoints( byteIndex , byteCount ) );
+		wstring raw_substr( size_t byte_index , size_t byte_count , size_t numCodepoints ) const ;
+		wstring raw_substr( size_t byte_index , size_t byte_count ) const {
+			if( byte_count == wstring::npos )
+				byte_count = size() - byte_index;
+			return raw_substr( byte_index , byte_count , get_num_resulting_codepoints( byte_index , byte_count ) );
 		}
 		
 		
@@ -1148,8 +1148,8 @@ class wstring
 		
 		//! Removes the last codepoint in the wstring
 		wstring& pop_back(){
-			size_t pos = backIndex();
-			raw_replace( pos , getIndexBytes( pos ) , wstring() );
+			size_t pos = back_index();
+			raw_replace( pos , get_index_bytes( pos ) , wstring() );
 			return *this;
 		}
 		
@@ -1187,20 +1187,20 @@ class wstring
 		
 		
 		//! Get the number of bytes of codepoint in wstring
-		unsigned char getCodepointBytes( size_t codepointIndex ) const {
-			return getNumBytesOfUTF8Char( this->buffer[ getActualIndex(codepointIndex) ] );
+		unsigned char get_codepoint_bytes( size_t codepoint_index ) const {
+			return get_num_bytes_of_utf8_char( this->buffer[ get_actual_index(codepoint_index) ] );
 		}
-		unsigned char getIndexBytes( size_t byteIndex ) const {
-			return getNumBytesOfUTF8Char( this->buffer[byteIndex] );
+		unsigned char get_index_bytes( size_t byte_index ) const {
+			return get_num_bytes_of_utf8_char( this->buffer[byte_index] );
 		}
 		
 		
 		//! Get the number of bytes before a codepoint, that build up a new codepoint
-		unsigned char getCodepointPreBytes( size_t codepointIndex ) const {
-			return codepointIndex > 0 ? getNumBytesOfUTF8CharBefore( this->buffer + getActualIndex(codepointIndex) ) : 1;
+		unsigned char get_codepoint_pre_bytes( size_t codepoint_index ) const {
+			return codepoint_index > 0 ? get_num_bytes_of_utf8_char_before( this->buffer + get_actual_index(codepoint_index) ) : 1;
 		}
-		unsigned char getIndexPreBytes( size_t byteIndex ) const {
-			return byteIndex > 0 ? getNumBytesOfUTF8CharBefore( this->buffer + byteIndex ) : 1;
+		unsigned char get_index_pre_bytes( size_t byte_index ) const {
+			return byte_index > 0 ? get_num_bytes_of_utf8_char_before( this->buffer + byte_index ) : 1;
 		}
 		
 		
