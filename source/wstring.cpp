@@ -1,14 +1,14 @@
 #include <wstring.h>
 
 wstring::wstring( size_t number , wchar_t ch ) :
-	stringLen( number )
-	, indicesOfMultibyte( ch <= 0x7F ? nullptr : new size_t[number] )
-	, indicesLen( ch <= 0x7F ? 0 : number )
+	string_len( number )
+	, indices_of_multibyte( ch <= 0x7F ? nullptr : new size_t[number] )
+	, indices_len( ch <= 0x7F ? 0 : number )
 {
-	unsigned char numBytes = getNumBytesOfUTF8Codepoint( ch );
+	unsigned char numBytes = get_num_bytes_of_utf8_codepoint( ch );
 	
-	this->bufferLen = ( ch ? number * numBytes : 0 ) + 1;
-	this->buffer = new char[this->bufferLen];
+	this->buffer_len = ( ch ? number * numBytes : 0 ) + 1;
+	this->buffer = new char[this->buffer_len];
 	
 	if( numBytes == 1 )
 		while( number-- > 0 )
@@ -16,25 +16,25 @@ wstring::wstring( size_t number , wchar_t ch ) :
 	else
 	{
 		char representation[6];
-		encodeUTF8( ch , representation , this->misFormated );
+		encode_utf8( ch , representation , this->misformated );
 		
 		while( number-- > 0 )
 		{
 			unsigned char byte = numBytes;
 			while( byte-- > 0 )
 				this->buffer[ number * numBytes + byte ] = representation[byte];
-			this->indicesOfMultibyte[number] = number * numBytes;
+			this->indices_of_multibyte[number] = number * numBytes;
 		}
 	}
 	
 	// Set trailling zero
-	this->buffer[this->bufferLen-1] = 0;
+	this->buffer[this->buffer_len-1] = 0;
 }
 
 wstring::wstring( const char* str , size_t len ) :
-	stringLen( 0 )
-	, indicesOfMultibyte( nullptr )
-	, misFormated( false )
+	string_len( 0 )
+	, indices_of_multibyte( nullptr )
+	, misformated( false )
 {
 	if( str )
 	{
@@ -43,9 +43,9 @@ wstring::wstring( const char* str , size_t len ) :
 		size_t	i = 0;
 		
 		// Count Multibytes
-		for( ; str[i] && this->stringLen < len ; i++ )
+		for( ; str[i] && this->string_len < len ; i++ )
 		{
-			stringLen++; // Count number of codepoints
+			string_len++; // Count number of codepoints
 			
 			if( str[i] <= 0x7F ) // lead bit is zero, must be a single ascii
 				continue;
@@ -53,11 +53,11 @@ wstring::wstring( const char* str , size_t len ) :
 			numMultibytes++; // Increase counter
 			
 			// Compute the number of bytes to skip
-			bytesToSkip = getNumBytesOfUTF8Char( str[i] ) - 1;
+			bytesToSkip = get_num_bytes_of_utf8_char( str[i] ) - 1;
 			
 			// Check if there is no valid starting byte sequence
 			if( !bytesToSkip ){
-				this->misFormated = true;
+				this->misformated = true;
 				continue;
 			}
 			
@@ -70,17 +70,17 @@ wstring::wstring( const char* str , size_t len ) :
 		}
 		
 		if( bytesToSkip != 0 ) // Codepoint suddently ended!
-			this->misFormated = true;
+			this->misformated = true;
 		
 		// Initialize buffer
-		this->bufferLen = i + 1;
-		this->buffer = new char[this->bufferLen];
-		memcpy( this->buffer , str , this->bufferLen - 1 );
-		this->buffer[bufferLen-1] = 0;
+		this->buffer_len = i + 1;
+		this->buffer = new char[this->buffer_len];
+		std::memcpy( this->buffer , str , this->buffer_len - 1 );
+		this->buffer[buffer_len-1] = 0;
 		
 		// initialize indices table
-		this->indicesLen = numMultibytes;
-		this->indicesOfMultibyte = this->indicesLen ? new size_t[this->indicesLen] : nullptr;
+		this->indices_len = numMultibytes;
+		this->indices_of_multibyte = this->indices_len ? new size_t[this->indices_len] : nullptr;
 		
 		size_t multibyteIndex = 0;
 		
@@ -90,15 +90,15 @@ wstring::wstring( const char* str , size_t len ) :
 			if( buffer[index] <= 0x7F ) // lead bit is zero, must be a single ascii
 				continue;
 			
-			this->indicesOfMultibyte[multibyteIndex++] = index;
+			this->indices_of_multibyte[multibyteIndex++] = index;
 			
 			// Compute number of bytes to skip
-			bytesToSkip = getNumBytesOfUTF8Char( buffer[index] ) - 1;
+			bytesToSkip = get_num_bytes_of_utf8_char( buffer[index] ) - 1;
 			
 			if( !bytesToSkip )
 				continue;
 			
-			if( this->misFormated ){
+			if( this->misformated ){
 				do{
 					if( index + 1 == i || (buffer[index+1] & 0xC0) != 0x80 )
 						break;
@@ -111,28 +111,28 @@ wstring::wstring( const char* str , size_t len ) :
 	}
 	else{
 		this->buffer = nullptr;
-		this->bufferLen = 0;
-		this->indicesLen = 0;
+		this->buffer_len = 0;
+		this->indices_len = 0;
 	}
 }
 
 wstring::wstring( const wchar_t* str ) :
-	indicesOfMultibyte( nullptr )
-	, indicesLen( 0 )
-	, misFormated( false )
+	indices_of_multibyte( nullptr )
+	, indices_len( 0 )
+	, misformated( false )
 {
 	if( str )
 	{
 		size_t	numMultibytes;
 		size_t	nextIndexPosition = 0;
-		size_t	stringLen = 0;
-		size_t	numBytes = getNumberOfRequiredBytes( str , numMultibytes );
+		size_t	string_len = 0;
+		size_t	numBytes = get_num_required_bytes( str , numMultibytes );
 		
 		// Initialize the internal buffer
-		this->bufferLen = numBytes + 1; // +1 for the trailling zero
-		this->buffer = new char[this->bufferLen];
-		this->indicesLen = numMultibytes;
-		this->indicesOfMultibyte = this->indicesLen ? new size_t[this->indicesLen] : nullptr;
+		this->buffer_len = numBytes + 1; // +1 for the trailling zero
+		this->buffer = new char[this->buffer_len];
+		this->indices_len = numMultibytes;
+		this->indices_of_multibyte = this->indices_len ? new size_t[this->indices_len] : nullptr;
 		
 		char*	curWriter = this->buffer;
 		
@@ -140,27 +140,27 @@ wstring::wstring( const wchar_t* str ) :
 		for( size_t i = 0; str[i] ; i++ )
 		{
 			// Encode wide char to utf8
-			unsigned char numBytes = encodeUTF8( str[i] , curWriter , misFormated );
+			unsigned char numBytes = encode_utf8( str[i] , curWriter , misformated );
 			
-			// Push position of character to 'indicesOfMultibyte'
+			// Push position of character to 'indices_of_multibyte'
 			if( numBytes > 1 )
-				this->indicesOfMultibyte[nextIndexPosition++] = curWriter - this->buffer;
+				this->indices_of_multibyte[nextIndexPosition++] = curWriter - this->buffer;
 			
 			// Step forward with copying to internal utf8 buffer
 			curWriter += numBytes;
 			
 			// Increase string length by 1
-			stringLen++;
+			string_len++;
 		}
 		
-		this->stringLen = stringLen;
+		this->string_len = string_len;
 		
 		// Add trailling \0 char to utf8 buffer
 		*curWriter = 0;
 	}
 	else{
 		this->buffer = nullptr;
-		this->bufferLen = 0;
+		this->buffer_len = 0;
 	}
 }
 
@@ -169,35 +169,35 @@ wstring::wstring( const wchar_t* str ) :
 
 wstring::wstring( wstring&& str ) :
 	buffer( str.buffer )
-	, bufferLen( str.bufferLen )
-	, stringLen( str.stringLen )
-	, indicesOfMultibyte( str.indicesOfMultibyte )
-	, indicesLen( str.indicesLen )
-	, misFormated( str.misFormated )
+	, buffer_len( str.buffer_len )
+	, string_len( str.string_len )
+	, indices_of_multibyte( str.indices_of_multibyte )
+	, indices_len( str.indices_len )
+	, misformated( str.misformated )
 {
 	// Reset old string
 	str.buffer = nullptr;
-	str.indicesOfMultibyte = nullptr;
-	str.indicesLen = 0;
-	str.bufferLen = 0;
-	str.stringLen = 0;
-	str.misFormated = true;
+	str.indices_of_multibyte = nullptr;
+	str.indices_len = 0;
+	str.buffer_len = 0;
+	str.string_len = 0;
+	str.misformated = true;
 }
 
 wstring::wstring( const wstring& str ) :
-	buffer( new char[str.bufferLen] )
-	, bufferLen( str.bufferLen )
-	, stringLen( str.stringLen )
-	, indicesOfMultibyte( str.indicesLen ? new size_t[str.indicesLen] : nullptr )
-	, indicesLen( str.indicesLen )
-	, misFormated( str.misFormated )
+	buffer( new char[str.buffer_len] )
+	, buffer_len( str.buffer_len )
+	, string_len( str.string_len )
+	, indices_of_multibyte( str.indices_len ? new size_t[str.indices_len] : nullptr )
+	, indices_len( str.indices_len )
+	, misformated( str.misformated )
 {
 	// Clone data
-	memcpy( this->buffer , str.buffer , str.bufferLen );
+	std::memcpy( this->buffer , str.buffer , str.buffer_len );
 	
 	// Clone indices
-	if( str.indicesLen > 0 )
-		memcpy( this->indicesOfMultibyte , str.indicesOfMultibyte , str.indicesLen * sizeof(size_t) );
+	if( str.indices_len > 0 )
+		std::memcpy( this->indices_of_multibyte , str.indices_of_multibyte , str.indices_len * sizeof(size_t) );
 }
 
 
@@ -205,46 +205,46 @@ wstring::wstring( const wstring& str ) :
 
 wstring& wstring::operator=( const wstring& str )
 {
-	char*	newBuffer = new char[str.bufferLen];
-	size_t*	newIndices = str.indicesLen ? new size_t[str.indicesLen] : nullptr;
+	char*	newBuffer = new char[str.buffer_len];
+	size_t*	newIndices = str.indices_len ? new size_t[str.indices_len] : nullptr;
 	
 	// Clone data
-	memcpy( newBuffer , str.buffer , str.bufferLen );
+	std::memcpy( newBuffer , str.buffer , str.buffer_len );
 	
 	// Clone indices
-	if( str.indicesLen > 0 )
-		memcpy( newIndices , str.indicesOfMultibyte , str.indicesLen * sizeof(size_t) );
+	if( str.indices_len > 0 )
+		std::memcpy( newIndices , str.indices_of_multibyte , str.indices_len * sizeof(size_t) );
 	
-	this->misFormated = str.misFormated;
-	this->stringLen = str.stringLen;
-	resetBuffer( newBuffer , str.bufferLen );
-	reset_indices( newIndices , str.indicesLen );
+	this->misformated = str.misformated;
+	this->string_len = str.string_len;
+	reset_buffer( newBuffer , str.buffer_len );
+	reset_indices( newIndices , str.indices_len );
 	return *this;
 }
 
 wstring& wstring::operator=( wstring&& str )
 {
-	this->misFormated = str.misFormated;
-	this->stringLen = str.stringLen;
+	this->misformated = str.misformated;
+	this->string_len = str.string_len;
 	
 	// Copy data
-	resetBuffer( str.buffer , str.bufferLen );
-	reset_indices( str.indicesOfMultibyte , str.indicesLen );
+	reset_buffer( str.buffer , str.buffer_len );
+	reset_indices( str.indices_of_multibyte , str.indices_len );
 	
 	// Reset old string
-	str.indicesOfMultibyte = nullptr;
-	str.indicesLen = 0;
+	str.indices_of_multibyte = nullptr;
+	str.indices_len = 0;
 	str.buffer = nullptr;
-	str.bufferLen = 0;
-	str.misFormated = true;
-	str.stringLen = 0;
+	str.buffer_len = 0;
+	str.misformated = true;
+	str.string_len = 0;
 	return *this;
 }
 
 
 
 
-unsigned char wstring::decodeUTF8( const char* data , wchar_t& dest , bool& hasError )
+unsigned char wstring::decode_utf8( const char* data , wchar_t& dest , bool& hasError )
 {
 	unsigned char firstChar = *data;
 	
@@ -306,12 +306,12 @@ unsigned char wstring::decodeUTF8( const char* data , wchar_t& dest , bool& hasE
 
 
 
-size_t wstring::getNumberOfRequiredBytes( const wchar_t* lit , size_t& numMultibytes )
+size_t wstring::get_num_required_bytes( const wchar_t* lit , size_t& numMultibytes )
 {
 	size_t numBytes = 0;
 	numMultibytes = 0;
 	for( size_t i = 0 ; lit[i] ; i++ ){
-		unsigned char curBytes = getNumBytesOfUTF8Codepoint( lit[i] );
+		unsigned char curBytes = get_num_bytes_of_utf8_codepoint( lit[i] );
 		if( curBytes > 1 )
 			numMultibytes++;
 		numBytes += curBytes;
@@ -319,36 +319,36 @@ size_t wstring::getNumberOfRequiredBytes( const wchar_t* lit , size_t& numMultib
 	return numBytes;
 }
 
-size_t wstring::getNumberOfResultingCodepoints( size_t byteStart , size_t byteCount ) const 
+size_t wstring::get_num_resulting_codepoints( size_t byte_start , size_t byte_count ) const 
 {
-	size_t	curIndex = byteStart;
-	size_t	codepointCount = 0;
+	size_t	curIndex = byte_start;
+	size_t	codepoint_count = 0;
 	
-	byteCount = std::min<ptrdiff_t>( byteCount , size() - byteStart );
+	byte_count = std::min<ptrdiff_t>( byte_count , size() - byte_start );
 	
-	while( byteCount > 0 ){
-		unsigned char numBytes = getNumBytesOfUTF8Char( this->buffer[curIndex] );
+	while( byte_count > 0 ){
+		unsigned char numBytes = get_num_bytes_of_utf8_char( this->buffer[curIndex] );
 		curIndex += numBytes;
-		byteCount -= numBytes;
-		codepointCount++;
+		byte_count -= numBytes;
+		codepoint_count++;
 	}
-	return codepointCount;
+	return codepoint_count;
 }
 
-size_t wstring::getNumberOfResultingBytes( size_t byteStart , size_t codepointCount ) const 
+size_t wstring::get_num_resulting_bytes( size_t byte_start , size_t codepoint_count ) const 
 {
-	size_t curByte = byteStart;
+	size_t curByte = byte_start;
 	
-	while( curByte < size() && codepointCount-- > 0 )
-		curByte += getIndexBytes( curByte );
+	while( curByte < size() && codepoint_count-- > 0 )
+		curByte += get_index_bytes( curByte );
 	
-	return curByte - byteStart;
+	return curByte - byte_start;
 }
 
 
 
 
-unsigned char wstring::encodeUTF8( wchar_t codepoint , char* dest , bool& hasError )
+unsigned char wstring::encode_utf8( wchar_t codepoint , char* dest , bool& hasError )
 {
 	if( !dest )
 		return 1;
@@ -407,38 +407,38 @@ unsigned char wstring::encodeUTF8( wchar_t codepoint , char* dest , bool& hasErr
 
 
 
-size_t wstring::getActualIndex( size_t requestedIndex ) const
+size_t wstring::get_actual_index( size_t requestedIndex ) const
 {
 	size_t indexMultibyteTable = 0;
 	size_t currentOverhead = 0;
 	
-	while( indexMultibyteTable < this->indicesLen )
+	while( indexMultibyteTable < this->indices_len )
 	{
-		size_t multibytePos = this->indicesOfMultibyte[indexMultibyteTable];
+		size_t multibytePos = this->indices_of_multibyte[indexMultibyteTable];
 		
 		if( multibytePos >= requestedIndex + currentOverhead )
 			break;
 		
 		indexMultibyteTable++;
-		currentOverhead += getNumBytesOfUTF8Char( this->buffer[multibytePos] ) - 1; // Ad bytes of multibyte to overhead
+		currentOverhead += get_num_bytes_of_utf8_char( this->buffer[multibytePos] ) - 1; // Ad bytes of multibyte to overhead
 	}
 	
 	return requestedIndex + currentOverhead;
 }
 
-wstring wstring::raw_substr( size_t byteIndex , size_t tmpByteCount , size_t numCodepoints ) const
+wstring wstring::raw_substr( size_t byte_index , size_t tmpByteCount , size_t numCodepoints ) const
 {
-	ptrdiff_t byteCount;
-	if( tmpByteCount < size() - byteIndex )
-		byteCount = tmpByteCount;
+	ptrdiff_t byte_count;
+	if( tmpByteCount < size() - byte_index )
+		byte_count = tmpByteCount;
 	else
-		byteCount = size() - byteIndex;
+		byte_count = size() - byte_index;
 	
-	if( byteCount <= 0 )
+	if( byte_count <= 0 )
 		return wstring();
 	
-	size_t	actualStartIndex = byteIndex;
-	size_t	actualEndIndex = byteIndex + byteCount;
+	size_t	actualStartIndex = byte_index;
+	size_t	actualEndIndex = byte_index + byte_count;
 	
 	//
 	// Manage indices
@@ -447,12 +447,12 @@ wstring wstring::raw_substr( size_t byteIndex , size_t tmpByteCount , size_t num
 	
 	// Look for start of indices
 	size_t tmp = 0;
-	while( tmp < this->indicesLen && this->indicesOfMultibyte[tmp] < actualStartIndex )
+	while( tmp < this->indices_len && this->indices_of_multibyte[tmp] < actualStartIndex )
 		tmp++;
 	startOfMultibytesInRange = tmp;
 	
 	// Look for the end
-	while( tmp < this->indicesLen && this->indicesOfMultibyte[tmp] < actualEndIndex )
+	while( tmp < this->indices_len && this->indices_of_multibyte[tmp] < actualEndIndex )
 		tmp++;
 	
 	// Compute number of indices 
@@ -461,21 +461,21 @@ wstring wstring::raw_substr( size_t byteIndex , size_t tmpByteCount , size_t num
 	
 	// Copy indices
 	for( size_t i = 0 ; i < newIndicesLen ; i++ )
-		newIndices[i] = this->indicesOfMultibyte[startOfMultibytesInRange + i] - actualStartIndex;
+		newIndices[i] = this->indices_of_multibyte[startOfMultibytesInRange + i] - actualStartIndex;
 	//
 	// Manage utf8 string
 	//
 	
 	// Allocate new buffer
-	char*	newBuffer = new char[byteCount+1];
+	char*	newBuffer = new char[byte_count+1];
 	
 	// Partly copy
-	memcpy( newBuffer , this->buffer + actualStartIndex , byteCount );
+	std::memcpy( newBuffer , this->buffer + actualStartIndex , byte_count );
 	
-	newBuffer[byteCount] = 0;
-	byteCount++;
+	newBuffer[byte_count] = 0;
+	byte_count++;
 	
-	return wstring( newBuffer , byteCount , numCodepoints , newIndices , newIndicesLen );
+	return wstring( newBuffer , byte_count , numCodepoints , newIndices , newIndicesLen );
 }
 
 
@@ -484,7 +484,7 @@ wstring wstring::raw_substr( size_t byteIndex , size_t tmpByteCount , size_t num
 void wstring::raw_replace( size_t actualStartIndex , size_t replacedBytes , const wstring& replacement )
 {
 	size_t	replacementBytes = replacement.size();
-	size_t	replacementIndices = replacement.indicesLen;
+	size_t	replacementIndices = replacement.indices_len;
 	ptrdiff_t	byteDifference = replacedBytes - replacementBytes;
 	size_t	actualEndIndex;
 	
@@ -503,12 +503,12 @@ void wstring::raw_replace( size_t actualStartIndex , size_t replacedBytes , cons
 	
 	// Look for start of indices
 	size_t tmp = 0;
-	while( tmp < this->indicesLen && this->indicesOfMultibyte[tmp] < actualStartIndex )
+	while( tmp < this->indices_len && this->indices_of_multibyte[tmp] < actualStartIndex )
 		tmp++;
 	startOfMultibytesInRange = tmp;
 	
 	// Look for the end
-	while( tmp < this->indicesLen && this->indicesOfMultibyte[tmp] < actualEndIndex )
+	while( tmp < this->indices_len && this->indices_of_multibyte[tmp] < actualEndIndex )
 		tmp++;
 	
 	// Compute number of indices 
@@ -518,34 +518,34 @@ void wstring::raw_replace( size_t actualStartIndex , size_t replacedBytes , cons
 	ptrdiff_t	indicesDifference = numberOfMultibytesInRange - replacementIndices;
 	
 	// Create new buffer
-	size_t	newIndicesLen = this->indicesLen - indicesDifference;
+	size_t	newIndicesLen = this->indices_len - indicesDifference;
 	size_t*	newIndices = newIndicesLen ? new size_t[ newIndicesLen ] : nullptr;
 	
 	
 	// Copy values before replacement start
-	for( size_t i = 0 ; i < this->indicesLen && this->indicesOfMultibyte[i] < actualStartIndex ; i++ )
-		newIndices[i] = this->indicesOfMultibyte[i];
+	for( size_t i = 0 ; i < this->indices_len && this->indices_of_multibyte[i] < actualStartIndex ; i++ )
+		newIndices[i] = this->indices_of_multibyte[i];
 	
 	// Copy the values after the replacement
 	if( indicesDifference != 0 ){
 		for(
 			size_t i = startOfMultibytesInRange
-			; i + numberOfMultibytesInRange < this->indicesLen
+			; i + numberOfMultibytesInRange < this->indices_len
 			; i++
 		)
-			newIndices[ i + replacementIndices ] = this->indicesOfMultibyte[ i + numberOfMultibytesInRange ] - byteDifference;
+			newIndices[ i + replacementIndices ] = this->indices_of_multibyte[ i + numberOfMultibytesInRange ] - byteDifference;
 	}
 	else{
 		size_t i = startOfMultibytesInRange + numberOfMultibytesInRange;
-		while( i < this->indicesLen ){
-			newIndices[i] = this->indicesOfMultibyte[i] - byteDifference;
+		while( i < this->indices_len ){
+			newIndices[i] = this->indices_of_multibyte[i] - byteDifference;
 			i++;
 		}
 	}
 	
 	// Insert indices from replacement
 	for( size_t i = 0 ; i < replacementIndices ; i++ )
-		newIndices[ startOfMultibytesInRange + i ] = replacement.indicesOfMultibyte[i] + actualStartIndex;
+		newIndices[ startOfMultibytesInRange + i ] = replacement.indices_of_multibyte[i] + actualStartIndex;
 	
 	// Move and reset
 	reset_indices( newIndices , newIndicesLen );
@@ -557,28 +557,28 @@ void wstring::raw_replace( size_t actualStartIndex , size_t replacedBytes , cons
 	//
 	
 	// Allocate new buffer
-	size_t	newBufferLen = this->bufferLen + ( replacementBytes - replacedBytes );
+	size_t	newBufferLen = this->buffer_len + ( replacementBytes - replacedBytes );
 	char*	newBuffer = new char[newBufferLen];
 	
 	// Partly copy
 	// Copy string until replacement index
-	memcpy( newBuffer , this->buffer , actualStartIndex );
+	std::memcpy( newBuffer , this->buffer , actualStartIndex );
 	
 	// Copy rest
-	memcpy( newBuffer + actualStartIndex + replacementBytes , this->buffer + actualEndIndex , this->bufferLen - actualEndIndex );
+	std::memcpy( newBuffer + actualStartIndex + replacementBytes , this->buffer + actualEndIndex , this->buffer_len - actualEndIndex );
 	
 	// Write bytes
-	memcpy( newBuffer + actualStartIndex , replacement.buffer , replacementBytes );
+	std::memcpy( newBuffer + actualStartIndex , replacement.buffer , replacementBytes );
 	
 	// Adjust string length
-	this->stringLen -= getNumberOfResultingCodepoints( actualStartIndex , replacedBytes );
-	this->stringLen += replacement.length();
+	this->string_len -= get_num_resulting_codepoints( actualStartIndex , replacedBytes );
+	this->string_len += replacement.length();
 	
 	// Rewrite buffer
-	resetBuffer( newBuffer , newBufferLen );
+	reset_buffer( newBuffer , newBufferLen );
 	
-	//for( int i = 0 ; i < this->indicesLen ; i++ )
-	//	printf("%d, ",this->indicesOfMultibyte[i] );
+	//for( int i = 0 ; i < this->indices_len ; i++ )
+	//	printf("%d, ",this->indices_of_multibyte[i] );
 	//printf("\n\n");
 }
 
@@ -587,12 +587,12 @@ void wstring::raw_replace( size_t actualStartIndex , size_t replacedBytes , cons
 
 wchar_t wstring::at( size_t requestedIndex ) const
 {
-	if( !requiresUnicode() )
+	if( !requires_unicode() )
 		return (wchar_t) this->buffer[requestedIndex];
 	
 	// Decode internal buffer at position n
 	wchar_t codepoint = 0;
-	decodeUTF8( this->buffer + getActualIndex( requestedIndex ) , codepoint , this->misFormated );
+	decode_utf8( this->buffer + get_actual_index( requestedIndex ) , codepoint , this->misformated );
 	
 	return codepoint;
 }
@@ -606,8 +606,8 @@ std::unique_ptr<wchar_t[]> wstring::toWideLiteral() const
 	wchar_t*					tempDest = dest.get();
 	char*						source = this->buffer;
 	
-	while( *source && !this->misFormated )
-		source += decodeUTF8( source , *tempDest++ , this->misFormated );
+	while( *source && !this->misformated )
+		source += decode_utf8( source , *tempDest++ , this->misformated );
 	
 	return std::move(dest);
 }
@@ -623,7 +623,7 @@ ptrdiff_t wstring::compare( const wstring& str ) const
 	wstring_const_iterator	end2 = str.cend();
 	
 	while( it1 != end1 && it2 != end2 ){
-		ptrdiff_t diff = it2.getValue() - it1.getValue();
+		ptrdiff_t diff = it2.get() - it1.get();
 		if( diff )
 			return diff;
 		it1++;
@@ -652,7 +652,7 @@ bool wstring::equals( const wchar_t* str ) const
 	wstring_const_iterator	end = cend();
 	
 	while( it != end && *str ){
-		if( *str != it.getValue() )
+		if( *str != it.get() )
 			return false;
 		it++;
 		str++;
@@ -671,9 +671,9 @@ size_t wstring::find( wchar_t ch , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_find( wchar_t ch , size_t byteStart ) const
+size_t wstring::raw_find( wchar_t ch , size_t byte_start ) const
 {
-	for( size_t it = byteStart ; it < size() ; it += getIndexBytes( it ) )
+	for( size_t it = byte_start ; it < size() ; it += get_index_bytes( it ) )
 		if( raw_at(it) == ch )
 			return it;
 	return wstring::npos;
@@ -695,12 +695,12 @@ size_t wstring::rfind( wchar_t ch , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_rfind( wchar_t ch , size_t byteStart ) const
+size_t wstring::raw_rfind( wchar_t ch , size_t byte_start ) const
 {
-	if( byteStart >= size() )
-		byteStart = backIndex();
+	if( byte_start >= size() )
+		byte_start = back_index();
 	
-	for( ptrdiff_t it = byteStart ; it >= 0 ; it -= getIndexPreBytes( it ) )
+	for( ptrdiff_t it = byte_start ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 		if( raw_at(it) == ch )
 			return it;
 	
@@ -728,9 +728,9 @@ size_t wstring::find_first_of( const wchar_t* str , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_find_first_of( const wchar_t* str , size_t byteStart ) const
+size_t wstring::raw_find_first_of( const wchar_t* str , size_t byte_start ) const
 {
-	for( size_t it = byteStart ; it < size() ; it += getIndexBytes( it ) )
+	for( size_t it = byte_start ; it < size() ; it += get_index_bytes( it ) )
 	{
 		const wchar_t*	tmp = str;
 		do{
@@ -763,12 +763,12 @@ size_t wstring::find_last_of( const wchar_t* str , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_find_last_of( const wchar_t* str , size_t byteStart ) const
+size_t wstring::raw_find_last_of( const wchar_t* str , size_t byte_start ) const
 {
-	if( byteStart >= size() )
-		byteStart = backIndex();
+	if( byte_start >= size() )
+		byte_start = back_index();
 	
-	for( ptrdiff_t it = byteStart ; it >= 0 ; it -= getIndexPreBytes( it ) )
+	for( ptrdiff_t it = byte_start ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 	{
 		const wchar_t*	tmp = str;
 		wchar_t		cur = raw_at(it);
@@ -806,12 +806,12 @@ size_t wstring::find_first_not_of( const wchar_t* str , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_find_first_not_of( const wchar_t* str , size_t byteStart ) const
+size_t wstring::raw_find_first_not_of( const wchar_t* str , size_t byte_start ) const
 {
-	if( byteStart >= size() )
+	if( byte_start >= size() )
 		return wstring::npos;
 	
-	for( size_t it = byteStart ; it < size() ; it += getIndexBytes( it ) )
+	for( size_t it = byte_start ; it < size() ; it += get_index_bytes( it ) )
 	{
 		const wchar_t*	tmp = str;
 		wchar_t		cur = raw_at(it);
@@ -853,12 +853,12 @@ size_t wstring::find_last_not_of( const wchar_t* str , size_t startPos ) const
 	return wstring::npos;
 }
 
-size_t wstring::raw_find_last_not_of( const wchar_t* str , size_t byteStart ) const
+size_t wstring::raw_find_last_not_of( const wchar_t* str , size_t byte_start ) const
 {
-	if( byteStart >= size() )
-		byteStart = backIndex();
+	if( byte_start >= size() )
+		byte_start = back_index();
 	
-	for( ptrdiff_t it = byteStart ; it >= 0 ; it -= getIndexPreBytes( it ) )
+	for( ptrdiff_t it = byte_start ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 	{
 		const wchar_t*	tmp = str;
 		wchar_t		cur = raw_at(it);
@@ -883,22 +883,22 @@ int operator-( const wstring::iterator& left , const wstring::iterator& right )
 {
 	size_t minIndex = std::min( left.raw_index , right.raw_index );
 	size_t maxIndex = std::max( left.raw_index , right.raw_index );
-	size_t numCodepoints = left.instance.getNumberOfResultingCodepoints( minIndex , maxIndex - minIndex );
+	size_t numCodepoints = left.instance.get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
 	return maxIndex == left.raw_index ? numCodepoints : -numCodepoints;
 }
 
 wstring::iterator operator+( const wstring::iterator& it , size_t nth )
 {
-	if( !it.instance.requiresUnicode() )
+	if( !it.instance.requires_unicode() )
 		return wstring::iterator( it.raw_index + nth , it.instance );
-	return wstring::iterator( it.raw_index + it.instance.getNumberOfResultingBytes( it.raw_index , nth ) , it.instance );
+	return wstring::iterator( it.raw_index + it.instance.get_num_resulting_bytes( it.raw_index , nth ) , it.instance );
 }
 
 int operator-( const wstring::reverse_iterator& left , const wstring::reverse_iterator& right )
 {
 	ptrdiff_t minIndex = std::min( left.raw_index , right.raw_index );
 	ptrdiff_t maxIndex = std::max( left.raw_index , right.raw_index );
-	size_t numCodepoints = left.instance.getNumberOfResultingCodepoints( minIndex , maxIndex - minIndex );
+	size_t numCodepoints = left.instance.get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
 	return maxIndex == right.raw_index ? numCodepoints : -numCodepoints;
 }
 
@@ -906,6 +906,6 @@ wstring::reverse_iterator operator+( const wstring::reverse_iterator& it , size_
 {
 	ptrdiff_t newIndex = it.raw_index;
 	while( nth-- > 0 )
-		newIndex -= it.instance.getIndexPreBytes( newIndex );
+		newIndex -= it.instance.get_index_pre_bytes( newIndex );
 	return wstring::reverse_iterator( newIndex , it.instance );
 }
