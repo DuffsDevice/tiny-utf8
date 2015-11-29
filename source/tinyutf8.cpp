@@ -158,7 +158,7 @@ wstring::wstring( wstring&& str ) :
 	, indices_of_multibyte( str.indices_of_multibyte )
 	, indices_len( str.indices_len )
 	, misformated( str.misformated )
-	, static_buffer( false )
+	, static_buffer( str.static_buffer )
 {
 	// Reset old string
 	str.buffer = nullptr;
@@ -220,6 +220,7 @@ wstring& wstring::operator=( wstring&& str )
 	reset_indices( str.indices_of_multibyte , str.indices_len );
 	this->misformated = str.misformated;
 	this->string_len = str.string_len;
+	this->static_buffer = str.static_buffer;
 	
 	// Reset old string
 	str.indices_of_multibyte = nullptr;
@@ -398,6 +399,10 @@ unsigned char wstring::decode_utf8( const char* data , wstring::value_type& dest
 			if( !data[i] || (data[i] & 0xC0) != 0x80 ){
 				has_error = true;
 				num_bytes = i;
+				if( i == 1 )
+					codepoint = first_char;
+				else
+					codepoint = wstring::fallback_codepoint;
 				break;
 			}
 			codepoint = (codepoint << 6) | (data[i] & 0x3F);
@@ -464,49 +469,47 @@ wstring::size_type wstring::get_num_resulting_bytes( wstring::size_type byte_sta
 
 unsigned char wstring::encode_utf8( wstring::value_type codepoint , char* dest )
 {
-	unsigned char num_bytes = 0;
-	
 	if( codepoint <= 0x7F ){ // 0XXXXXXX one byte
 		dest[0] = char(codepoint);
-		num_bytes = 1;
+		return 1;
 	}
-	else if( codepoint <= 0x7FF ){ // 110XXXXX  two bytes
+	if( codepoint <= 0x7FF ){ // 110XXXXX  two bytes
 		dest[0] = char( 0xC0 | (codepoint >> 6) );
 		dest[1] = char( 0x80 | (codepoint & 0x3F) );
-		num_bytes = 2;
+		return 2;
 	}
-	else if( codepoint <= 0xFFFF ){ // 1110XXXX  three bytes
+	if( codepoint <= 0xFFFF ){ // 1110XXXX  three bytes
 		dest[0] = char( 0xE0 | (codepoint >> 12) );
 		dest[1] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
 		dest[2] = char( 0x80 | (codepoint & 0x3F) );
-		num_bytes = 3;
+		return 3;
 	}
-	else if( codepoint <= 0x1FFFFF ){ // 11110XXX  four bytes
+	if( codepoint <= 0x1FFFFF ){ // 11110XXX  four bytes
 		dest[0] = char( 0xF0 | (codepoint >> 18) );
 		dest[1] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
 		dest[2] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
 		dest[3] = char( 0x80 | (codepoint & 0x3F) );
-		num_bytes = 4;
+		return 4;
 	}
-	else if( codepoint <= 0x3FFFFFF ){ // 111110XX  five bytes
+	if( codepoint <= 0x3FFFFFF ){ // 111110XX  five bytes
 		dest[0] = char( 0xF8 | (codepoint >> 24) );
 		dest[1] = char( 0x80 | (codepoint >> 18) );
 		dest[2] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
 		dest[3] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
 		dest[4] = char( 0x80 | (codepoint & 0x3F) );
-		num_bytes = 5;
+		return 5;
 	}
-	else if( codepoint <= 0x7FFFFFFF ){ // 1111110X  six bytes
+	if( codepoint <= 0x7FFFFFFF ){ // 1111110X  six bytes
 		dest[0] = char( 0xFC | (codepoint >> 30) );
 		dest[1] = char( 0x80 | ((codepoint >> 24) & 0x3F) );
 		dest[2] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
 		dest[3] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
 		dest[4] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
 		dest[5] = char( 0x80 | (codepoint & 0x3F) );
-		num_bytes = 6;
+		return 6;
 	}
 	
-	return num_bytes;
+	return 1;
 }
 
 
@@ -515,7 +518,7 @@ unsigned char wstring::encode_utf8( wstring::value_type codepoint , char* dest )
 wstring::size_type wstring::get_actual_index( wstring::size_type requested_index ) const
 {
 	if( requested_index >= this->string_len )
-		return 0;
+		return this->buffer_len - 1;
 	
 	wstring::size_type index_multibyte_table = 0;
 	wstring::size_type currentOverhead = 0;
@@ -586,17 +589,16 @@ wstring wstring::raw_substr( wstring::size_type byte_index , wstring::size_type 
 	return wstring( newBuffer , byte_count , numCodepoints , newIndices , newIndicesLen );
 }
 
-
-
+#include <stdio.h>
 
 void wstring::raw_replace( wstring::size_type actualStartIndex , wstring::size_type replacedBytes , const wstring& replacement )
 {
-	if( actualStartIndex >= size() )
-		return;
+	if( actualStartIndex > size() )
+		actualStartIndex = size();
 	
 	wstring::size_type	replacementBytes = replacement.size();
 	wstring::size_type	replacementIndices = replacement.indices_len;
-	ptrdiff_t	byteDifference = replacedBytes - replacementBytes;
+	ptrdiff_t			byteDifference = replacedBytes - replacementBytes;
 	wstring::size_type	actualEndIndex;
 	
 	if( replacedBytes < size() - actualStartIndex )
@@ -627,10 +629,10 @@ void wstring::raw_replace( wstring::size_type actualStartIndex , wstring::size_t
 	numberOfMultibytesInRange = tmp - startOfMultibytesInRange;
 	
 	// Compute difference in number of indices
-	ptrdiff_t	indicesDifference = numberOfMultibytesInRange - replacementIndices;
+	ptrdiff_t indicesDifference = numberOfMultibytesInRange - replacementIndices;
 	
 	// Create new buffer
-	wstring::size_type		newIndicesLen = this->indices_len - indicesDifference;
+	wstring::size_type newIndicesLen = this->indices_len - indicesDifference;
 	
 	if( newIndicesLen )
 	{
@@ -673,18 +675,26 @@ void wstring::raw_replace( wstring::size_type actualStartIndex , wstring::size_t
 	//
 	
 	// Allocate new buffer
-	wstring::size_type	newBufferLen = this->buffer_len - byteDifference;
+	wstring::size_type normalized_buffer_len = std::max<wstring::size_type>( this->buffer_len , 1 );
+	wstring::size_type newBufferLen = normalized_buffer_len + ( replacementBytes - replacedBytes );
 	
-	if( newBufferLen )
+	if( newBufferLen > 1 )
 	{
-		char*			newBuffer = new char[newBufferLen];
+		char* newBuffer = new char[newBufferLen];
 		
 		// Partly copy
 		// Copy string until replacement index
 		std::memcpy( newBuffer , this->buffer , actualStartIndex );
 		
 		// Copy rest
-		std::memcpy( newBuffer + actualStartIndex + replacementBytes , this->buffer + actualEndIndex , this->buffer_len - actualEndIndex );
+		std::memcpy(
+			newBuffer + actualStartIndex + replacementBytes
+			, this->buffer + actualEndIndex
+			, normalized_buffer_len - actualEndIndex - 1 // ('-1' for skipping the trailling zero which is not present in case the buffer_len was 0)
+		);
+		
+		// Set trailling zero
+		newBuffer[ newBufferLen - 1 ] = '\0';
 		
 		// Write bytes
 		std::memcpy( newBuffer + actualStartIndex , replacement.buffer , replacementBytes );
@@ -695,12 +705,12 @@ void wstring::raw_replace( wstring::size_type actualStartIndex , wstring::size_t
 		
 		// Rewrite buffer
 		reset_buffer( newBuffer , newBufferLen );
+		
+		this->misformated = this->misformated || replacement.misformated;
 	}
 	else
-		// Reste because empty
-		reset_buffer();
-	
-	this->misformated = this->misformated || replacement.misformated;
+		// Reset because empty
+		clear();
 }
 
 
