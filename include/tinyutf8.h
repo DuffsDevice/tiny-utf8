@@ -23,7 +23,7 @@
 #ifndef _TINY_UTF8_H_
 #define _TINY_UTF8_H_
 
-#include <memory>
+#include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::strlen
 #include <string> // for std::string
 
@@ -34,6 +34,7 @@ class wstring
 		typedef size_t				size_type;
 		typedef char32_t			value_type;
 		constexpr static size_type	npos = -1;
+		static const value_type		fallback_codepoint = L'?';
 		
 	private:
 		
@@ -676,7 +677,7 @@ class wstring
 		 * @note	Returns the UTF-8 formatted content of this wstring
 		 * @return	UTF-8 formatted data, trailled by a '\0'
 		 */
-		const char* c_str() const { return this->buffer; }
+		const char* c_str() const { return this->buffer ? this->buffer : ""; }
 		const char* data() const { return this->buffer; }
 		
 		
@@ -686,7 +687,7 @@ class wstring
 		 * @note	Returns the UTF-8 formatted content of this wstring
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
-		std::string cpp_str() const { return std::string( this->buffer ); }
+		std::string cpp_str() const { return std::string( this->c_str() ); }
 		
 		
 		/**
@@ -706,7 +707,7 @@ class wstring
 		 *			That is, without counting the trailling '\0'
 		 * @return	Number of bytes (not codepoints!)
 		 */
-		size_type size() const { return this->buffer_len - 1; }
+		size_type size() const { return std::max<size_type>( 1 , this->buffer_len ) - 1; }
 		
 		
 		/**
@@ -725,7 +726,7 @@ class wstring
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ANSI characters inside
 		 */
-		bool requires_unicode() const { return this->indices_len > 0; }
+		bool requires_unicode() const { return this->indices_len; }
 		
 		
 		/**
@@ -879,18 +880,13 @@ class wstring
 		 * @param	repl	The wstring to replace all codepoints in the range
 		 * @return	A reference to this wstring, which now has the replaced part in it
 		 */
-		wstring& replace( size_type index , size_type count , const wstring& repl )
-		{
-			ptrdiff_t		actualStartIndex = get_actual_index( index );
-			
-			if( count == wstring::npos )
-				raw_replace( actualStartIndex , wstring::npos , repl );
-			else
-			{
-				ptrdiff_t	actualEndIndex = count ? get_actual_index( index + count ) : actualStartIndex;
-				raw_replace( actualStartIndex , actualEndIndex - actualStartIndex , repl );
-			}
-			
+		wstring& replace( size_type index , size_type count , const wstring& repl ){
+			size_type actualStartIndex = get_actual_index( index );
+			raw_replace(
+				actualStartIndex
+				, count == wstring::npos ? wstring::npos : get_num_resulting_bytes( actualStartIndex , count )
+				, repl
+			);
 			return *this;
 		}
 		/**
