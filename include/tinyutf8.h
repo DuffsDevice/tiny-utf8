@@ -27,28 +27,29 @@
 #include <cstring> // for std::memcpy, std::strlen
 #include <string> // for std::string
 
-class wstring
+class utf8_string
 {
 	public:
 		
 		typedef size_t				size_type;
+		typedef ptrdiff_t			difference_type;
 		typedef char32_t			value_type;
 		constexpr static size_type	npos = -1;
 		static const value_type		fallback_codepoint = L'?';
 		
 	private:
 		
-		class wstring_reference
+		class utf8_codepoint_reference
 		{
 			private:
-			
-				ptrdiff_t	index;
-				wstring&	instance;
-			
+				
+				size_type		index;
+				utf8_string&	instance;
+				
 			public:
 				
 				//! Ctor
-				wstring_reference( ptrdiff_t index , wstring& instance ) :
+				utf8_codepoint_reference( size_type index , utf8_string& instance ) :
 					index( index )
 					, instance( instance )
 				{}
@@ -57,23 +58,23 @@ class wstring
 				operator value_type() const { return instance.at( index ); }
 				
 				//! Assignment operator
-				wstring_reference& operator=( value_type ch ){
+				utf8_codepoint_reference& operator=( value_type ch ){
 					instance.replace( index , ch );
 					return *this;
 				}
 		};
 		
-		class wstring_raw_reference
+		class utf8_codepoint_raw_reference
 		{
 			private:
-			
-				ptrdiff_t	raw_index;
-				wstring&	instance;
-			
+				
+				size_type		raw_index;
+				utf8_string&	instance;
+				
 			public:
 				
 				//! Ctor
-				wstring_raw_reference( ptrdiff_t raw_index , wstring& instance ) :
+				utf8_codepoint_raw_reference( size_type raw_index , utf8_string& instance ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
@@ -82,84 +83,86 @@ class wstring
 				operator value_type() const { return this->instance.raw_at( this->raw_index ); }
 				
 				//! Assignment operator
-				wstring_raw_reference& operator=( value_type ch ){
-					this->instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , ch ) );
+				utf8_codepoint_raw_reference& operator=( value_type ch ){
+					this->instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , ch ) );
 					return *this;
 				}
 		};
 		
-		class wstring_iterator : public std::iterator<std::forward_iterator_tag,value_type>
+	public:
+		
+		class iterator : public std::iterator<std::forward_iterator_tag,value_type>
 		{
 			protected:
-			
-				size_type	raw_index;
-				wstring&	instance;
-			
+				
+				size_type		raw_index;
+				utf8_string&	instance;
+				
 			public:
-			
+				
 				//! Ctor
-				wstring_iterator( size_type raw_index , wstring& instance ) :
+				iterator( size_type raw_index , utf8_string& instance ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
 				
 				//! Default function
-				wstring_iterator( const wstring_iterator& ) = default;
-				wstring_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				iterator( const iterator& ) = default;
+				iterator& operator=( const iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Get the index
-				ptrdiff_t index() const {
+				difference_type index() const {
 					return this->raw_index;
 				}
 				
 				//! Set the index
-				void set_index( ptrdiff_t raw_index ){
+				void set_index( difference_type raw_index ){
 					this->raw_index = raw_index;
 				}
 				
-				//! Returns the wstring instance the iterator refers to
-				wstring& get_instance() const { return this->instance; }
+				//! Returns the utf8_string instance the iterator refers to
+				utf8_string& get_instance() const { return this->instance; }
 				
 				//! Increase the Iterator by one
-				wstring_iterator&  operator++(){ // prefix ++iter
+				iterator&  operator++(){ // prefix ++iter
 					this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
-				wstring_iterator& operator++( int ){ // postfix iter++
+				iterator& operator++( int ){ // postfix iter++
 					this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
 				//! Increase the Iterator %nth times
-				friend wstring_iterator operator+( const wstring_iterator& it , size_type nth );
-				wstring_iterator& operator+=( size_type nth ){
+				friend iterator operator+( const iterator& it , size_type nth );
+				iterator& operator+=( size_type nth ){
 					while( nth-- > 0 )
 						this->raw_index += this->instance.get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
 				//! Get the difference between two iterators
-				friend int operator-( const wstring_iterator& left , const wstring_iterator& right );
+				friend int operator-( const iterator& left , const iterator& right );
 				
 				//! Compare two iterators
-				bool operator==( const wstring_iterator& it ) const { return this->raw_index == it.raw_index; }
-				bool operator!=( const wstring_iterator& it ) const { return this->raw_index != it.raw_index; }
-				bool operator>( const wstring_iterator& it ) const { return this->raw_index > it.raw_index; }
-				bool operator>=( const wstring_iterator& it ) const { return this->raw_index >= it.raw_index; }
-				bool operator<( const wstring_iterator& it ) const { return this->raw_index < it.raw_index; }
-				bool operator<=( const wstring_iterator& it ) const { return this->raw_index <= it.raw_index; }
+				bool operator==( const iterator& it ) const { return this->raw_index == it.raw_index; }
+				bool operator!=( const iterator& it ) const { return this->raw_index != it.raw_index; }
+				bool operator>( const iterator& it ) const { return this->raw_index > it.raw_index; }
+				bool operator>=( const iterator& it ) const { return this->raw_index >= it.raw_index; }
+				bool operator<( const iterator& it ) const { return this->raw_index < it.raw_index; }
+				bool operator<=( const iterator& it ) const { return this->raw_index <= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
 				value_type get(){ return this->instance.raw_at( this->raw_index ); }
 				
 				//! Returns the value of the codepoint behind the iterator
-				wstring_raw_reference operator*(){ return this->instance( this->raw_index ); }
+				utf8_codepoint_raw_reference operator*(){ return this->instance( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
 				bool has_next() const { return this->instance.raw_at( this->raw_index + this->instance.get_index_bytes( this->raw_index ) ) != 0; }
 				
 				//! Sets the codepoint
-				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , value ) ); }
+				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
 				
 				//! Check if the Iterator is valid
 				explicit operator bool() const { return this->valid(); }
@@ -168,22 +171,22 @@ class wstring
 				bool valid() const { return this->raw_index < this->instance.size(); }
 		};
 		
-		class wstring_const_iterator : public wstring_iterator
+		class const_iterator : public iterator
 		{
 			public:
 				
 				//! Ctor
-				wstring_const_iterator( size_type raw_index , const wstring& instance ) :
-					wstring_iterator( raw_index , const_cast<wstring&>(instance) )
+				const_iterator( size_type raw_index , const utf8_string& instance ) :
+					iterator( raw_index , const_cast<utf8_string&>(instance) )
 				{}
 				
 				//! Cast ctor
-				wstring_const_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
-				wstring_const_iterator( const wstring_iterator& it ) : wstring_iterator( it.index() , it.get_instance() ) { }
+				const_iterator& operator=( const iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				const_iterator( const iterator& it ) : iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default function
-				wstring_const_iterator( const wstring_const_iterator& ) = default;
-				wstring_const_iterator& operator=( const wstring_const_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				const_iterator( const const_iterator& ) = default;
+				const_iterator& operator=( const const_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
@@ -192,76 +195,76 @@ class wstring
 				value_type operator*(){ return this->instance.raw_at( this->raw_index ); }
 		};
 		
-		class wstring_reverse_iterator
+		class reverse_iterator
 		{
 			protected:
 				
-				ptrdiff_t	raw_index;
-				wstring&	instance;
+				difference_type	raw_index;
+				utf8_string&	instance;
 				
 			public:
 				
 				//! Ctor
-				wstring_reverse_iterator( ptrdiff_t raw_index , wstring& instance ) :
+				reverse_iterator( difference_type raw_index , utf8_string& instance ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
 				
 				//! Default function
-				wstring_reverse_iterator( const wstring_reverse_iterator& ) = default;
-				wstring_reverse_iterator& operator=( const wstring_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				reverse_iterator( const reverse_iterator& ) = default;
+				reverse_iterator& operator=( const reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
-				//! From wstring_iterator to wstring_reverse_iterator
-				wstring_reverse_iterator& operator=( const wstring_iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
-				wstring_reverse_iterator( const wstring_iterator& it ) : raw_index( it.index() ) , instance( it.get_instance() ) { }
+				//! From iterator to reverse_iterator
+				reverse_iterator& operator=( const iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				reverse_iterator( const iterator& it ) : raw_index( it.index() ) , instance( it.get_instance() ) { }
 				
 				//! Get the index
-				ptrdiff_t index() const {
+				difference_type index() const {
 					return this->raw_index;
 				}
 				
 				//! Set the index
-				void set_index( ptrdiff_t raw_index ){
+				void set_index( difference_type raw_index ){
 					this->raw_index = raw_index;
 				}
 				
-				//! Returns the wstring instance the iterator refers to
-				wstring& get_instance() const { return this->instance; }
+				//! Returns the utf8_string instance the iterator refers to
+				utf8_string& get_instance() const { return this->instance; }
 				
-				wstring_reverse_iterator& operator++(){ // prefix iter++
+				reverse_iterator& operator++(){ // prefix iter++
 					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
-				wstring_reverse_iterator& operator++( int ){ // postfix iter++
+				reverse_iterator& operator++( int ){ // postfix iter++
 					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
-				friend wstring_reverse_iterator operator+( const wstring_reverse_iterator& it , size_type nth );
-				wstring_reverse_iterator& operator+=( size_type nth ){
+				friend reverse_iterator operator+( const reverse_iterator& it , size_type nth );
+				reverse_iterator& operator+=( size_type nth ){
 					while( nth-- > 0 )
 						this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				
 				//! Get the difference between two iterators
-				friend int operator-( const wstring_reverse_iterator& left , const wstring_reverse_iterator& right );
+				friend int operator-( const reverse_iterator& left , const reverse_iterator& right );
 				
 				//! Compare two iterators
-				bool operator==( const wstring_reverse_iterator& it ) const { return this->raw_index == it.raw_index; }
-				bool operator!=( const wstring_reverse_iterator& it ) const { return this->raw_index != it.raw_index; }
-				bool operator>( const wstring_reverse_iterator& it ) const { return this->raw_index < it.raw_index; }
-				bool operator>=( const wstring_reverse_iterator& it ) const { return this->raw_index <= it.raw_index; }
-				bool operator<( const wstring_reverse_iterator& it ) const { return this->raw_index > it.raw_index; }
-				bool operator<=( const wstring_reverse_iterator& it ) const { return this->raw_index >= it.raw_index; }
+				bool operator==( const reverse_iterator& it ) const { return this->raw_index == it.raw_index; }
+				bool operator!=( const reverse_iterator& it ) const { return this->raw_index != it.raw_index; }
+				bool operator>( const reverse_iterator& it ) const { return this->raw_index < it.raw_index; }
+				bool operator>=( const reverse_iterator& it ) const { return this->raw_index <= it.raw_index; }
+				bool operator<( const reverse_iterator& it ) const { return this->raw_index > it.raw_index; }
+				bool operator<=( const reverse_iterator& it ) const { return this->raw_index >= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
 				value_type get(){ return this->instance.raw_at( this->raw_index ); }
 				
 				//! Sets the codepoint
-				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , wstring( 1 , value ) ); }
+				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
 				
 				//! Returns the value of the codepoint behind the iterator
-				wstring_raw_reference operator*(){ return this->instance( this->raw_index ); }
+				utf8_codepoint_raw_reference operator*(){ return this->instance( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
 				bool has_next() const { return this->raw_index > 0; }
@@ -273,22 +276,22 @@ class wstring
 				bool valid() const { return this->raw_index >= 0; }
 		};
 		
-		class wstring_const_reverse_iterator : public wstring_reverse_iterator
+		class const_reverse_iterator : public reverse_iterator
 		{
 			public:
 				
 				//! Ctor
-				wstring_const_reverse_iterator( size_type raw_index , const wstring& instance ) :
-					wstring_reverse_iterator( raw_index , const_cast<wstring&>(instance) )
+				const_reverse_iterator( size_type raw_index , const utf8_string& instance ) :
+					reverse_iterator( raw_index , const_cast<utf8_string&>(instance) )
 				{}
 				
 				//! Cast ctor
-				wstring_const_reverse_iterator& operator=( const wstring_reverse_iterator& it ){ this->set_index( it.index() ); this->instance = it.get_instance(); return *this; }
-				wstring_const_reverse_iterator( const wstring_reverse_iterator& it ) : wstring_reverse_iterator( it.index() , it.get_instance() ) { }
+				const_reverse_iterator& operator=( const reverse_iterator& it ){ this->set_index( it.index() ); this->instance = it.get_instance(); return *this; }
+				const_reverse_iterator( const reverse_iterator& it ) : reverse_iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default functions
-				wstring_const_reverse_iterator( const wstring_const_reverse_iterator& ) = default;
-				wstring_const_reverse_iterator& operator=( const wstring_const_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				const_reverse_iterator( const const_reverse_iterator& ) = default;
+				const_reverse_iterator& operator=( const const_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
@@ -297,14 +300,16 @@ class wstring
 				value_type operator*(){ return this->instance.raw_at( this->raw_index ); }
 		};
 		
+	private:
+		
 		//! Attributes
 		char*			buffer;
 		size_type		buffer_len;
 		size_type		string_len;
 		size_type*		indices_of_multibyte;
 		size_type		indices_len;
-		mutable bool	misformated : 1;
-		bool			static_buffer : 1;
+		mutable bool	misformated;
+		bool			static_buffer;
 		
 		//! Frees the internal buffer of indices and sets it to the supplied value
 		void reset_indices( size_type* indices_of_multibyte = nullptr , size_type indices_len = 0 ){
@@ -369,7 +374,7 @@ class wstring
 		 * Decodes a given input of rle utf8 data to a
 		 * unicode codepoint and returns the number of bytes it used
 		 */
-		static unsigned char decode_utf8( const char* data , value_type& codepoint , bool& has_error );
+		unsigned char decode_utf8( const char* data , value_type& codepoint ) const ;
 		
 		/**
 		 * Encodes a given codepoint to a character buffer of at least 7 bytes
@@ -398,7 +403,7 @@ class wstring
 		size_type get_num_resulting_bytes( size_type byte_start , size_type codepoint_count ) const ;
 		
 		//! Ctor from buffer and indices
-		wstring( char* buffer , size_type buffer_len , size_type string_len , size_type* indices_of_multibyte , size_type indices_len ) :
+		utf8_string( char* buffer , size_type buffer_len , size_type string_len , size_type* indices_of_multibyte , size_type indices_len ) :
 			buffer( buffer )
 			, buffer_len( buffer_len )
 			, string_len( string_len )
@@ -410,17 +415,12 @@ class wstring
 		
 	public:
 		
-		typedef wstring::wstring_iterator				iterator;
-		typedef wstring::wstring_const_iterator			const_iterator;
-		typedef wstring::wstring_reverse_iterator		reverse_iterator;
-		typedef wstring::wstring_const_reverse_iterator	const_reverse_iterator;
-		
 		/**
 		 * Default Ctor
 		 * 
-		 * @note Creates an Instance of type wstring that is empty
+		 * @note Creates an Instance of type utf8_string that is empty
 		 */
-		wstring() :
+		utf8_string() :
 			buffer( nullptr )
 			, buffer_len( 0 )
 			, string_len( 0 )
@@ -433,139 +433,139 @@ class wstring
 		/**
 		 * Contructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
 		 * 
-		 * @note	Creates an Instance of type wstring that holds the given utf8 sequence
-		 * @param	str		The UTF-8 sequence to fill the wstring with
+		 * @note	Creates an Instance of type utf8_string that holds the given utf8 sequence
+		 * @param	str		The UTF-8 sequence to fill the utf8_string with
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
-		wstring( const char* str , size_type len = wstring::npos );
+		utf8_string( const char* str , size_type len = utf8_string::npos );
 		
 		
 		/**
 		 * Contructor taking an std::string
 		 * 
-		 * @note	Creates an Instance of type wstring that holds the given data sequence
+		 * @note	Creates an Instance of type utf8_string that holds the given data sequence
 		 * @param	str		The byte data, that will be interpreted as UTF-8
 		 */
-		wstring( std::string str ) :
-			wstring( str.c_str() )
+		utf8_string( std::string str ) :
+			utf8_string( str.c_str() )
 		{}
 		
 		/**
-		 * Named constructor that constructs a wstring from a string literal without
+		 * Named constructor that constructs a utf8_string from a string literal without
 		 * parsing the input string for UTF-8 sequences
 		 *
 		 * @param	str		The ascii sequence that will be imported
 		 */
-		static const wstring ascii_constant( const char* str ){
+		static const utf8_string ascii_constant( const char* str ){
 			size_type	len = std::strlen( str ) + 1;
-			wstring wstr = wstring( const_cast<char*>( str ) , len , len - 1 , nullptr , 0 );
+			utf8_string wstr = utf8_string( const_cast<char*>( str ) , len , len - 1 , nullptr , 0 );
 			wstr.static_buffer = true;
-			return (wstring&&)wstr;
+			return (utf8_string&&)wstr;
 		}
 		/**
-		 * Named constructor that constructs a wstring from an std::string without
+		 * Named constructor that constructs a utf8_string from an std::string without
 		 * parsing the input string for UTF-8 sequences
 		 *
 		 * @param	str		The ascii sequence that will be imported
 		 */
-		static wstring ascii_constant( const std::string& str ){
+		static utf8_string ascii_constant( const std::string& str ){
 			size_type	len = str.length() + 1;
 			char*	buffer = new char[len];
 			std::memcpy( buffer , str.data() , len );
-			return wstring( buffer , len , len - 1 , nullptr , 0 );
+			return utf8_string( buffer , len , len - 1 , nullptr , 0 );
 		}
 		
 		
 		/**
 		 * Contructor that fills itself with a certain amount of codepoints
 		 * 
-		 * @note	Creates an Instance of type wstring that gets filled with 'n' codepoints
+		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' codepoints
 		 * @param	n		The number of codepoints generated
 		 * @param	ch		The codepoint that the whole buffer will be set to
 		 */
-		wstring( size_type n , value_type ch );
+		utf8_string( size_type n , value_type ch );
 		/**
 		 * Contructor that fills itself with a certain amount of characters
 		 * 
-		 * @note	Creates an Instance of type wstring that gets filled with 'n' characters
+		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' characters
 		 * @param	n		The number of characters generated
 		 * @param	ch		The characters that the whole buffer will be set to
 		 */
-		wstring( size_type n , char ch ) :
-			wstring( n , (value_type)ch )
+		utf8_string( size_type n , char ch ) :
+			utf8_string( n , (value_type)ch )
 		{}
 		
 		
 		/**
-		 * Copy Constructor that copies the supplied wstring to construct itself
+		 * Copy Constructor that copies the supplied utf8_string to construct itself
 		 * 
-		 * @note	Creates an Instance of type wstring that has the exact same data as 'str'
-		 * @param	str		The wstring to copy from
+		 * @note	Creates an Instance of type utf8_string that has the exact same data as 'str'
+		 * @param	str		The utf8_string to copy from
 		 */
-		wstring( const wstring& str );
+		utf8_string( const utf8_string& str );
 		/**
-		 * Move Constructor that moves the supplied wstring content into the new wstring
+		 * Move Constructor that moves the supplied utf8_string content into the new utf8_string
 		 * 
-		 * @note	Creates an Instance of type wstring that takes all data from 'str'
-		 * 			The supplied wstring is invalid afterwards and may not be used anymore
-		 * @param	str		The wstring to move from
+		 * @note	Creates an Instance of type utf8_string that takes all data from 'str'
+		 * 			The supplied utf8_string is invalid afterwards and may not be used anymore
+		 * @param	str		The utf8_string to move from
 		 */
-		wstring( wstring&& str );
+		utf8_string( utf8_string&& str );
 		
 		
 		/**
-		 * Contructor taking a wide codepoint literal that will be copied to construct this wstring
+		 * Contructor taking a wide codepoint literal that will be copied to construct this utf8_string
 		 * 
-		 * @note	Creates an Instance of type wstring that holds the given codepoints
+		 * @note	Creates an Instance of type utf8_string that holds the given codepoints
 		 *			The data itself will be first converted to UTF-8
-		 * @param	str		The codepoint sequence to fill the wstring with
+		 * @param	str		The codepoint sequence to fill the utf8_string with
 		 */
-		wstring( const value_type* str );
+		utf8_string( const value_type* str );
 		
 		
 		/**
 		 * Destructor
 		 * 
-		 * @note	Destructs a wstring at the end of its lifetime releasing all held memory
+		 * @note	Destructs a utf8_string at the end of its lifetime releasing all held memory
 		 */
-		~wstring(){
+		~utf8_string(){
 			this->reset_indices();
 			this->reset_buffer();
 		}
 		
 		
 		/**
-		 * Copy Assignment operator that sets the wstring to a copy of the supplied one
+		 * Copy Assignment operator that sets the utf8_string to a copy of the supplied one
 		 * 
-		 * @note	Assigns a copy of 'str' to this wstring deleting all data that previously was in there
-		 * @param	str		The wstring to copy from
+		 * @note	Assigns a copy of 'str' to this utf8_string deleting all data that previously was in there
+		 * @param	str		The utf8_string to copy from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		wstring& operator=( const wstring& str );
+		utf8_string& operator=( const utf8_string& str );
 		/**
-		 * Move Assignment operator that moves all data out of the supplied and into this wstring
+		 * Move Assignment operator that moves all data out of the supplied and into this utf8_string
 		 * 
-		 * @note	Moves all data from 'str' into this wstring deleting all data that previously was in there
-		 *			The supplied wstring is invalid afterwards and may not be used anymore
-		 * @param	str		The wstring to move from
+		 * @note	Moves all data from 'str' into this utf8_string deleting all data that previously was in there
+		 *			The supplied utf8_string is invalid afterwards and may not be used anymore
+		 * @param	str		The utf8_string to move from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		wstring& operator=( wstring&& str );
+		utf8_string& operator=( utf8_string&& str );
 		
 		
 		/**
-		 * Swaps the contents of this wstring with the supplied one
+		 * Swaps the contents of this utf8_string with the supplied one
 		 * 
-		 * @note	Swaps all data with the supplied wstring
-		 * @param	str		The wstring to swap contents with
+		 * @note	Swaps all data with the supplied utf8_string
+		 * @param	str		The utf8_string to swap contents with
 		 */
-		void swap( wstring& str ){
+		void swap( utf8_string& str ){
 			std::swap( *this , str );
 		}
 		
 		
 		/**
-		 * Clears the content of this wstring
+		 * Clears the content of this utf8_string
 		 * 
 		 * @note	Resets the data to an empty string ("")
 		 */
@@ -604,9 +604,7 @@ class wstring
 			if( !this->requires_unicode() )
 				return this->buffer[byte_index];
 			value_type dest;
-			bool tmp = this->misformated;
-			decode_utf8( this->buffer + byte_index , dest , tmp );
-			this->misformated = tmp;
+			decode_utf8( this->buffer + byte_index , dest );
 			return dest;
 		}
 		
@@ -657,7 +655,7 @@ class wstring
 		 * @param	n	The codepoint index of the codepoint to receive
 		 * @return	A reference wrapper to the codepoint at position 'n'
 		 */
-		wstring_reference operator[]( size_type n ){ return wstring_reference( n , *this ); }
+		utf8_codepoint_reference operator[]( size_type n ){ return utf8_codepoint_reference( n , *this ); }
 		value_type operator[]( size_type n ) const { return at( n ); }
 		/**
 		 * Returns a reference to the codepoint at the supplied byte position
@@ -667,14 +665,14 @@ class wstring
 		 * @param	n	The byte position of the codepoint to receive
 		 * @return	A reference wrapper to the codepoint at byte position 'n'
 		 */
-		wstring_raw_reference operator()( size_type n ){ return wstring_raw_reference( n , *this ); }
+		utf8_codepoint_raw_reference operator()( size_type n ){ return utf8_codepoint_raw_reference( n , *this ); }
 		value_type operator()( size_type n ) const { return raw_at( n ); }
 		
 		
 		/**
-		 * Get the raw data contained in this wstring
+		 * Get the raw data contained in this utf8_string
 		 * 
-		 * @note	Returns the UTF-8 formatted content of this wstring
+		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, trailled by a '\0'
 		 */
 		const char* c_str() const { return this->buffer ? this->buffer : ""; }
@@ -682,16 +680,16 @@ class wstring
 		
 		
 		/**
-		 * Get the raw data contained in this wstring wrapped by an std::string
+		 * Get the raw data contained in this utf8_string wrapped by an std::string
 		 * 
-		 * @note	Returns the UTF-8 formatted content of this wstring
+		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
 		std::string cpp_str() const { return std::string( this->c_str() ); }
 		
 		
 		/**
-		 * Get the number of codepoints in this wstring
+		 * Get the number of codepoints in this utf8_string
 		 * 
 		 * @note	Returns the number of codepoints that are taken care of
 		 *			For the number of bytes, @see size()
@@ -701,7 +699,7 @@ class wstring
 		
 		
 		/**
-		 * Get the number of bytes that are used by this wstring
+		 * Get the number of bytes that are used by this utf8_string
 		 * 
 		 * @note	Returns the number of bytes required to hold the contained wide string,
 		 *			That is, without counting the trailling '\0'
@@ -711,22 +709,30 @@ class wstring
 		
 		
 		/**
-		 * Check, whether this wstring is empty
+		 * Check, whether this utf8_string is empty
 		 * 
-		 * @note	Returns True, if this wstring is empty, that also is comparing true with ""
-		 * @return	True, if this wstring is empty, false if its length is >0
+		 * @note	Returns True, if this utf8_string is empty, that also is comparing true with ""
+		 * @return	True, if this utf8_string is empty, false if its length is >0
 		 */
 		bool empty() const { return !this->string_len; }
 		
 		
 		/**
-		 * Check whether the data inside this wstring cannot be iterated by an std::string
+		 * Check whether the data inside this utf8_string cannot be iterated by an std::string
 		 * 
-		 * @note	Returns true, if the wstring has codepoints that exceed 7 bits to be stored
+		 * @note	Returns true, if the utf8_string has codepoints that exceed 7 bits to be stored
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ANSI characters inside
 		 */
-		bool requires_unicode() const { return this->indices_len; }
+		bool requires_unicode() const { return this->indices_len > 0; }
+		
+		
+		/**
+		 * Returns the number of multibytes within this utf8_string
+		 * 
+		 * @return	The number of codepoints that take more than one byte
+		 */
+		size_type get_num_multibytes() const { return this->indices_len; }
 		
 		
 		/**
@@ -740,33 +746,33 @@ class wstring
 		
 		
 		/**
-		 * Get an iterator to the beginning of the wstring
+		 * Get an iterator to the beginning of the utf8_string
 		 * 
-		 * @return	An iterator class pointing to the beginning of this wstring
+		 * @return	An iterator class pointing to the beginning of this utf8_string
 		 */
 		iterator begin(){ return iterator( 0 , *this ); }
 		const_iterator begin() const { return const_iterator( 0 , *this ); }
 		/**
-		 * Get an iterator to the end of the wstring
+		 * Get an iterator to the end of the utf8_string
 		 * 
-		 * @return	An iterator class pointing to the end of this wstring, that is pointing behind the last codepoint
+		 * @return	An iterator class pointing to the end of this utf8_string, that is pointing behind the last codepoint
 		 */
 		iterator end(){ return iterator( end_index() , *this ); }
 		const_iterator end() const { return const_iterator( end_index() , *this ); }
 		
 		
 		/**
-		 * Get a reverse iterator to the end of this wstring
+		 * Get a reverse iterator to the end of this utf8_string
 		 * 
-		 * @return	A reverse iterator class pointing to the end of this wstring,
+		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is exactly to the last codepoint
 		 */
 		reverse_iterator rbegin(){ return reverse_iterator( back_index() , *this ); }
 		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , *this ); }
 		/**
-		 * Get a reverse iterator to the beginning of this wstring
+		 * Get a reverse iterator to the beginning of this utf8_string
 		 * 
-		 * @return	A reverse iterator class pointing to the end of this wstring,
+		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is pointing before the first codepoint
 		 */
 		reverse_iterator rend(){ return reverse_iterator( -1 , *this ); }
@@ -774,77 +780,77 @@ class wstring
 		
 		
 		/**
-		 * Get a const iterator to the beginning of the wstring
+		 * Get a const iterator to the beginning of the utf8_string
 		 * 
-		 * @return	A const iterator class pointing to the beginning of this wstring,
-		 * 			which cannot alter things inside this wstring
+		 * @return	A const iterator class pointing to the beginning of this utf8_string,
+		 * 			which cannot alter things inside this utf8_string
 		 */
-		wstring_const_iterator cbegin() const { return wstring_const_iterator( 0 , *this ); }
+		const_iterator cbegin() const { return const_iterator( 0 , *this ); }
 		/**
-		 * Get an iterator to the end of the wstring
+		 * Get an iterator to the end of the utf8_string
 		 * 
-		 * @return	A const iterator class, which cannot alter this wstring, pointing to
-		 *			the end of this wstring, that is pointing behind the last codepoint
+		 * @return	A const iterator class, which cannot alter this utf8_string, pointing to
+		 *			the end of this utf8_string, that is pointing behind the last codepoint
 		 */
-		wstring_const_iterator cend() const { return wstring_const_iterator( end_index() , *this ); }
+		const_iterator cend() const { return const_iterator( end_index() , *this ); }
 		
 		
 		/**
-		 * Get a const reverse iterator to the end of this wstring
+		 * Get a const reverse iterator to the end of this utf8_string
 		 * 
-		 * @return	A const reverse iterator class, which cannot alter this wstring, pointing to
-		 *			the end of this wstring, that is exactly to the last codepoint
+		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
+		 *			the end of this utf8_string, that is exactly to the last codepoint
 		 */
-		wstring_const_reverse_iterator crbegin() const { return wstring_const_reverse_iterator( back_index() , *this ); }
+		const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , *this ); }
 		/**
-		 * Get a const reverse iterator to the beginning of this wstring
+		 * Get a const reverse iterator to the beginning of this utf8_string
 		 * 
-		 * @return	A const reverse iterator class, which cannot alter this wstring, pointing to
-		 *			the end of this wstring, that is pointing before the first codepoint
+		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
+		 *			the end of this utf8_string, that is pointing before the first codepoint
 		 */
-		wstring_const_reverse_iterator crend() const { return wstring_const_reverse_iterator( -1 , *this ); }
+		const_reverse_iterator crend() const { return const_reverse_iterator( -1 , *this ); }
 		
 		
 		/**
-		 * Returns a reference to the first codepoint in the wstring
+		 * Returns a reference to the first codepoint in the utf8_string
 		 * 
-		 * @return	A reference wrapper to the first codepoint in the wstring
+		 * @return	A reference wrapper to the first codepoint in the utf8_string
 		 */
-		wstring_raw_reference front(){ return wstring_raw_reference( 0 , *this ); }
+		utf8_codepoint_raw_reference front(){ return utf8_codepoint_raw_reference( 0 , *this ); }
 		value_type front() const { return raw_at( 0 ); }
 		/**
-		 * Returns a reference to the last codepoint in the wstring
+		 * Returns a reference to the last codepoint in the utf8_string
 		 * 
-		 * @return	A reference wrapper to the last codepoint in the wstring
+		 * @return	A reference wrapper to the last codepoint in the utf8_string
 		 */
-		wstring_raw_reference back(){ return wstring_raw_reference( empty() ? 0 : back_index() , *this ); }
+		utf8_codepoint_raw_reference back(){ return utf8_codepoint_raw_reference( empty() ? 0 : back_index() , *this ); }
 		value_type back() const { return raw_at( empty() ? 0 : back_index() ); }
 		
 		
 		/**
-		 * Replace a codepoint of this wstring by a number of codepoints
+		 * Replace a codepoint of this utf8_string by a number of codepoints
 		 * 
 		 * @param	index	The codpoint index to be replaced
 		 * @param	repl	The wide character that will be used to replace the codepoint
 		 * @param	n		The number of codepoint that will be inserted
 		 *					instead of the one residing at position 'index'
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		wstring& replace( size_type index , value_type repl , size_type n = 1 ){
-			replace( index , 1 , wstring( n , repl ) );
+		utf8_string& replace( size_type index , value_type repl , size_type n = 1 ){
+			replace( index , 1 , utf8_string( n , repl ) );
 			return *this;
 		}
 		/**
-		 * Replace a number of codepoints of this wstring by a number of other codepoints
+		 * Replace a number of codepoints of this utf8_string by a number of other codepoints
 		 * 
 		 * @param	index	The codpoint index at which the replacement is being started
 		 * @param	len		The number of codepoints that are being replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints
 		 * @param	n		The number of codepoint that will replace the old ones
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		wstring& replace( size_type index , size_type len , value_type repl , size_type n = 1 ){
-			replace( index , len , wstring( n , repl ) );
+		utf8_string& replace( size_type index , size_type len , value_type repl , size_type n = 1 ){
+			replace( index , len , utf8_string( n , repl ) );
 			return *this;
 		}
 		/**
@@ -854,138 +860,138 @@ class wstring
 		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints in the range
 		 * @param	n		The number of codepoint that will replace the old ones
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		wstring& replace( wstring_iterator first , wstring_iterator last , value_type repl , size_type n = 1 ){
-			raw_replace( first.index() , last.index() - first.index() , wstring( n , repl ) );
+		utf8_string& replace( iterator first , iterator last , value_type repl , size_type n = 1 ){
+			raw_replace( first.index() , last.index() - first.index() , utf8_string( n , repl ) );
 			return *this;
 		}
 		/**
-		 * Replace a range of codepoints with the contents of the supplied wstring
+		 * Replace a range of codepoints with the contents of the supplied utf8_string
 		 * 
 		 * @param	first	An iterator pointing to the first codepoint to be replaced
 		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
-		 * @param	repl	The wstring to replace all codepoints in the range
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @param	repl	The utf8_string to replace all codepoints in the range
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		wstring& replace( wstring_iterator first , wstring_iterator last , const wstring& repl ){
+		utf8_string& replace( iterator first , iterator last , const utf8_string& repl ){
 			raw_replace( first.index() , last.index() - first.index() , repl );
 			return *this;
 		}
 		/**
-		 * Replace a number of codepoints of this wstring with the contents of the supplied wstring
+		 * Replace a number of codepoints of this utf8_string with the contents of the supplied utf8_string
 		 * 
 		 * @param	index	The codpoint index at which the replacement is being started
 		 * @param	len		The number of codepoints that are being replaced
-		 * @param	repl	The wstring to replace all codepoints in the range
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @param	repl	The utf8_string to replace all codepoints in the range
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		wstring& replace( size_type index , size_type count , const wstring& repl ){
+		utf8_string& replace( size_type index , size_type count , const utf8_string& repl ){
 			size_type actualStartIndex = get_actual_index( index );
 			raw_replace(
 				actualStartIndex
-				, count == wstring::npos ? wstring::npos : get_num_resulting_bytes( actualStartIndex , count )
+				, count == utf8_string::npos ? utf8_string::npos : get_num_resulting_bytes( actualStartIndex , count )
 				, repl
 			);
 			return *this;
 		}
 		/**
-		 * Replace a number of bytes of this wstring with the contents of the supplied wstring
+		 * Replace a number of bytes of this utf8_string with the contents of the supplied utf8_string
 		 * 
 		 * @note	As this function is raw, that is not having to compute byte indices,
 		 *			it is much faster than the codepoint-base replace function
 		 * @param	byte_index	The byte position at which the replacement is being started
 		 * @param	byte_count	The number of bytes that are being replaced
-		 * @param	repl		The wstring to replace all bytes inside the range
-		 * @return	A reference to this wstring, which now has the replaced part in it
+		 * @param	repl		The utf8_string to replace all bytes inside the range
+		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		void raw_replace( size_type byte_index , size_type byte_count , const wstring& repl );
+		void raw_replace( size_type byte_index , size_type byte_count , const utf8_string& repl );
 		
 		
 		/**
-		 * Appends the supplied wstring to the end of this wstring
+		 * Appends the supplied utf8_string to the end of this utf8_string
 		 * 
-		 * @param	appendix	The wstring to be appended
-		 * @return	A reference to this wstring, which now has the supplied string appended
+		 * @param	appendix	The utf8_string to be appended
+		 * @return	A reference to this utf8_string, which now has the supplied string appended
 		 */
-		wstring& append( const wstring& appendix ){
+		utf8_string& append( const utf8_string& appendix ){
 			replace( length() , 0 , appendix );
 			return *this;
 		}
-		wstring& operator+=( const wstring& summand ){
+		utf8_string& operator+=( const utf8_string& summand ){
 			replace( length() , 0 , summand );
 			return *this;
 		}
 		
 		
 		/**
-		 * Appends the supplied codepoint to the end of this wstring
+		 * Appends the supplied codepoint to the end of this utf8_string
 		 * 
 		 * @param	ch	The codepoint to be appended
-		 * @return	A reference to this wstring, which now has the supplied string appended
+		 * @return	A reference to this utf8_string, which now has the supplied string appended
 		 */
-		wstring& push_back( value_type ch ){
-			replace( length() , 0 , wstring( 1 , ch ) );
+		utf8_string& push_back( value_type ch ){
+			replace( length() , 0 , utf8_string( 1 , ch ) );
 			return *this;
 		}
 		
 		
 		/**
-		 * Adds the supplied wstring to a copy of this wstring
+		 * Adds the supplied utf8_string to a copy of this utf8_string
 		 * 
-		 * @param	summand		The wstring to be added 
-		 * @return	A reference to the newly created wstring, which now has the supplied string appended
+		 * @param	summand		The utf8_string to be added 
+		 * @return	A reference to the newly created utf8_string, which now has the supplied string appended
 		 */
-		wstring operator+( const wstring& summand ) const {
-			wstring str = *this;
+		utf8_string operator+( const utf8_string& summand ) const {
+			utf8_string str = *this;
 			str.append( summand );
 			return std::move( str );
 		}
 		
 		
 		/**
-		 * Inserts a given codepoint into this wstring at the supplied codepoint index
+		 * Inserts a given codepoint into this utf8_string at the supplied codepoint index
 		 * 
 		 * @param	pos		The codepoint index to insert at
 		 * @param	ch		The codepoint to be inserted
-		 * @return	A reference to this wstring, with the supplied codepoint inserted
+		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
-		wstring& insert( size_type pos , value_type ch ){
-			replace( pos , 0 , wstring( 1 , ch ) );
+		utf8_string& insert( size_type pos , value_type ch ){
+			replace( pos , 0 , utf8_string( 1 , ch ) );
 			return *this;
 		}
 		/**
-		 * Inserts a given wstring into this wstring at the supplied codepoint index
+		 * Inserts a given utf8_string into this utf8_string at the supplied codepoint index
 		 * 
 		 * @param	pos		The codepoint index to insert at
-		 * @param	str		The wstring to be inserted
-		 * @return	A reference to this wstring, with the supplied wstring inserted
+		 * @param	str		The utf8_string to be inserted
+		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
-		wstring& insert( size_type pos , const wstring& str ){
+		utf8_string& insert( size_type pos , const utf8_string& str ){
 			replace( pos , 0 , str );
 			return *this;
 		}
 		/**
-		 * Inserts a given wstring into this wstring at the supplied iterator position
+		 * Inserts a given utf8_string into this utf8_string at the supplied iterator position
 		 * 
 		 * @param	it	The iterator psoition to insert at
 		 * @param	ch	The codepoint to be inserted
-		 * @return	A reference to this wstring, with the supplied codepoint inserted
+		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
-		wstring& insert( wstring_iterator it , value_type ch ){
-			raw_replace( it.index() , 0 , wstring( 1 , ch ) );
+		utf8_string& insert( iterator it , value_type ch ){
+			raw_replace( it.index() , 0 , utf8_string( 1 , ch ) );
 			return *this;
 		}
 		/**
-		 * Inserts a given wstring into this wstring at the supplied byte position
+		 * Inserts a given utf8_string into this utf8_string at the supplied byte position
 		 * 
 		 * @note	As this function is raw, that is without having to compute
 		 *			actual byte indices, it is much faster that insert()
 		 * @param	pos		The byte position index to insert at
-		 * @param	str		The wstring to be inserted
-		 * @return	A reference to this wstring, with the supplied wstring inserted
+		 * @param	str		The utf8_string to be inserted
+		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
-		wstring& raw_insert( size_type pos , wstring& str ){
+		utf8_string& raw_insert( size_type pos , utf8_string& str ){
 			raw_replace( pos , 0 , str );
 			return *this;
 		}
@@ -995,10 +1001,10 @@ class wstring
 		 * Erases the codepoint at the supplied iterator position
 		 * 
 		 * @param	pos		The iterator pointing to the position being erased
-		 * @return	A reference to this wstring, which now has the codepoint erased
+		 * @return	A reference to this utf8_string, which now has the codepoint erased
 		 */
-		wstring& erase( wstring_iterator pos ){
-			raw_replace( pos.index() , get_index_bytes( pos.index() )  , wstring() );
+		utf8_string& erase( iterator pos ){
+			raw_replace( pos.index() , get_index_bytes( pos.index() )  , utf8_string() );
 			return *this;
 		}
 		/**
@@ -1006,21 +1012,21 @@ class wstring
 		 * 
 		 * @param	first	An iterator pointing to the first codepoint to be erased
 		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be erased
-		 * @return	A reference to this wstring, which now has the codepoints erased
+		 * @return	A reference to this utf8_string, which now has the codepoints erased
 		 */
-		wstring& erase( wstring_iterator first , wstring_iterator last ){
-			raw_replace( first.index() , last.index() - first.index() , wstring() );
+		utf8_string& erase( iterator first , iterator last ){
+			raw_replace( first.index() , last.index() - first.index() , utf8_string() );
 			return *this;
 		}
 		/**
 		 * Erases a portion of this string
 		 * 
 		 * @param	pos		The codepoint index to start eraseing from
-		 * @param	len		The number of codepoints to be erased from this wstring
-		 * @return	A reference to this wstring, with the supplied portion erased
+		 * @param	len		The number of codepoints to be erased from this utf8_string
+		 * @return	A reference to this utf8_string, with the supplied portion erased
 		 */
-		wstring& erase( size_type pos , size_type len ){
-			replace( pos , len , wstring() );
+		utf8_string& erase( size_type pos , size_type len ){
+			replace( pos , len , utf8_string() );
 			return *this;
 		}
 		/**
@@ -1029,46 +1035,46 @@ class wstring
 		 * @note	As this function is raw, that is without having to compute
 		 *			actual byte indices, it is much faster that erase()
 		 * @param	pos		The byte position index to start erasing from
-		 * @param	len		The number of bytes to be erased from the wstring
-		 * @return	A reference to this wstring, with the supplied bytes erased
+		 * @param	len		The number of bytes to be erased from the utf8_string
+		 * @return	A reference to this utf8_string, with the supplied bytes erased
 		 */
-		wstring& raw_erase( size_type pos , size_type len ){
-			raw_replace( pos , len , wstring() );
+		utf8_string& raw_erase( size_type pos , size_type len ){
+			raw_replace( pos , len , utf8_string() );
 			return *this;
 		}
 		
 		
 		/**
-		 * Returns a portion of the wstring
+		 * Returns a portion of the utf8_string
 		 * 
 		 * @param	first	An iterator pointing to the first codepoint to be included in the substring
 		 * @param	last	An iterator pointing to the codepoint behind the last codepoint in the substring
-		 * @return	The wstring holding the specified range
+		 * @return	The utf8_string holding the specified range
 		 */
-		wstring substr( wstring_iterator first , wstring_iterator last ) const {
+		utf8_string substr( iterator first , iterator last ) const {
 			size_type byte_count = last.index() - first.index();
 			return raw_substr( first.index() , byte_count , get_num_resulting_codepoints( first.index() , byte_count ) );
 		}
 		/**
-		 * Returns a portion of the wstring
+		 * Returns a portion of the utf8_string
 		 * 
 		 * @param	pos		The codepoint index that should mark the start of the substring
 		 * @param	len		The number codepoints to be included within the substring
-		 * @return	The wstring holding the specified codepoints
+		 * @return	The utf8_string holding the specified codepoints
 		 */
-		wstring substr( size_type pos , size_type len ) const
+		utf8_string substr( size_type pos , size_type len ) const
 		{
-			ptrdiff_t	actualStartIndex = get_actual_index( pos );
+			difference_type	actualStartIndex = get_actual_index( pos );
 			
-			if( len == wstring::npos )
-				return raw_substr( actualStartIndex , wstring::npos );
+			if( len == utf8_string::npos )
+				return raw_substr( actualStartIndex , utf8_string::npos );
 			
-			ptrdiff_t	actualEndIndex = len ? get_actual_index( pos + len ) : actualStartIndex;
+			difference_type	actualEndIndex = len ? get_actual_index( pos + len ) : actualStartIndex;
 			
 			return raw_substr( actualStartIndex , actualEndIndex - actualStartIndex , len );
 		}
 		/**
-		 * Returns a portion of the wstring (indexed on byte-base)
+		 * Returns a portion of the utf8_string (indexed on byte-base)
 		 * 
 		 * @note	As this function is raw, that is without having to compute
 		 *			actual byte indices, it is much faster that substr()
@@ -1076,64 +1082,64 @@ class wstring
 		 * @param	byte_count		The number of bytes that the substring shall have
 		 * @param	numCodepoints	(Optional) The number of codepoints
 		 *							the substring will have, in case this is already known
-		 * @return	The wstring holding the specified bytes
+		 * @return	The utf8_string holding the specified bytes
 		 */
-		wstring raw_substr( size_type byte_index , size_type byte_count , size_type numCodepoints ) const ;
-		wstring raw_substr( size_type byte_index , size_type byte_count ) const {
-			if( byte_count == wstring::npos )
+		utf8_string raw_substr( size_type byte_index , size_type byte_count , size_type numCodepoints ) const ;
+		utf8_string raw_substr( size_type byte_index , size_type byte_count ) const {
+			if( byte_count == utf8_string::npos )
 				byte_count = size() - byte_index;
 			return raw_substr( byte_index , byte_count , get_num_resulting_codepoints( byte_index , byte_count ) );
 		}
 		
 		
 		/**
-		 * Finds a specific codepoint inside the wstring starting at the supplied codepoint index
+		 * Finds a specific codepoint inside the utf8_string starting at the supplied codepoint index
 		 * 
 		 * @param	ch				The codepoint to look for
 		 * @param	startCodepoint	The index of the first codepoint to start looking from
-		 * @return	The codepoint index where and if the codepoint was found or wstring::npos
+		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
 		 */
 		size_type find( value_type ch , size_type startCodepoint = 0 ) const ;
 		/**
-		 * Finds a specific codepoint inside the wstring starting at the supplied byte position
+		 * Finds a specific codepoint inside the utf8_string starting at the supplied byte position
 		 * 
 		 * @param	ch			The codepoint to look for
 		 * @param	startByte	The byte position of the first codepoint to start looking from
-		 * @return	The byte position where and if the codepoint was found or wstring::npos
+		 * @return	The byte position where and if the codepoint was found or utf8_string::npos
 		 */
 		size_type raw_find( value_type ch , size_type startByte = 0 ) const ;
 		
 		//! Find content in string
 		//! @todo implement
-		//size_type rfind( wstring str , size_type startCodepoint = wstring::npos ) const ;
-		//size_type raw_rfind( wstring str , size_type startByte = wstring::npos ) const ;
-		//size_type rfind( const char* str , size_type startCodepoint = wstring::npos ) const ;
-		//size_type raw_rfind( const char* str , size_type startByte = wstring::npos ) const ;
-		size_type rfind( value_type ch , size_type startCodepoint = wstring::npos ) const ;
-		size_type raw_rfind( value_type ch , size_type startByte = wstring::npos ) const ;
+		//size_type rfind( utf8_string str , size_type startCodepoint = utf8_string::npos ) const ;
+		//size_type raw_rfind( utf8_string str , size_type startByte = utf8_string::npos ) const ;
+		//size_type rfind( const char* str , size_type startCodepoint = utf8_string::npos ) const ;
+		//size_type raw_rfind( const char* str , size_type startByte = utf8_string::npos ) const ;
+		size_type rfind( value_type ch , size_type startCodepoint = utf8_string::npos ) const ;
+		size_type raw_rfind( value_type ch , size_type startByte = utf8_string::npos ) const ;
 		
 		//! Find character in string
 		size_type find_first_of( const value_type* str , size_type startCodepoint = 0 ) const ;
 		size_type raw_find_first_of( const value_type* str , size_type startByte = 0 ) const ;
-		size_type find_last_of( const value_type* str , size_type startCodepoint = wstring::npos ) const ;
-		size_type raw_find_last_of( const value_type* str , size_type startByte = wstring::npos ) const ;
+		size_type find_last_of( const value_type* str , size_type startCodepoint = utf8_string::npos ) const ;
+		size_type raw_find_last_of( const value_type* str , size_type startByte = utf8_string::npos ) const ;
 		
 		//! Find absence of character in string
 		size_type find_first_not_of( const value_type* str , size_type startCodepoint = 0 ) const ;
 		size_type raw_find_first_not_of( const value_type* str , size_type startByte = 0 ) const ;
-		size_type find_last_not_of( const value_type* str , size_type startCodepoint = wstring::npos ) const ;
-		size_type raw_find_last_not_of( const value_type* str , size_type startByte = wstring::npos ) const ;
+		size_type find_last_not_of( const value_type* str , size_type startCodepoint = utf8_string::npos ) const ;
+		size_type raw_find_last_not_of( const value_type* str , size_type startByte = utf8_string::npos ) const ;
 		
 		
-		//! Removes the last codepoint in the wstring
-		wstring& pop_back(){
+		//! Removes the last codepoint in the utf8_string
+		utf8_string& pop_back(){
 			size_type pos = back_index();
-			raw_replace( pos , get_index_bytes( pos ) , wstring() );
+			raw_replace( pos , get_index_bytes( pos ) , utf8_string() );
 			return *this;
 		}
 		
 		/**
-		 * Compares this wstring to the supplied one
+		 * Compares this utf8_string to the supplied one
 		 *
 		 * @return	0	They compare equal
 		 *			<0	Either the value of the first character that does not match is lower in
@@ -1141,17 +1147,17 @@ class wstring
 		 *			>0	Either the value of the first character that does not match is greater in
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
-		ptrdiff_t compare( const wstring& str ) const ;
+		difference_type compare( const utf8_string& str ) const ;
 		
 		//! Returns true, if the supplied string compares equal to this one
-		bool equals( const wstring& str ) const { return equals( str.c_str() ); }
+		bool equals( const utf8_string& str ) const { return equals( str.c_str() ); }
 		bool equals( const std::string& str ) const { return equals( str.c_str() ); }
 		bool equals( const char* str ) const ;
 		bool equals( const value_type* str ) const ;
 		
-		//! Compare this wstring to another string
-		bool operator==( const wstring& str ) const { return equals( str ); }
-		bool operator!=( const wstring& str ) const { return !equals( str ); }
+		//! Compare this utf8_string to another string
+		bool operator==( const utf8_string& str ) const { return equals( str ); }
+		bool operator!=( const utf8_string& str ) const { return !equals( str ); }
 		bool operator==( const char* str ) const { return equals( str ); }
 		bool operator!=( const char* str ) const { return !equals( str ); }
 		bool operator==( const value_type* str ) const { return equals( str ); }
@@ -1159,13 +1165,13 @@ class wstring
 		bool operator==( const std::string& str ) const { return equals( str ); }
 		bool operator!=( const std::string& str ) const { return !equals( str ); }
 		
-		bool operator>( const wstring& str ) const { return str.compare( *this ) > 0; }
-		bool operator>=( const wstring& str ) const { return str.compare( *this ) >= 0; }
-		bool operator<( const wstring& str ) const { return str.compare( *this ) < 0; }
-		bool operator<=( const wstring& str ) const { return str.compare( *this ) <= 0; }
+		bool operator>( const utf8_string& str ) const { return str.compare( *this ) > 0; }
+		bool operator>=( const utf8_string& str ) const { return str.compare( *this ) >= 0; }
+		bool operator<( const utf8_string& str ) const { return str.compare( *this ) < 0; }
+		bool operator<=( const utf8_string& str ) const { return str.compare( *this ) <= 0; }
 		
 		
-		//! Get the number of bytes of codepoint in wstring
+		//! Get the number of bytes of codepoint in utf8_string
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
 			return get_num_bytes_of_utf8_char( this->buffer , get_actual_index(codepoint_index) );
 		}
@@ -1193,9 +1199,9 @@ class wstring
 		friend reverse_iterator	operator+( const reverse_iterator& it , size_type nth );
 };
 
-extern int							operator-( const wstring::iterator& left , const wstring::iterator& right );
-extern int							operator-( const wstring::reverse_iterator& left , const wstring::reverse_iterator& right );
-extern wstring::iterator			operator+( const wstring::iterator& it , wstring::size_type nth );
-extern wstring::reverse_iterator	operator+( const wstring::reverse_iterator& it , wstring::size_type nth );
+extern int								operator-( const utf8_string::iterator& left , const utf8_string::iterator& right );
+extern int								operator-( const utf8_string::reverse_iterator& left , const utf8_string::reverse_iterator& right );
+extern utf8_string::iterator			operator+( const utf8_string::iterator& it , utf8_string::size_type nth );
+extern utf8_string::reverse_iterator	operator+( const utf8_string::reverse_iterator& it , utf8_string::size_type nth );
 
 #endif
