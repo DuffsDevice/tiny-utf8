@@ -1,4 +1,4 @@
-#include <tinyutf8.h>
+#include "tinyutf8.h"
 
 utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_type ch ) :
 	string_len( number )
@@ -1032,19 +1032,19 @@ int operator-( const utf8_string::iterator& left , const utf8_string::iterator& 
 {
 	utf8_string::size_type minIndex = std::min( left.raw_index , right.raw_index );
 	utf8_string::size_type maxIndex = std::max( left.raw_index , right.raw_index );
-	utf8_string::size_type numCodepoints = left.instance.get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
+	utf8_string::size_type numCodepoints = left.instance->get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
 	return maxIndex == left.raw_index ? numCodepoints : -numCodepoints;
 }
 
 utf8_string::iterator operator+( const utf8_string::iterator& it , utf8_string::size_type nth ){
-	return utf8_string::iterator( it.raw_index + it.instance.get_num_resulting_bytes( it.raw_index , nth ) , it.instance );
+	return utf8_string::iterator( it.raw_index + it.instance->get_num_resulting_bytes( it.raw_index , nth ) , it.instance );
 }
 
 int operator-( const utf8_string::reverse_iterator& left , const utf8_string::reverse_iterator& right )
 {
 	utf8_string::difference_type	minIndex = std::min( left.raw_index , right.raw_index );
 	utf8_string::difference_type	maxIndex = std::max( left.raw_index , right.raw_index );
-	utf8_string::size_type			numCodepoints = left.instance.get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
+	utf8_string::size_type			numCodepoints = left.instance->get_num_resulting_codepoints( minIndex , maxIndex - minIndex );
 	return maxIndex == right.raw_index ? numCodepoints : -numCodepoints;
 }
 
@@ -1052,6 +1052,6 @@ utf8_string::reverse_iterator operator+( const utf8_string::reverse_iterator& it
 {
 	utf8_string::difference_type newIndex = it.raw_index;
 	while( nth-- > 0 && newIndex > 0 )
-		newIndex -= it.instance.get_index_pre_bytes( newIndex );
+		newIndex -= it.instance->get_index_pre_bytes( newIndex );
 	return utf8_string::reverse_iterator( newIndex , it.instance );
 }

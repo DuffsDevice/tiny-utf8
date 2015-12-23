@@ -26,6 +26,7 @@
 #include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::strlen
 #include <string> // for std::string
+#include <cstddef> // For char32_t, ptrdiff_t
 
 class utf8_string
 {
@@ -44,22 +45,22 @@ class utf8_string
 			private:
 				
 				size_type		index;
-				utf8_string&	instance;
+				utf8_string*	instance;
 				
 			public:
 				
 				//! Ctor
-				utf8_codepoint_reference( size_type index , utf8_string& instance ) :
+				utf8_codepoint_reference( size_type index , utf8_string* instance ) :
 					index( index )
 					, instance( instance )
 				{}
 				
 				//! Cast to wide char
-				operator value_type() const { return instance.at( index ); }
+				operator value_type() const { return instance->at( index ); }
 				
 				//! Assignment operator
 				utf8_codepoint_reference& operator=( value_type ch ){
-					instance.replace( index , ch );
+					instance->replace( index , ch );
 					return *this;
 				}
 		};
@@ -69,46 +70,58 @@ class utf8_string
 			private:
 				
 				size_type		raw_index;
-				utf8_string&	instance;
+				utf8_string*	instance;
 				
 			public:
 				
 				//! Ctor
-				utf8_codepoint_raw_reference( size_type raw_index , utf8_string& instance ) :
+				utf8_codepoint_raw_reference( size_type raw_index , utf8_string* instance ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
 				
 				//! Cast to wide char
-				operator value_type() const { return this->instance.raw_at( this->raw_index ); }
+				operator value_type() const { return this->instance->raw_at( this->raw_index ); }
 				
 				//! Assignment operator
 				utf8_codepoint_raw_reference& operator=( value_type ch ){
-					this->instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , ch ) );
+					this->instance->raw_replace( this->raw_index , this->instance->get_index_bytes( this->raw_index ) , utf8_string( 1 , ch ) );
 					return *this;
 				}
 		};
 		
+		struct iterator_base{
+			typedef utf8_string::value_type			value_type;
+			typedef utf8_string::difference_type	difference_type;
+			typedef utf8_codepoint_raw_reference	reference;
+			typedef void*							pointer;
+			typedef std::forward_iterator_tag		iterator_category;
+		};
+		
 	public:
 		
-		class iterator : public std::iterator<std::forward_iterator_tag,value_type>
+		class iterator : public iterator_base
 		{
 			protected:
 				
 				size_type		raw_index;
-				utf8_string&	instance;
+				utf8_string*	instance;
 				
 			public:
 				
 				//! Ctor
-				iterator( size_type raw_index , utf8_string& instance ) :
+				iterator( size_type raw_index = 0 , utf8_string* instance = nullptr ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
 				
 				//! Default function
 				iterator( const iterator& ) = default;
-				iterator& operator=( const iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				iterator& operator=( const iterator& it ){
+					this->raw_index = it.raw_index;
+					this->instance = it.instance;
+					return *this;
+				}
 				
 				//! Get the index
 				difference_type index() const {
@@ -121,15 +134,15 @@ class utf8_string
 				}
 				
 				//! Returns the utf8_string instance the iterator refers to
-				utf8_string& get_instance() const { return this->instance; }
+				utf8_string* get_instance() const { return this->instance; }
 				
 				//! Increase the Iterator by one
 				iterator&  operator++(){ // prefix ++iter
-					this->raw_index += this->instance.get_index_bytes( this->raw_index );
+					this->raw_index += this->instance->get_index_bytes( this->raw_index );
 					return *this;
 				}
 				iterator& operator++( int ){ // postfix iter++
-					this->raw_index += this->instance.get_index_bytes( this->raw_index );
+					this->raw_index += this->instance->get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -137,7 +150,7 @@ class utf8_string
 				friend iterator operator+( const iterator& it , size_type nth );
 				iterator& operator+=( size_type nth ){
 					while( nth-- > 0 )
-						this->raw_index += this->instance.get_index_bytes( this->raw_index );
+						this->raw_index += this->instance->get_index_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -153,22 +166,22 @@ class utf8_string
 				bool operator<=( const iterator& it ) const { return this->raw_index <= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
-				value_type get(){ return this->instance.raw_at( this->raw_index ); }
+				value_type get(){ return this->instance->raw_at( this->raw_index ); }
 				
 				//! Returns the value of the codepoint behind the iterator
-				utf8_codepoint_raw_reference operator*(){ return this->instance( this->raw_index ); }
+				utf8_codepoint_raw_reference operator*(){ return (*this->instance)( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
-				bool has_next() const { return this->instance.raw_at( this->raw_index + this->instance.get_index_bytes( this->raw_index ) ) != 0; }
+				bool has_next() const { return this->instance->raw_at( this->raw_index + this->instance->get_index_bytes( this->raw_index ) ) != 0; }
 				
 				//! Sets the codepoint
-				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
+				void set( value_type value ){ this->instance->raw_replace( this->raw_index , this->instance->get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
 				
 				//! Check if the Iterator is valid
 				explicit operator bool() const { return this->valid(); }
 				
 				//! Check if the Iterator is valid
-				bool valid() const { return this->raw_index < this->instance.size(); }
+				bool valid() const { return this->instance && this->raw_index < this->instance->size(); }
 		};
 		
 		class const_iterator : public iterator
@@ -176,46 +189,62 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_iterator( size_type raw_index , const utf8_string& instance ) :
-					iterator( raw_index , const_cast<utf8_string&>(instance) )
+				const_iterator( size_type raw_index = 0 , const utf8_string* instance = nullptr ) :
+					iterator( raw_index , const_cast<utf8_string*>(instance) )
 				{}
 				
 				//! Cast ctor
-				const_iterator& operator=( const iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				const_iterator& operator=( const iterator& it ){
+					this->raw_index = it.index();
+					this->instance = it.get_instance();
+					return *this;
+				}
 				const_iterator( const iterator& it ) : iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default function
 				const_iterator( const const_iterator& ) = default;
-				const_iterator& operator=( const const_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				const_iterator& operator=( const const_iterator& it ){
+					this->raw_index = it.raw_index;
+					this->instance = it.instance;
+					return *this;
+				}
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
 				
 				//! Returns the value behind the iterator
-				value_type operator*(){ return this->instance.raw_at( this->raw_index ); }
+				value_type operator*(){ return this->instance->raw_at( this->raw_index ); }
 		};
 		
-		class reverse_iterator
+		class reverse_iterator : public iterator_base
 		{
 			protected:
 				
 				difference_type	raw_index;
-				utf8_string&	instance;
+				utf8_string*	instance;
 				
 			public:
 				
 				//! Ctor
-				reverse_iterator( difference_type raw_index , utf8_string& instance ) :
+				reverse_iterator( difference_type raw_index = 0 , utf8_string* instance = nullptr ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
 				
 				//! Default function
 				reverse_iterator( const reverse_iterator& ) = default;
-				reverse_iterator& operator=( const reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				reverse_iterator& operator=( const reverse_iterator& it ){
+					this->raw_index = it.raw_index;
+					this->instance = it.instance;
+					return *this;
+				}
 				
 				//! From iterator to reverse_iterator
-				reverse_iterator& operator=( const iterator& it ){ this->raw_index = it.index(); this->instance = it.get_instance(); return *this; }
+				reverse_iterator& operator=( const iterator& it ){
+					this->raw_index = it.index();
+					this->instance = it.get_instance();
+					return *this;
+				}
 				reverse_iterator( const iterator& it ) : raw_index( it.index() ) , instance( it.get_instance() ) { }
 				
 				//! Get the index
@@ -229,20 +258,20 @@ class utf8_string
 				}
 				
 				//! Returns the utf8_string instance the iterator refers to
-				utf8_string& get_instance() const { return this->instance; }
+				utf8_string* get_instance() const { return this->instance; }
 				
 				reverse_iterator& operator++(){ // prefix iter++
-					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
+					this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				reverse_iterator& operator++( int ){ // postfix iter++
-					this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
+					this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				friend reverse_iterator operator+( const reverse_iterator& it , size_type nth );
 				reverse_iterator& operator+=( size_type nth ){
 					while( nth-- > 0 )
-						this->raw_index -= this->instance.get_index_pre_bytes( this->raw_index );
+						this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
 				
@@ -258,13 +287,13 @@ class utf8_string
 				bool operator<=( const reverse_iterator& it ) const { return this->raw_index >= it.raw_index; }
 				
 				//! Returns the value of the codepoint behind the iterator
-				value_type get(){ return this->instance.raw_at( this->raw_index ); }
+				value_type get(){ return this->instance->raw_at( this->raw_index ); }
 				
 				//! Sets the codepoint
-				void set( value_type value ){ instance.raw_replace( this->raw_index , this->instance.get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
+				void set( value_type value ){ instance->raw_replace( this->raw_index , this->instance->get_index_bytes( this->raw_index ) , utf8_string( 1 , value ) ); }
 				
 				//! Returns the value of the codepoint behind the iterator
-				utf8_codepoint_raw_reference operator*(){ return this->instance( this->raw_index ); }
+				utf8_codepoint_raw_reference operator*(){ return (*this->instance)( this->raw_index ); }
 				
 				//! Check whether there is a Node following this one
 				bool has_next() const { return this->raw_index > 0; }
@@ -273,7 +302,7 @@ class utf8_string
 				operator bool() const { return this->valid(); }
 				
 				//! Check if the Iterator is valid
-				bool valid() const { return this->raw_index >= 0; }
+				bool valid() const { return this->instance && this->raw_index >= 0; }
 		};
 		
 		class const_reverse_iterator : public reverse_iterator
@@ -281,23 +310,31 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_reverse_iterator( size_type raw_index , const utf8_string& instance ) :
-					reverse_iterator( raw_index , const_cast<utf8_string&>(instance) )
+				const_reverse_iterator( size_type raw_index = 0 , const utf8_string* instance = nullptr ) :
+					reverse_iterator( raw_index , const_cast<utf8_string*>(instance) )
 				{}
 				
 				//! Cast ctor
-				const_reverse_iterator& operator=( const reverse_iterator& it ){ this->set_index( it.index() ); this->instance = it.get_instance(); return *this; }
+				const_reverse_iterator& operator=( const reverse_iterator& it ){
+					this->raw_index = it.index();
+					this->instance = it.get_instance();
+					return *this;
+				}
 				const_reverse_iterator( const reverse_iterator& it ) : reverse_iterator( it.index() , it.get_instance() ) { }
 				
 				//! Default functions
 				const_reverse_iterator( const const_reverse_iterator& ) = default;
-				const_reverse_iterator& operator=( const const_reverse_iterator& it ){ this->raw_index = it.raw_index; return *this; }
+				const_reverse_iterator& operator=( const const_reverse_iterator& it ){
+					this->raw_index = it.raw_index;
+					this->instance = it.instance;
+					return *this;
+				}
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
 				
 				//! Returns the value behind the iterator
-				value_type operator*(){ return this->instance.raw_at( this->raw_index ); }
+				value_type operator*(){ return this->instance->raw_at( this->raw_index ); }
 		};
 		
 	private:
@@ -615,8 +652,8 @@ class utf8_string
 		 * @param	n	The index of the codepoint to get the iterator to
 		 * @return	An iterator pointing to the specified codepoint index
 		 */
-		iterator get( size_type n ){ return iterator( get_actual_index(n) , *this ); }
-		const_iterator get( size_type n ) const { return const_iterator( get_actual_index(n) , *this ); }
+		iterator get( size_type n ){ return iterator( get_actual_index(n) , this ); }
+		const_iterator get( size_type n ) const { return const_iterator( get_actual_index(n) , this ); }
 		/**
 		 * Returns an iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -625,8 +662,8 @@ class utf8_string
 		 * @param	n	The byte position of the codepoint to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
-		iterator raw_get( size_type n ){ return iterator( n , *this ); }
-		const_iterator raw_get( size_type n ) const { return const_iterator( n , *this ); }
+		iterator raw_get( size_type n ){ return iterator( n , this ); }
+		const_iterator raw_get( size_type n ) const { return const_iterator( n , this ); }
 		
 		
 		/**
@@ -635,8 +672,8 @@ class utf8_string
 		 * @param	n	The index of the codepoint to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified codepoint index
 		 */
-		reverse_iterator rget( size_type n ){ return reverse_iterator( get_actual_index(n) , *this ); }
-		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_actual_index(n) , *this ); }
+		reverse_iterator rget( size_type n ){ return reverse_iterator( get_actual_index(n) , this ); }
+		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_actual_index(n) , this ); }
 		/**
 		 * Returns a reverse iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -645,8 +682,8 @@ class utf8_string
 		 * @param	n	The byte position of the codepoint to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
-		reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , *this ); }
-		const_reverse_iterator raw_rget( size_type n ) const { return const_reverse_iterator( n , *this ); }
+		reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , this ); }
+		const_reverse_iterator raw_rget( size_type n ) const { return const_reverse_iterator( n , this ); }
 		
 		
 		/**
@@ -655,7 +692,7 @@ class utf8_string
 		 * @param	n	The codepoint index of the codepoint to receive
 		 * @return	A reference wrapper to the codepoint at position 'n'
 		 */
-		utf8_codepoint_reference operator[]( size_type n ){ return utf8_codepoint_reference( n , *this ); }
+		utf8_codepoint_reference operator[]( size_type n ){ return utf8_codepoint_reference( n , this ); }
 		value_type operator[]( size_type n ) const { return at( n ); }
 		/**
 		 * Returns a reference to the codepoint at the supplied byte position
@@ -665,7 +702,7 @@ class utf8_string
 		 * @param	n	The byte position of the codepoint to receive
 		 * @return	A reference wrapper to the codepoint at byte position 'n'
 		 */
-		utf8_codepoint_raw_reference operator()( size_type n ){ return utf8_codepoint_raw_reference( n , *this ); }
+		utf8_codepoint_raw_reference operator()( size_type n ){ return utf8_codepoint_raw_reference( n , this ); }
 		value_type operator()( size_type n ) const { return raw_at( n ); }
 		
 		
@@ -750,15 +787,15 @@ class utf8_string
 		 * 
 		 * @return	An iterator class pointing to the beginning of this utf8_string
 		 */
-		iterator begin(){ return iterator( 0 , *this ); }
-		const_iterator begin() const { return const_iterator( 0 , *this ); }
+		iterator begin(){ return iterator( 0 , this ); }
+		const_iterator begin() const { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the utf8_string
 		 * 
 		 * @return	An iterator class pointing to the end of this utf8_string, that is pointing behind the last codepoint
 		 */
-		iterator end(){ return iterator( end_index() , *this ); }
-		const_iterator end() const { return const_iterator( end_index() , *this ); }
+		iterator end(){ return iterator( end_index() , this ); }
+		const_iterator end() const { return const_iterator( end_index() , this ); }
 		
 		
 		/**
@@ -767,16 +804,16 @@ class utf8_string
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is exactly to the last codepoint
 		 */
-		reverse_iterator rbegin(){ return reverse_iterator( back_index() , *this ); }
-		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , *this ); }
+		reverse_iterator rbegin(){ return reverse_iterator( back_index() , this ); }
+		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is pointing before the first codepoint
 		 */
-		reverse_iterator rend(){ return reverse_iterator( -1 , *this ); }
-		const_reverse_iterator rend() const { return const_reverse_iterator( -1 , *this ); }
+		reverse_iterator rend(){ return reverse_iterator( -1 , this ); }
+		const_reverse_iterator rend() const { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -785,14 +822,14 @@ class utf8_string
 		 * @return	A const iterator class pointing to the beginning of this utf8_string,
 		 * 			which cannot alter things inside this utf8_string
 		 */
-		const_iterator cbegin() const { return const_iterator( 0 , *this ); }
+		const_iterator cbegin() const { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the utf8_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is pointing behind the last codepoint
 		 */
-		const_iterator cend() const { return const_iterator( end_index() , *this ); }
+		const_iterator cend() const { return const_iterator( end_index() , this ); }
 		
 		
 		/**
@@ -801,14 +838,14 @@ class utf8_string
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is exactly to the last codepoint
 		 */
-		const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , *this ); }
+		const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a const reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is pointing before the first codepoint
 		 */
-		const_reverse_iterator crend() const { return const_reverse_iterator( -1 , *this ); }
+		const_reverse_iterator crend() const { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -816,14 +853,14 @@ class utf8_string
 		 * 
 		 * @return	A reference wrapper to the first codepoint in the utf8_string
 		 */
-		utf8_codepoint_raw_reference front(){ return utf8_codepoint_raw_reference( 0 , *this ); }
+		utf8_codepoint_raw_reference front(){ return utf8_codepoint_raw_reference( 0 , this ); }
 		value_type front() const { return raw_at( 0 ); }
 		/**
 		 * Returns a reference to the last codepoint in the utf8_string
 		 * 
 		 * @return	A reference wrapper to the last codepoint in the utf8_string
 		 */
-		utf8_codepoint_raw_reference back(){ return utf8_codepoint_raw_reference( empty() ? 0 : back_index() , *this ); }
+		utf8_codepoint_raw_reference back(){ return utf8_codepoint_raw_reference( empty() ? 0 : back_index() , this ); }
 		value_type back() const { return raw_at( empty() ? 0 : back_index() ); }
 		
 		
@@ -1096,39 +1133,92 @@ class utf8_string
 		 * Finds a specific codepoint inside the utf8_string starting at the supplied codepoint index
 		 * 
 		 * @param	ch				The codepoint to look for
-		 * @param	startCodepoint	The index of the first codepoint to start looking from
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
 		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type find( value_type ch , size_type startCodepoint = 0 ) const ;
+		size_type find( value_type ch , size_type start_codepoint = 0 ) const ;
+		/**
+		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
+		 * 
+		 * @param	ch				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
+		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
+		 */
+		size_type find( const utf8_string& pattern , size_type start_codepoint = 0 ) const {
+		    if( start_codepoint >= length() )
+		        return utf8_string::npos;
+		    size_type actual_start = get_actual_index( start_codepoint );
+		    const char* result = std::strstr( buffer + actual_start , pattern.c_str() );
+		    if( !result )
+		        return utf8_string::npos;
+		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - (buffer + actual_start) );
+		}
+		/**
+		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
+		 * 
+		 * @param	ch				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
+		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
+		 */
+		size_type find( const char* pattern , size_type start_codepoint = 0 ) const {
+		    if( start_codepoint >= length() )
+		        return utf8_string::npos;
+		    size_type actual_start = get_actual_index( start_codepoint );
+		    const char* result = std::strstr( buffer + actual_start , pattern );
+		    if( !result )
+		        return utf8_string::npos;
+		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - (buffer + actual_start) );
+		}
 		/**
 		 * Finds a specific codepoint inside the utf8_string starting at the supplied byte position
 		 * 
 		 * @param	ch			The codepoint to look for
-		 * @param	startByte	The byte position of the first codepoint to start looking from
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
 		 * @return	The byte position where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type raw_find( value_type ch , size_type startByte = 0 ) const ;
+		size_type raw_find( value_type ch , size_type start_byte = 0 ) const ;
+		/**
+		 * Finds a specific pattern within the utf8_string starting at the supplied byte position
+		 * 
+		 * @param	needle		The pattern to look for
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
+		 * @return	The byte position where and if the pattern was found or utf8_string::npos
+		 */
+		size_type raw_find( const utf8_string& pattern , size_type start_byte = 0 ) const {
+		    if( start_byte >= size() )
+		        return utf8_string::npos;
+		    const char* result = std::strstr( buffer + start_byte , pattern.c_str() );
+		    if( !result )
+		        return utf8_string::npos;
+		    return result - buffer;
+		}
+		/**
+		 * Finds a specific pattern within the utf8_string starting at the supplied byte position
+		 * 
+		 * @param	needle		The pattern to look for
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
+		 * @return	The byte position where and if the pattern was found or utf8_string::npos
+		 */
+		size_type raw_find( const char* pattern , size_type start_byte = 0 ) const {
+		    if( start_byte >= size() )
+		        return utf8_string::npos;
+		    const char* result = std::strstr( buffer + start_byte , pattern );
+		    if( !result )
+		        return utf8_string::npos;
+		    return result - buffer;
+		}
 		
-		//! Find content in string
-		//! @todo implement
-		//size_type rfind( utf8_string str , size_type startCodepoint = utf8_string::npos ) const ;
-		//size_type raw_rfind( utf8_string str , size_type startByte = utf8_string::npos ) const ;
-		//size_type rfind( const char* str , size_type startCodepoint = utf8_string::npos ) const ;
-		//size_type raw_rfind( const char* str , size_type startByte = utf8_string::npos ) const ;
-		size_type rfind( value_type ch , size_type startCodepoint = utf8_string::npos ) const ;
-		size_type raw_rfind( value_type ch , size_type startByte = utf8_string::npos ) const ;
+		//! Find characters in string
+		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const ;
+		size_type raw_find_first_of( const value_type* str , size_type start_byte = 0 ) const ;
+		size_type find_last_of( const value_type* str , size_type start_codepoint = utf8_string::npos ) const ;
+		size_type raw_find_last_of( const value_type* str , size_type start_byte = utf8_string::npos ) const ;
 		
-		//! Find character in string
-		size_type find_first_of( const value_type* str , size_type startCodepoint = 0 ) const ;
-		size_type raw_find_first_of( const value_type* str , size_type startByte = 0 ) const ;
-		size_type find_last_of( const value_type* str , size_type startCodepoint = utf8_string::npos ) const ;
-		size_type raw_find_last_of( const value_type* str , size_type startByte = utf8_string::npos ) const ;
-		
-		//! Find absence of character in string
-		size_type find_first_not_of( const value_type* str , size_type startCodepoint = 0 ) const ;
-		size_type raw_find_first_not_of( const value_type* str , size_type startByte = 0 ) const ;
-		size_type find_last_not_of( const value_type* str , size_type startCodepoint = utf8_string::npos ) const ;
-		size_type raw_find_last_not_of( const value_type* str , size_type startByte = utf8_string::npos ) const ;
+		//! Find absence of characters in string
+		size_type find_first_not_of( const value_type* str , size_type start_codepoint = 0 ) const ;
+		size_type raw_find_first_not_of( const value_type* str , size_type start_byte = 0 ) const ;
+		size_type find_last_not_of( const value_type* str , size_type start_codepoint = utf8_string::npos ) const ;
+		size_type raw_find_last_not_of( const value_type* str , size_type start_byte = utf8_string::npos ) const ;
 		
 		
 		//! Removes the last codepoint in the utf8_string
