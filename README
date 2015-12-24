@@ -3,7 +3,7 @@ Include "tinyutf8.h" in your project and
 add "tinyutf8.cpp" to the projects source files.
 
 If there are any bugs or you want to add features,
-such as the wstring::find method for substring,
+such as the wstring::rfind method for substrings,
 don't hesitate to do so (You should have write
 access to the svn in sourceforge :D )!
 
