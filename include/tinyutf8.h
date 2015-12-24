@@ -1208,6 +1208,25 @@ class utf8_string
 		    return result - buffer;
 		}
 		
+		/**
+		 * Finds the last occourence of a specific codepoint inside the
+		 * utf8_string starting backwards at the supplied codepoint index
+		 * 
+		 * @param	ch				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from (backwards)
+		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
+		 */
+		size_type rfind( value_type ch , size_type startCodepoint = utf8_string::npos ) const ;
+		/**
+		 * Finds the last occourence of a specific codepoint inside the
+		 * utf8_string starting backwards at the supplied byte index
+		 * 
+		 * @param	ch				The codepoint to look for
+		 * @param	start_codepoint	The byte index of the first codepoint to start looking from (backwards)
+		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
+		 */
+		size_type raw_rfind( value_type ch , size_type startByte = utf8_string::npos ) const ;
+		
 		//! Find characters in string
 		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const ;
 		size_type raw_find_first_of( const value_type* str , size_type start_byte = 0 ) const ;
