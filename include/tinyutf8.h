@@ -1,6 +1,6 @@
 // Copyright (c) 2015 Jakob Riedle (DuffsDevice)
 // 
-// Version 1.1
+// Version 1.2a
 // 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
