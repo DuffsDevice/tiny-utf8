@@ -26,7 +26,13 @@
 #include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::strlen
 #include <string> // for std::string
-#include <cstddef> // For char32_t, ptrdiff_t
+#include <cstddef> // for char32_t, ptrdiff_t
+
+// Define the following macro, if you plan to output an utf8_string
+// to an ostream or read an utf8_string from an istream
+#ifdef _TINY_UTF8_H_USE_IOSTREAM_
+#include <iostream> // for ostream/istream overloadings
+#endif
 
 class utf8_string
 {
@@ -37,6 +43,11 @@ class utf8_string
 		typedef char32_t			value_type;
 		constexpr static size_type	npos = -1;
 		static const value_type		fallback_codepoint = L'?';
+		
+		#ifdef _TINY_UTF8_H_USE_IOSTREAM_
+		friend std::ostream& operator<<( std::ostream& , const utf8_string& );
+		friend std::istream& operator>>( std::istream& , utf8_string& );
+		#endif
 		
 	private:
 		
@@ -364,6 +375,11 @@ class utf8_string
 			this->buffer_len = buffer_len;
 			this->buffer = buffer;
 		}
+		
+		/**
+		 * Returns an std::string with the UTF-8 BOM prepended
+		 */
+		std::string cpp_str_bom() const ;
 		
 		/**
 		 * Returns the number of bytes to expect behind this one (including this one) that belong to this utf8 char
@@ -722,7 +738,7 @@ class utf8_string
 		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
-		std::string cpp_str() const { return std::string( this->c_str() ); }
+		std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( this->c_str() ); }
 		
 		
 		/**
@@ -779,7 +795,7 @@ class utf8_string
 		 *			as this array has to be allocated, this method is quite slow, that is O(n)
 		 * @return	A wrapper class holding the wide character array
 		 */
-		std::unique_ptr<value_type[]> toWideLiteral() const ;
+		std::unique_ptr<value_type[]> wide_literal() const ;
 		
 		
 		/**
@@ -1312,5 +1328,18 @@ extern int								operator-( const utf8_string::iterator& left , const utf8_stri
 extern int								operator-( const utf8_string::reverse_iterator& left , const utf8_string::reverse_iterator& right );
 extern utf8_string::iterator			operator+( const utf8_string::iterator& it , utf8_string::size_type nth );
 extern utf8_string::reverse_iterator	operator+( const utf8_string::reverse_iterator& it , utf8_string::size_type nth );
+
+#ifdef _TINY_UTF8_H_USE_IOSTREAM_
+std::ostream& operator<<( std::ostream& stream , const utf8_string& str ){
+	return stream << str.c_str();
+}
+
+std::istream& operator>>( std::istream& stream , utf8_string& str ){
+	std::string tmp;
+	stream >> tmp;
+	str = move(tmp);
+	return stream;
+}
+#endif // ifndef _TINY_UTF8_H_USE_IOSTREAM_
 
 #endif

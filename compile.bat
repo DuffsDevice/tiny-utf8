@@ -26,7 +26,7 @@ for %%p in (source/*.c) do (
 REM Cpp-Dateien compillieren
 for %%p in (source/*.cpp) do (
 	echo Compiling "%%p"...
-	g++ -O3 -c "source/%%p" -I"include" -o "build/%%~np.o" --std=gnu++11
+	g++ -O3 -c "source/%%p" -I"include" -o "build/%%~np.o" --std=gnu++14
 	echo ...done
 )
 
