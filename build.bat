@@ -1,3 +1,0 @@
-make clean
-make
-pause
