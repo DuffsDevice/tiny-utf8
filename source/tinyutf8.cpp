@@ -233,7 +233,7 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 
 unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index ) const
 {
-	if( current_byte_index >= size() || !this->requires_unicode() )
+	if( current_byte_index > size() || !this->requires_unicode() )
 		return 1;
 	
 	data += current_byte_index;
@@ -413,6 +413,28 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) co
 }
 
 
+
+std::string utf8_string::cpp_str_bom() const
+{
+	char bom[4] = { char(0xEF) , char(0xBB) , char(0xBF) , 0 };
+	
+	if( !this->buffer )
+		return std::string( bom );
+	
+	char* tmp_buffer = new char[this->buffer_len + 3];
+	
+	tmp_buffer[0] = bom[0];
+	tmp_buffer[1] = bom[1];
+	tmp_buffer[2] = bom[2];
+	
+	std::memcpy( tmp_buffer + 3 , this->buffer , this->buffer_len );
+	
+	std::string result = std::string( tmp_buffer );
+	
+	delete[] tmp_buffer;
+	
+	return move(result);
+}
 
 
 utf8_string::size_type utf8_string::get_num_required_bytes( const value_type* lit , size_type& num_multibytes )
@@ -732,7 +754,7 @@ utf8_string::value_type utf8_string::at( size_type requested_index ) const
 
 
 
-std::unique_ptr<utf8_string::value_type[]> utf8_string::toWideLiteral() const
+std::unique_ptr<utf8_string::value_type[]> utf8_string::wide_literal() const
 {
 	if( empty() )
 		return std::unique_ptr<value_type[]>( new value_type[1]{0} );
