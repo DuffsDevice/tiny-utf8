@@ -121,9 +121,15 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				iterator( size_type raw_index = 0 , utf8_string* instance = nullptr ) :
+				iterator( size_type raw_index , utf8_string* instance ) :
 					raw_index( raw_index )
 					, instance( instance )
+				{}
+				
+				//! Default Ctor
+				iterator() :
+					raw_index( 0 )
+					, instance( nullptr )
 				{}
 				
 				//! Default function
@@ -200,8 +206,13 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_iterator( size_type raw_index = 0 , const utf8_string* instance = nullptr ) :
+				const_iterator( size_type raw_index , const utf8_string* instance ) :
 					iterator( raw_index , const_cast<utf8_string*>(instance) )
+				{}
+				
+				//! Default Ctor
+				const_iterator() :
+					iterator()
 				{}
 				
 				//! Cast ctor
@@ -237,9 +248,15 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				reverse_iterator( difference_type raw_index = 0 , utf8_string* instance = nullptr ) :
+				reverse_iterator( difference_type raw_index , utf8_string* instance ) :
 					raw_index( raw_index )
 					, instance( instance )
+				{}
+				
+				//! Default Ctor
+				reverse_iterator() :
+					raw_index( 0 )
+					, instance( nullptr )
 				{}
 				
 				//! Default function
@@ -321,8 +338,13 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_reverse_iterator( size_type raw_index = 0 , const utf8_string* instance = nullptr ) :
+				const_reverse_iterator( size_type raw_index , const utf8_string* instance ) :
 					reverse_iterator( raw_index , const_cast<utf8_string*>(instance) )
+				{}
+				
+				//! Default Ctor
+				const_reverse_iterator() :
+					reverse_iterator()
 				{}
 				
 				//! Cast ctor
@@ -775,7 +797,7 @@ class utf8_string
 		 * 
 		 * @note	Returns true, if the utf8_string has codepoints that exceed 7 bits to be stored
 		 * @return	True, if there are UTF-8 formatted byte sequences,
-		 *			false, if there are only ANSI characters inside
+		 *			false, if there are only ascii characters (<128) inside
 		 */
 		bool requires_unicode() const { return this->indices_len > 0; }
 		
@@ -962,17 +984,28 @@ class utf8_string
 		
 		
 		/**
+		 * Prepend the supplied utf8_string to this utf8_string
+		 * 
+		 * @param	appendix	The utf8_string to be prepended
+		 * @return	A reference to this utf8_string, which now has the supplied string prepended
+		 */
+		utf8_string& prepend( const utf8_string& prependix ){
+			raw_replace( 0 , 0 , prependix );
+			return *this;
+		}
+		
+		/**
 		 * Appends the supplied utf8_string to the end of this utf8_string
 		 * 
 		 * @param	appendix	The utf8_string to be appended
 		 * @return	A reference to this utf8_string, which now has the supplied string appended
 		 */
 		utf8_string& append( const utf8_string& appendix ){
-			replace( length() , 0 , appendix );
+			raw_replace( size() , 0 , appendix );
 			return *this;
 		}
 		utf8_string& operator+=( const utf8_string& summand ){
-			replace( length() , 0 , summand );
+			raw_replace( size() , 0 , summand );
 			return *this;
 		}
 		
@@ -981,10 +1014,21 @@ class utf8_string
 		 * Appends the supplied codepoint to the end of this utf8_string
 		 * 
 		 * @param	ch	The codepoint to be appended
-		 * @return	A reference to this utf8_string, which now has the supplied string appended
+		 * @return	A reference to this utf8_string, which now has the supplied codepoint appended
 		 */
 		utf8_string& push_back( value_type ch ){
-			replace( length() , 0 , utf8_string( 1 , ch ) );
+			raw_replace( size() , 0 , utf8_string( 1 , ch ) );
+			return *this;
+		}
+		
+		/**
+		 * Prepends the supplied codepoint to this utf8_string
+		 * 
+		 * @param	ch	The codepoint to be prepended
+		 * @return	A reference to this utf8_string, which now has the supplied codepoint prepended
+		 */
+		utf8_string& push_front( value_type ch ){
+			raw_replace( 0 , 0 , utf8_string( 1 , ch ) );
 			return *this;
 		}
 		
@@ -1025,14 +1069,25 @@ class utf8_string
 			return *this;
 		}
 		/**
-		 * Inserts a given utf8_string into this utf8_string at the supplied iterator position
+		 * Inserts a given codepoint into this utf8_string at the supplied iterator position
 		 * 
-		 * @param	it	The iterator psoition to insert at
+		 * @param	it	The iterator position to insert at
 		 * @param	ch	The codepoint to be inserted
 		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
 		utf8_string& insert( iterator it , value_type ch ){
 			raw_replace( it.index() , 0 , utf8_string( 1 , ch ) );
+			return *this;
+		}
+		/**
+		 * Inserts a given utf8_string into this utf8_string at the supplied iterator position
+		 * 
+		 * @param	it	The iterator position to insert at
+		 * @param	ch	The utf8_string to be inserted
+		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
+		 */
+		utf8_string& insert( iterator it , const utf8_string& str ){
+			raw_replace( it.index() , 0 , str );
 			return *this;
 		}
 		/**
@@ -1044,7 +1099,7 @@ class utf8_string
 		 * @param	str		The utf8_string to be inserted
 		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
-		utf8_string& raw_insert( size_type pos , utf8_string& str ){
+		utf8_string& raw_insert( size_type pos , const utf8_string& str ){
 			raw_replace( pos , 0 , str );
 			return *this;
 		}
@@ -1068,7 +1123,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the codepoints erased
 		 */
 		utf8_string& erase( iterator first , iterator last ){
-			raw_replace( first.index() , last.index() - first.index() , utf8_string() );
+			raw_replace( first.index() , last.index() - first.index() + get_index_bytes( last.index() ), utf8_string() );
 			return *this;
 		}
 		/**
@@ -1078,7 +1133,7 @@ class utf8_string
 		 * @param	len		The number of codepoints to be erased from this utf8_string
 		 * @return	A reference to this utf8_string, with the supplied portion erased
 		 */
-		utf8_string& erase( size_type pos , size_type len ){
+		utf8_string& erase( size_type pos , size_type len = 1 ){
 			replace( pos , len , utf8_string() );
 			return *this;
 		}

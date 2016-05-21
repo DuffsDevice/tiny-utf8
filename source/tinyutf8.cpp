@@ -38,40 +38,42 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 	this->buffer[ this->buffer_len - 1 ] = 0;
 }
 
+
 utf8_string::utf8_string( const char* str , size_type len ) :
 	utf8_string()
 {
 	if( str && str[0] )
 	{
 		size_type		num_multibytes = 0;
-		size_type		i = 0;
+		size_type		num_bytes = 0;
 		unsigned char	bytes_to_skip = 0;
 		
 		// Count Multibytes
-		for( ; str[i] && this->string_len < len ; i++ )
+		for( ; str[num_bytes] && this->string_len < len ; num_bytes++ )
 		{
-			string_len++; // Count number of codepoints
+			this->string_len++; // Count number of codepoints
 			
-			if( str[i] <= 0x7F ) // lead bit is zero, must be a single ascii
+			if( static_cast<unsigned char>(str[num_bytes]) <= 0x7F ) // lead bit is zero, must be a single ascii
 				continue;
 			
 			// Compute the number of bytes to skip
-			bytes_to_skip = get_num_bytes_of_utf8_char( str , i ) - 1;
+			bytes_to_skip = get_num_bytes_of_utf8_char( str , num_bytes ) - 1;
 			
 			num_multibytes++; // Increase counter
 			
 			// Check if the string doesn't end just right inside the multibyte part!
-			do{
-				if( !str[i+1] || (str[i+1] & 0xC0) != 0x80 ){
+			while( bytes_to_skip-- > 0 )
+			{
+				if( !str[num_bytes+1] || ( static_cast<unsigned char>(str[num_bytes+1]) & 0xC0 ) != 0x80 ){
 					this->misformated = true;
 					break;
 				}
-				i++;
-			}while( --bytes_to_skip > 0 );
+				num_bytes++;
+			}
 		}
 		
 		// Initialize buffer
-		this->buffer_len = i + 1;
+		this->buffer_len = num_bytes + 1;
 		this->buffer = new char[this->buffer_len];
 		std::memcpy( this->buffer , str , this->buffer_len );
 		
@@ -82,9 +84,9 @@ utf8_string::utf8_string( const char* str , size_type len ) :
 		size_type multibyteIndex = 0;
 		
 		// Fill Multibyte Table
-		for( size_type index = 0 ; index < i ; index++ )
+		for( size_type index = 0 ; index < num_bytes ; index++ )
 		{
-			if( buffer[index] <= 0x7F ) // lead bit is zero, must be a single ascii
+			if( static_cast<unsigned char>(buffer[index]) <= 0x7F ) // lead bit is zero, must be a single ascii
 				continue;
 			
 			// Compute number of bytes to skip
@@ -92,13 +94,13 @@ utf8_string::utf8_string( const char* str , size_type len ) :
 			
 			this->indices_of_multibyte[multibyteIndex++] = index;
 			
-			if( this->misformated ){
-				do{
-					if( index + 1 == i || (buffer[index+1] & 0xC0) != 0x80 )
+			if( this->misformated )
+				while( bytes_to_skip-- > 0 )
+				{
+					if( index + 1 == num_bytes || ( static_cast<unsigned char>(buffer[index+1]) & 0xC0 ) != 0x80 )
 						break;
 					index++;
-				}while( --bytes_to_skip > 0 );
-			}
+				}
 			else
 				index += bytes_to_skip;
 		}
@@ -233,7 +235,7 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 
 unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index ) const
 {
-	if( current_byte_index > size() || !this->requires_unicode() )
+	if( current_byte_index > size() || !this->requires_unicode() || current_byte_index < 1 )
 		return 1;
 	
 	data += current_byte_index;
@@ -241,46 +243,58 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data ,
 	// If we know the utf8 string is misformated, we have to check, how many 
 	if( this->misformated )
 	{
-		// Check if byte is data-blob
-		if( (data[-1] & 0xC0) != 0x80 )	return 1;
+		// Check if byte is ascii
+		if( static_cast<unsigned char>(data[-1]) <= 0x7F )
+			return 1;
+		
+		// Check if byte is no data-blob
+		if( ( static_cast<unsigned char>(data[-1]) & 0xC0) != 0x80 || current_byte_index < 2 )	return 1;
 		// 110XXXXX - two bytes?
-		if( (data[-2] & 0xE0) == 0xC0 )	return 2;
+		if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )	return 2;
 		
-		// Check if byte is data-blob
-		if( (data[-2] & 0xC0) != 0x80 )	return 2;
+		// Check if byte is no data-blob
+		if( ( static_cast<unsigned char>(data[-2]) & 0xC0) != 0x80  || current_byte_index < 3 )	return 1;
 		// 1110XXXX - three bytes?
-		if( (data[-3] & 0xF0) == 0xE0 )	return 3;
+		if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )	return 3;
 		
-		// Check if byte is data-blob
-		if( (data[-3] & 0xC0) != 0x80 )	return 3;
+		// Check if byte is no data-blob
+		if( ( static_cast<unsigned char>(data[-3]) & 0xC0) != 0x80  || current_byte_index < 4 )	return 1;
 		// 11110XXX - four bytes?
-		if( (data[-4] & 0xF8) == 0xF0 )	return 4;
+		if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )	return 4;
 		
-		// Check if byte is data-blob
-		if( (data[-4] & 0xC0) != 0x80 )	return 4;
+		// Check if byte is no data-blob
+		if( ( static_cast<unsigned char>(data[-4]) & 0xC0) != 0x80  || current_byte_index < 5 )	return 1;
 		// 111110XX - five bytes?
-		if( (data[-5] & 0xFC) == 0xF8 )	return 5;
+		if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )	return 5;
 		
-		// Check if byte is data-blob
-		if( (data[-5] & 0xC0) != 0x80 )	return 5;
+		// Check if byte is no data-blob
+		if( ( static_cast<unsigned char>(data[-5]) & 0xC0) != 0x80  || current_byte_index < 6 )	return 1;
 		// 1111110X - six bytes?
-		if( (data[-6] & 0xFE) == 0xFC )	return 6;
+		if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )	return 6;
 	}
 	else
 	{
-		// Check if byte is no data-blob
-		if( (data[-1] & 0xC0) != 0x80 )
-			return 1;
-		else if( (data[-2] & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
-			return 2;
-		else if( (data[-3] & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
-			return 3;
-		else if( (data[-4] & 0xF8) == 0xF0 )  // 11110XXX  four bytes
-			return 4;
-		else if( (data[-5] & 0xFC) == 0xF8 )  // 111110XX  five bytes
-			return 5;
-		else if( (data[-6] & 0xFE) == 0xFC )  // 1111110X  six bytes
-			return 6;
+		// Only Check the possibilities, that could appear
+		switch( current_byte_index )
+		{
+			default:
+				if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )  // 1111110X  six bytes
+					return 6;
+			case 5:
+				if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )  // 111110XX  five bytes
+					return 5;
+			case 4:
+				if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )  // 11110XXX  four bytes
+					return 4;
+			case 3:
+				if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
+					return 3;
+			case 2:
+				if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
+					return 2;
+			case 1:
+				break;
+		}
 	}
 	return 1;
 }
@@ -293,7 +307,7 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_t
 		return 1;
 	
 	data += first_byte_index;
-	unsigned char first_byte = data[0];
+	unsigned char first_byte =  static_cast<unsigned char>(data[0]);
 	
 	// If we know the utf8 string is misformated, we have to check, how many 
 	if( this->misformated )
@@ -302,44 +316,58 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_t
 			return 1;
 		
 		// Check if byte is data-blob
-		if( (data[1] & 0xC0) != 0x80 )		return 1;
+		if( ( static_cast<unsigned char>(data[1]) & 0xC0) != 0x80 )		return 1;
 		// 110XXXXX - two bytes?
 		if( (first_byte & 0xE0) == 0xC0 )	return 2;
 		
 		// Check if byte is data-blob
-		if( (data[2] & 0xC0) != 0x80 )		return 2;
+		if( ( static_cast<unsigned char>(data[2]) & 0xC0) != 0x80 )		return 1;
 		// 1110XXXX - three bytes?
 		if( (first_byte & 0xF0) == 0xE0 )	return 3;
 		
 		// Check if byte is data-blob
-		if( (data[3] & 0xC0) != 0x80 )		return 3;
+		if( ( static_cast<unsigned char>(data[3]) & 0xC0) != 0x80 )		return 1;
 		// 11110XXX - four bytes?
 		if( (first_byte & 0xF8) == 0xF0 )	return 4;
 		
 		// Check if byte is data-blob
-		if( (data[4] & 0xC0) != 0x80 )		return 4;
+		if( ( static_cast<unsigned char>(data[4]) & 0xC0) != 0x80 )		return 1;
 		// 111110XX - five bytes?
 		if( (first_byte & 0xFC) == 0xF8 )	return 5;
 		
 		// Check if byte is data-blob
-		if( (data[5] & 0xC0) != 0x80 )		return 5;
+		if( ( static_cast<unsigned char>(data[5]) & 0xC0) != 0x80 )		return 1;
 		// 1111110X - six bytes?
 		if( (first_byte & 0xFE) == 0xFC )	return 6;
 	}
 	else
-	{
-		if( first_byte <= 0x7F )
-			return 1;
-		else if( (first_byte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
-			return 2;
-		else if( (first_byte & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
-			return 3;
-		else if( (first_byte & 0xF8) == 0xF0 )  // 11110XXX  four bytes
-			return 4;
-		else if( (first_byte & 0xFC) == 0xF8 )  // 111110XX  five bytes
-			return 5;
-		else if( (first_byte & 0xFE) == 0xFC )  // 1111110X  six bytes
-			return 6;
+	{	
+		// Only Check the possibilities, that could appear
+		switch( this->buffer_len - first_byte_index )
+		{
+			default:
+				if( (first_byte & 0xFE) == 0xFC )  // 1111110X  six bytes
+					return 6;
+			case 6:
+				if( (first_byte & 0xFC) == 0xF8 )  // 111110XX  five bytes
+					return 5;
+			case 5:
+				if( (first_byte & 0xF8) == 0xF0 )  // 11110XXX  four bytes
+					return 4;
+			case 4:
+				if( (first_byte & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
+					return 3;
+			case 3:
+				if( (first_byte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
+					return 2;
+			case 2:
+				if( first_byte <= 0x7F )
+					return 1;
+				this->misformated = true;
+			case 1:
+			case 0:
+				break;
+		}
 	}
 	return 1; // one byte
 }
@@ -348,7 +376,7 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_t
 
 unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) const
 {
-	unsigned char first_char = *data;
+	unsigned char first_char =  static_cast<unsigned char>(*data);
 	
 	if( !first_char ){
 		dest = 0;
@@ -382,12 +410,10 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) co
 	else if( (first_char & 0xFE) == 0xFC ){  // 1111 110X  six bytes
 		codepoint = first_char & 1;
 		num_bytes = 6;
-		misformated = true;
 	}
 	else{ // not a valid first byte of a UTF-8 sequence
 		codepoint = first_char;
 		num_bytes = 1;
-		misformated = true;
 	}
 	
 	if( !misformated )
@@ -395,16 +421,12 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) co
 			codepoint = (codepoint << 6) | (data[i] & 0x3F);
 	else
 		for( int i = 1 ; i < num_bytes ; i++ ){
-			if( !data[i] || (data[i] & 0xC0) != 0x80 ){
-				misformated = true;
-				num_bytes = i;
-				if( i == 1 )
-					codepoint = first_char;
-				else
-					codepoint = fallback_codepoint;
+			if( !data[i] || ( static_cast<unsigned char>(data[i]) & 0xC0) != 0x80 ){
+				num_bytes = 1;
+				codepoint = first_char;
 				break;
 			}
-			codepoint = (codepoint << 6) | (data[i] & 0x3F);
+			codepoint = (codepoint << 6) | ( static_cast<unsigned char>(data[i]) & 0x3F );
 		}
 	
 	dest = codepoint;
