@@ -536,7 +536,7 @@ unsigned char utf8_string::encode_utf8( value_type codepoint , char* dest )
 	}
 	if( codepoint <= 0x3FFFFFF ){ // 111110XX  five bytes
 		dest[0] = char( 0xF8 | (codepoint >> 24) );
-		dest[1] = char( 0x80 | (codepoint >> 18) & 0x3F);
+		dest[1] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
 		dest[2] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
 		dest[3] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
 		dest[4] = char( 0x80 | (codepoint & 0x3F) );

@@ -52,7 +52,7 @@ int main(int argc, char ** argv)
 		
 		fout << "Iterative output: ";
 		
-		std::for_each( begin(str) , end(str)
+		std::for_each( str.begin() , str.end()
 			, [&fout]( char32_t cp ){
 				if( cp <= 127 )
 					fout << char(cp);
@@ -63,7 +63,7 @@ int main(int argc, char ** argv)
 		
 		fout << endl << "Reverse iterative output: ";
 		
-		std::for_each( rbegin(str) , rend(str)
+		std::for_each( str.rbegin() , str.rend()
 			, [&fout]( char32_t cp ){
 				if( cp <= 127 )
 					fout << char(cp);
@@ -91,14 +91,14 @@ int main(int argc, char ** argv)
 		
 		fout << "Replaced codepoints 5-7 with ' ': " << str << endl;
 		
-		str.insert( begin(str) , utf8_string(U"ツ ") );
+		str.insert( str.begin() , utf8_string(U"ツ ") );
 		
 		fout << "Inserted at the start 'ツ ': " << str << endl << endl;
 	}
 	
-	// Test 4
+	// Test 5
 	{
-		fout << "Test 4: " << endl << "-------" << endl;
+		fout << "Test 5: " << endl << "-------" << endl;
 		
 		utf8_string str = utf8_string( U"Hello ツ World ♫" );
 		
@@ -113,9 +113,9 @@ int main(int argc, char ** argv)
 		fout << "Erased codepoints 0 to 6: " << str << endl << endl;
 	}
 	
-	// Test 5
+	// Test 6
 	{
-		fout << "Test 5: " << endl << "-------" << endl;
+		fout << "Test 6: " << endl << "-------" << endl;
 		
 		std::ifstream in = ifstream( "input.txt" , ios::binary );
 		
@@ -141,7 +141,7 @@ int main(int argc, char ** argv)
 		
 		fout << "Reverse Iterative Output: ";
 		
-		std::for_each( rbegin(str) , rend(str)
+		std::for_each( str.rbegin() , str.rend()
 			, [&fout]( char32_t cp ){
 				if( cp <= 127 )
 					fout << char(cp);
