@@ -23,6 +23,7 @@ int main(int argc, char ** argv)
 		fout << "Length: " << str.length() << endl;
 		fout << "Size (bytes): " << str.size() << endl;
 		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		fout << endl;
 	}
@@ -38,6 +39,7 @@ int main(int argc, char ** argv)
 		fout << "Length: " << str.length() << endl;
 		fout << "Size (bytes): " << str.size() << endl;
 		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		fout << endl;
 	}
@@ -49,6 +51,7 @@ int main(int argc, char ** argv)
 		utf8_string str = utf8_string( U"Hello ツ World ♫" );
 		
 		fout << "String: " << str << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		fout << "Iterative output: ";
 		
@@ -82,6 +85,7 @@ int main(int argc, char ** argv)
 		utf8_string str = utf8_string( U"Hello ツ World ♫" );
 		
 		fout << "String: " << str << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		str[6] = '~';
 		
@@ -103,6 +107,7 @@ int main(int argc, char ** argv)
 		utf8_string str = utf8_string( U"Hello ツ World ♫" );
 		
 		fout << "String: " << str << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		str.erase( 14 );
 		
@@ -119,12 +124,10 @@ int main(int argc, char ** argv)
 		
 		std::ifstream in = ifstream( "input.txt" , ios::binary );
 		
-		utf8_string str;
-		
-		in >> str;
+		utf8_string str = std::string( (std::istreambuf_iterator<char>(in)) , std::istreambuf_iterator<char>() );
 		
 		fout << "String (ANSI): " << str << endl;
-		fout << "MisFormated: " << str.is_misformated() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		fout << "Iterative Output: ";
 		
@@ -149,6 +152,12 @@ int main(int argc, char ** argv)
 					fout << "U\\" << int(cp);
 			}
 		);
+		
+		fout << endl;
+		
+		utf8_string corrected{str.wide_literal().get()};
+		
+		fout << "Converted to UTF-8: " << corrected << endl;
 		
 		fout << endl;
 	}

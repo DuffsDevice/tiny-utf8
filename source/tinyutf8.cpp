@@ -4,7 +4,7 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 	string_len( number )
 	, indices_of_multibyte( ch <= 0x7F && number ? nullptr : new utf8_string::size_type[number] )
 	, indices_len( ch <= 0x7F ? 0 : number )
-	, misformated( false )
+	, misformatted( false )
 	, static_buffer( false )
 {
 	if( !number ){
@@ -38,15 +38,18 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 	this->buffer[ this->buffer_len - 1 ] = 0;
 }
 
-
 utf8_string::utf8_string( const char* str , size_type len ) :
 	utf8_string()
 {
+	// Reset some attributes, or else 'get_num_bytes_of_utf8_char' will not work, since it thinks the string is empty
+	this->buffer_len = -1;
+	this->indices_len = -1;
+	
 	if( str && str[0] )
 	{
 		size_type		num_multibytes = 0;
 		size_type		num_bytes = 0;
-		unsigned char	bytes_to_skip = 0;
+		unsigned char	num_bytes_to_skip = 0;
 		
 		// Count Multibytes
 		for( ; str[num_bytes] && this->string_len < len ; num_bytes++ )
@@ -57,15 +60,16 @@ utf8_string::utf8_string( const char* str , size_type len ) :
 				continue;
 			
 			// Compute the number of bytes to skip
-			bytes_to_skip = get_num_bytes_of_utf8_char( str , num_bytes ) - 1;
+			num_bytes_to_skip = get_num_bytes_of_utf8_char( str , num_bytes );
 			
-			num_multibytes++; // Increase counter
+			num_multibytes++; // Increase number of occoured multibytes
 			
 			// Check if the string doesn't end just right inside the multibyte part!
-			while( bytes_to_skip-- > 0 )
+			while( --num_bytes_to_skip > 0 )
 			{
 				if( !str[num_bytes+1] || ( static_cast<unsigned char>(str[num_bytes+1]) & 0xC0 ) != 0x80 ){
-					this->misformated = true;
+					this->misformatted = true;
+					num_multibytes--; // Decrease counter, since that sequence is apparently no ++valid++ utf8
 					break;
 				}
 				num_bytes++;
@@ -90,19 +94,21 @@ utf8_string::utf8_string( const char* str , size_type len ) :
 				continue;
 			
 			// Compute number of bytes to skip
-			bytes_to_skip = get_num_bytes_of_utf8_char( buffer , index ) - 1;
+			num_bytes_to_skip = get_num_bytes_of_utf8_char( buffer , index ) - 1;
 			
 			this->indices_of_multibyte[multibyteIndex++] = index;
 			
-			if( this->misformated )
-				while( bytes_to_skip-- > 0 )
+			if( this->misformatted )
+				while( num_bytes_to_skip-- > 0 )
 				{
-					if( index + 1 == num_bytes || ( static_cast<unsigned char>(buffer[index+1]) & 0xC0 ) != 0x80 )
+					if( index + 1 == num_bytes || ( static_cast<unsigned char>(buffer[index+1]) & 0xC0 ) != 0x80 ){
+						multibyteIndex--; // Remove the byte position from the list, since its no ++valid++ multibyte sequence
 						break;
+					}
 					index++;
 				}
 			else
-				index += bytes_to_skip;
+				index += num_bytes_to_skip;
 		}
 	}
 }
@@ -158,7 +164,7 @@ utf8_string::utf8_string( utf8_string&& str ) :
 	, string_len( str.string_len )
 	, indices_of_multibyte( str.indices_of_multibyte )
 	, indices_len( str.indices_len )
-	, misformated( str.misformated )
+	, misformatted( str.misformatted )
 	, static_buffer( str.static_buffer )
 {
 	// Reset old string
@@ -175,7 +181,7 @@ utf8_string::utf8_string( const utf8_string& str ) :
 	, string_len( str.string_len )
 	, indices_of_multibyte( str.indices_len ? new size_type[str.indices_len] : nullptr )
 	, indices_len( str.indices_len )
-	, misformated( str.misformated )
+	, misformatted( str.misformatted )
 	, static_buffer( false )
 {
 	// Clone data
@@ -207,7 +213,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 	if( str.indices_len > 0 )
 		std::memcpy( new_indices , str.indices_of_multibyte , str.indices_len * sizeof(size_type) );
 	
-	this->misformated = str.misformated;
+	this->misformatted = str.misformatted;
 	this->string_len = str.string_len;
 	reset_buffer( new_buffer , str.buffer_len );
 	reset_indices( new_indices , str.indices_len );
@@ -219,7 +225,7 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 	// Copy data
 	reset_buffer( str.buffer , str.buffer_len );
 	reset_indices( str.indices_of_multibyte , str.indices_len );
-	this->misformated = str.misformated;
+	this->misformatted = str.misformatted;
 	this->string_len = str.string_len;
 	this->static_buffer = str.static_buffer;
 	
@@ -235,13 +241,13 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 
 unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index ) const
 {
-	if( current_byte_index > size() || !this->requires_unicode() || current_byte_index < 1 )
+	if( current_byte_index >= this->buffer_len || !this->requires_unicode() || current_byte_index < 1 )
 		return 1;
 	
 	data += current_byte_index;
 	
-	// If we know the utf8 string is misformated, we have to check, how many 
-	if( this->misformated )
+	// If we know the utf8 string is misformatted, we have to check, how many 
+	if( this->misformatted )
 	{
 		// Check if byte is ascii
 		if( static_cast<unsigned char>(data[-1]) <= 0x7F )
@@ -253,22 +259,22 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data ,
 		if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )	return 2;
 		
 		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-2]) & 0xC0) != 0x80  || current_byte_index < 3 )	return 1;
+		if( ( static_cast<unsigned char>(data[-2]) & 0xC0) != 0x80 || current_byte_index < 3 )	return 1;
 		// 1110XXXX - three bytes?
 		if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )	return 3;
 		
 		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-3]) & 0xC0) != 0x80  || current_byte_index < 4 )	return 1;
+		if( ( static_cast<unsigned char>(data[-3]) & 0xC0) != 0x80 || current_byte_index < 4 )	return 1;
 		// 11110XXX - four bytes?
 		if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )	return 4;
 		
 		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-4]) & 0xC0) != 0x80  || current_byte_index < 5 )	return 1;
+		if( ( static_cast<unsigned char>(data[-4]) & 0xC0) != 0x80 || current_byte_index < 5 )	return 1;
 		// 111110XX - five bytes?
 		if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )	return 5;
 		
 		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-5]) & 0xC0) != 0x80  || current_byte_index < 6 )	return 1;
+		if( ( static_cast<unsigned char>(data[-5]) & 0xC0) != 0x80 || current_byte_index < 6 )	return 1;
 		// 1111110X - six bytes?
 		if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )	return 6;
 	}
@@ -303,14 +309,14 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data ,
 
 unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_type first_byte_index ) const
 {
-	if( this->buffer_len <= first_byte_index )
+	if( this->buffer_len <= first_byte_index || !this->requires_unicode() )
 		return 1;
 	
 	data += first_byte_index;
 	unsigned char first_byte =  static_cast<unsigned char>(data[0]);
 	
-	// If we know the utf8 string is misformated, we have to check, how many 
-	if( this->misformated )
+	// If we know the utf8 string is misformatted, we have to check, how many 
+	if( this->misformatted )
 	{
 		if( first_byte <= 0x7F )
 			return 1;
@@ -363,7 +369,7 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_t
 			case 2:
 				if( first_byte <= 0x7F )
 					return 1;
-				this->misformated = true;
+				this->misformatted = true;
 			case 1:
 			case 0:
 				break;
@@ -405,7 +411,7 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) co
 	else if( (first_char & 0xFC) == 0xF8 ){  // 1111 10XX  five bytes
 		codepoint = first_char & 3;
 		num_bytes = 5;
-		misformated = true;
+		misformatted = true;
 	}
 	else if( (first_char & 0xFE) == 0xFC ){  // 1111 110X  six bytes
 		codepoint = first_char & 1;
@@ -416,7 +422,7 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest ) co
 		num_bytes = 1;
 	}
 	
-	if( !misformated )
+	if( !misformatted )
 		for( int i = 1 ; i < num_bytes ; i++ )
 			codepoint = (codepoint << 6) | (data[i] & 0x3F);
 	else
@@ -748,7 +754,7 @@ void utf8_string::raw_replace( size_type actual_start_index , size_type replaced
 		// Rewrite buffer
 		reset_buffer( new_buffer , new_buffer_len );
 		
-		this->misformated = this->misformated || replacement.misformated;
+		this->misformatted = this->misformatted || replacement.misformatted;
 	}
 	else
 		// Reset because empty
@@ -814,18 +820,17 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 bool utf8_string::equals( const char* str ) const
 {
 	const char* it1 = this->buffer;
-	const char* it2 = str;
 	
-	if( !it1 || !it2 )
-		return it1 == it2;
+	if( !it1 || !str )
+		return it1 == str;
 	
-	while( *it1 && *it2 ){
-		if( *it1 != *it2 )
+	while( *it1 && *str ){
+		if( *it1 != *str )
 			return false;
 		it1++;
-		it2++;
+		str++;
 	}
-	return *it1 == *it2;
+	return *it1 == *str;
 }
 
 bool utf8_string::equals( const value_type* str ) const
@@ -898,7 +903,7 @@ utf8_string::size_type utf8_string::find_first_of( const value_type* str , size_
 	for( iterator it = get( start_pos ) ; it < end() ; it++ )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = *it;
+		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
 				return it - begin();
@@ -935,7 +940,7 @@ utf8_string::size_type utf8_string::find_last_of( const value_type* str , size_t
 	while( it < rend() )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = *it;
+		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
 				return it - rbegin();
@@ -957,7 +962,7 @@ utf8_string::size_type utf8_string::raw_find_last_of( const value_type* str , si
 	for( difference_type it = byte_start ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = raw_at(it);
+		value_type			cur = raw_at(it);
 		do{
 			if( cur == *tmp )
 				return it;
@@ -978,7 +983,7 @@ utf8_string::size_type utf8_string::find_first_not_of( const value_type* str , s
 	for( iterator it = get(start_pos) ; it < end() ; it++ )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = *it;
+		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
 				goto continue2;
@@ -1000,7 +1005,7 @@ utf8_string::size_type utf8_string::raw_find_first_not_of( const value_type* str
 	for( size_type it = byte_start ; it < size() ; it += get_index_bytes( it ) )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = raw_at(it);
+		value_type			cur = raw_at(it);
 		do{
 			if( cur == *tmp )
 				goto continue2;
@@ -1027,7 +1032,7 @@ utf8_string::size_type utf8_string::find_last_not_of( const value_type* str , si
 	while( it < rend() )
 	{
 		const value_type*	tmp = str;
-		value_type		cur = *it;
+		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
 				goto continue2;
