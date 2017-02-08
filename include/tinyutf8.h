@@ -41,11 +41,11 @@ class utf8_string
 {
 	public:
 		
-		typedef size_t				size_type;
-		typedef ptrdiff_t			difference_type;
-		typedef char32_t			value_type;
-		constexpr static size_type	npos = -1;
-		static const value_type		fallback_codepoint = L'?';
+		typedef size_t							size_type;
+		typedef ptrdiff_t						difference_type;
+		typedef char32_t						value_type;
+		typedef const value_type&				const_reference;
+		constexpr static size_type				npos = -1;
 		
 		#ifdef _TINY_UTF8_H_USE_IOSTREAM_
 		friend std::ostream& operator<<( std::ostream& , const utf8_string& );
@@ -114,6 +114,8 @@ class utf8_string
 		
 	public:
 		
+		typedef utf8_codepoint_reference	reference;
+		
 		class iterator : public iterator_base
 		{
 			protected:
@@ -137,11 +139,7 @@ class utf8_string
 				
 				//! Default function
 				iterator( const iterator& ) = default;
-				iterator& operator=( const iterator& it ){
-					this->raw_index = it.raw_index;
-					this->instance = it.instance;
-					return *this;
-				}
+				iterator& operator=( const iterator& ) = default;
 				
 				//! Get the index
 				difference_type index() const {
@@ -226,19 +224,15 @@ class utf8_string
 				}
 				const_iterator( const iterator& it ) : iterator( it.index() , it.get_instance() ) { }
 				
-				//! Default function
+				//! Default copy ctor and copy asg
 				const_iterator( const const_iterator& ) = default;
-				const_iterator& operator=( const const_iterator& it ){
-					this->raw_index = it.raw_index;
-					this->instance = it.instance;
-					return *this;
-				}
+				const_iterator& operator=( const const_iterator& ) = default;
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
 				
 				//! Returns the value behind the iterator
-				value_type operator*(){ return this->instance->raw_at( this->raw_index ); }
+				value_type operator*() const { return this->instance->raw_at( this->raw_index ); }
 		};
 		
 		class reverse_iterator : public iterator_base
@@ -264,11 +258,7 @@ class utf8_string
 				
 				//! Default function
 				reverse_iterator( const reverse_iterator& ) = default;
-				reverse_iterator& operator=( const reverse_iterator& it ){
-					this->raw_index = it.raw_index;
-					this->instance = it.instance;
-					return *this;
-				}
+				reverse_iterator& operator=( const reverse_iterator& ) = default;
 				
 				//! From iterator to reverse_iterator
 				reverse_iterator& operator=( const iterator& it ){
@@ -360,17 +350,13 @@ class utf8_string
 				
 				//! Default functions
 				const_reverse_iterator( const const_reverse_iterator& ) = default;
-				const_reverse_iterator& operator=( const const_reverse_iterator& it ){
-					this->raw_index = it.raw_index;
-					this->instance = it.instance;
-					return *this;
-				}
+				const_reverse_iterator& operator=( const const_reverse_iterator& ) = default;
 				
 				//! Remove setter
 				void set( value_type value ) = delete;
 				
 				//! Returns the value behind the iterator
-				value_type operator*(){ return this->instance->raw_at( this->raw_index ); }
+				value_type operator*() const { return this->instance->raw_at( this->raw_index ); }
 		};
 		
 	private:
@@ -381,7 +367,7 @@ class utf8_string
 		size_type		string_len;
 		size_type*		indices_of_multibyte;
 		size_type		indices_len;
-		mutable bool	misformated;
+		mutable bool	misformatted;
 		bool			static_buffer;
 		
 		//! Frees the internal buffer of indices and sets it to the supplied value
@@ -487,7 +473,7 @@ class utf8_string
 			, string_len( string_len )
 			, indices_of_multibyte( indices_of_multibyte )
 			, indices_len( indices_len )
-			, misformated( false )
+			, misformatted( false )
 			, static_buffer( false )
 		{}
 		
@@ -504,7 +490,7 @@ class utf8_string
 			, string_len( 0 )
 			, indices_of_multibyte( nullptr )
 			, indices_len( 0 )
-			, misformated( false )
+			, misformatted( false )
 			, static_buffer( false )
 		{}
 		
@@ -649,7 +635,7 @@ class utf8_string
 		 */
 		void clear(){
 			this->string_len = 0;
-			this->misformated = false;
+			this->misformatted = false;
 			reset_buffer();
 			reset_indices();
 		}
@@ -660,7 +646,7 @@ class utf8_string
 		 * 
 		 * @return	True, if there is an encoding error, false, if the contained data is properly encoded
 		 */
-		bool is_misformated() const { return this->misformated; }
+		bool is_misformatted() const { return this->misformatted; }
 		
 		
 		/**
@@ -1173,7 +1159,7 @@ class utf8_string
 		 * @param	len		The number codepoints to be included within the substring
 		 * @return	The utf8_string holding the specified codepoints
 		 */
-		utf8_string substr( size_type pos , size_type len ) const
+		utf8_string substr( size_type pos , size_type len = utf8_string::npos ) const
 		{
 			difference_type	actualStartIndex = get_actual_index( pos );
 			
@@ -1196,7 +1182,7 @@ class utf8_string
 		 * @return	The utf8_string holding the specified bytes
 		 */
 		utf8_string raw_substr( size_type byte_index , size_type byte_count , size_type numCodepoints ) const ;
-		utf8_string raw_substr( size_type byte_index , size_type byte_count ) const {
+		utf8_string raw_substr( size_type byte_index , size_type byte_count = utf8_string::npos ) const {
 			if( byte_count == utf8_string::npos )
 				byte_count = size() - byte_index;
 			return raw_substr( byte_index , byte_count , get_num_resulting_codepoints( byte_index , byte_count ) );
@@ -1290,7 +1276,7 @@ class utf8_string
 		 * @param	start_codepoint	The index of the first codepoint to start looking from (backwards)
 		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type rfind( value_type ch , size_type startCodepoint = utf8_string::npos ) const ;
+		size_type rfind( value_type ch , size_type start_codepoint = utf8_string::npos ) const ;
 		/**
 		 * Finds the last occourence of a specific codepoint inside the
 		 * utf8_string starting backwards at the supplied byte index
@@ -1299,7 +1285,7 @@ class utf8_string
 		 * @param	start_codepoint	The byte index of the first codepoint to start looking from (backwards)
 		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type raw_rfind( value_type ch , size_type startByte = utf8_string::npos ) const ;
+		size_type raw_rfind( value_type ch , size_type start_byte = utf8_string::npos ) const ;
 		
 		//! Find characters in string
 		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const ;
