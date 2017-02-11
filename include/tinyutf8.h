@@ -120,13 +120,13 @@ class utf8_string
 		{
 			protected:
 				
-				size_type		raw_index;
+				difference_type	raw_index;
 				utf8_string*	instance;
 				
 			public:
 				
 				//! Ctor
-				iterator( size_type raw_index , utf8_string* instance ) :
+				iterator( difference_type raw_index , utf8_string* instance ) :
 					raw_index( raw_index )
 					, instance( instance )
 				{}
@@ -165,10 +165,20 @@ class utf8_string
 				}
 				
 				//! Increase the Iterator %nth times
-				friend iterator operator+( const iterator& it , size_type nth );
-				iterator& operator+=( size_type nth ){
-					while( nth-- > 0 )
+				iterator operator+( difference_type nth ){
+					iterator it{*this};
+					it += nth;
+					return it;
+				}
+				iterator& operator+=( difference_type nth ){
+					while( nth > 0 ){
 						this->raw_index += this->instance->get_index_bytes( this->raw_index );
+						nth--;
+					}
+					while( nth < 0 ){
+						this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
+						nth++;
+					}
 					return *this;
 				}
 				
@@ -207,7 +217,7 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_iterator( size_type raw_index , const utf8_string* instance ) :
+				const_iterator( difference_type raw_index , const utf8_string* instance ) :
 					iterator( raw_index , const_cast<utf8_string*>(instance) )
 				{}
 				
@@ -289,10 +299,20 @@ class utf8_string
 					this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
 					return *this;
 				}
-				friend reverse_iterator operator+( const reverse_iterator& it , size_type nth );
-				reverse_iterator& operator+=( size_type nth ){
-					while( nth-- > 0 )
+				reverse_iterator operator+( difference_type nth ){
+					reverse_iterator it{*this};
+					it += nth;
+					return it;
+				}
+				reverse_iterator& operator+=( difference_type nth ){
+					while( nth > 0 ){
 						this->raw_index -= this->instance->get_index_pre_bytes( this->raw_index );
+						nth--;
+					}
+					while( nth < 0 ){
+						this->raw_index += this->instance->get_index_bytes( this->raw_index );
+						nth++;
+					}
 					return *this;
 				}
 				
@@ -331,7 +351,7 @@ class utf8_string
 			public:
 				
 				//! Ctor
-				const_reverse_iterator( size_type raw_index , const utf8_string* instance ) :
+				const_reverse_iterator( difference_type raw_index , const utf8_string* instance ) :
 					reverse_iterator( raw_index , const_cast<utf8_string*>(instance) )
 				{}
 				
@@ -1362,10 +1382,6 @@ class utf8_string
 		//! Friend iterator difference computation functions
 		friend int				operator-( const iterator& left , const iterator& right );
 		friend int				operator-( const reverse_iterator& left , const reverse_iterator& right );
-		
-		//! Friend summation functions
-		friend iterator			operator+( const iterator& it , size_type nth );
-		friend reverse_iterator	operator+( const reverse_iterator& it , size_type nth );
 };
 
 extern int								operator-( const utf8_string::iterator& left , const utf8_string::iterator& right );

@@ -1,6 +1,7 @@
 ﻿#include <iostream>
 #include <algorithm>
 #include <fstream>
+#include <string>
 #define _TINY_UTF8_H_USE_IOSTREAM_
 #include <tinyutf8.h>
 
@@ -162,6 +163,16 @@ int main(int argc, char ** argv)
 		fout << endl;
 	}
 	
+	
+	// Test 7
+	{
+		fout << "Test 7: " << endl << "-------" << endl;
+		
+		utf8_string str = utf8_string( U"Hellツ World ツrgeg" );
+		
+		fout << "FLNO: " << str.find_last_of( U"ツ" ) << endl;
+		fout << "FLNO: TEST: " << string("Hello World *rgeg") .find_last_of( "*" ) << endl;
+	}
 	
 	return 0;
 }
