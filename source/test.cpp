@@ -114,9 +114,9 @@ int main(int argc, char ** argv)
 		
 		fout << "Erased codepoint 14: " << str << endl;
 		
-		str.erase( str.begin() , str.begin() + 6 );
+		str.erase( str.begin() , str.begin() + 7 );
 		
-		fout << "Erased codepoints 0 to 6: " << str << endl << endl;
+		fout << "Erased codepoints 0 to 7: " << str << endl << endl;
 	}
 	
 	// Test 6
@@ -168,10 +168,19 @@ int main(int argc, char ** argv)
 	{
 		fout << "Test 7: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hellツ World ツrgeg" );
+		utf8_string str = utf8_string( U"Hello World ツ♫" );
 		
-		fout << "FLNO: " << str.find_last_of( U"ツ" ) << endl;
-		fout << "FLNO: TEST: " << string("Hello World *rgeg") .find_last_of( "*" ) << endl;
+		fout << "Find Last Not of ツ:" << str.find_last_not_of( U"ツ♫" ) << endl;
+		fout << "Correct Result: " << string("Hello World *+") .find_last_not_of( "*+" ) << endl;
+		
+		fout << "Find Last of ツ:" << str.find_last_of( U"e" ) << endl;
+		fout << "Correct Result: " << string("Hello World *+") .find_last_of( "e" ) << endl;
+		
+		fout << "Find l:" << str.find( U'l' ) << endl;
+		fout << "Correct Result: " << string("Hello World *+") .find( 'l' ) << endl;
+		
+		fout << "RFind l:" << str.rfind( U'l' ) << endl;
+		fout << "Correct Result: " << string("Hello World *+") .rfind( 'l' ) << endl;
 	}
 	
 	return 0;

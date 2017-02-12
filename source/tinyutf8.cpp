@@ -808,7 +808,7 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 	const_iterator	end2 = str.cend();
 	
 	while( it1 != end1 && it2 != end2 ){
-		difference_type diff = it2.get() - it1.get();
+		difference_type diff = *it2 - *it1;
 		if( diff )
 			return diff;
 		it1++;
@@ -839,7 +839,7 @@ bool utf8_string::equals( const value_type* str ) const
 	const_iterator	end = cend();
 	
 	while( it != end && *str ){
-		if( *str != it.get() )
+		if( *str != *it )
 			return false;
 		it++;
 		str++;
@@ -852,7 +852,7 @@ bool utf8_string::equals( const value_type* str ) const
 
 utf8_string::size_type utf8_string::find( value_type ch , size_type start_pos ) const
 {
-	for( iterator it = get(start_pos) ; it < end() ; it++ )
+	for( const_iterator it = get(start_pos) ; it < cend() ; it++ )
 		if( *it == ch )
 			return it - begin();
 	return utf8_string::npos;
@@ -871,10 +871,10 @@ utf8_string::size_type utf8_string::raw_find( value_type ch , size_type byte_sta
 
 utf8_string::size_type utf8_string::rfind( value_type ch , size_type start_pos ) const
 {
-	reverse_iterator it = ( start_pos >= length() ) ? rbegin() : rget( start_pos );
-	while( it < rend() ){
+	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
+	while( it < crend() ){
 		if( *it == ch )
-			return it - rbegin();
+			return -( it - cbegin() );
 		it++;
 	}
 	return utf8_string::npos;
@@ -900,7 +900,7 @@ utf8_string::size_type utf8_string::find_first_of( const value_type* str , size_
 	if( start_pos >= length() )
 		return utf8_string::npos;
 	
-	for( iterator it = get( start_pos ) ; it < end() ; it++ )
+	for( const_iterator it = get( start_pos ) ; it < cend() ; it++ )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
@@ -935,7 +935,7 @@ utf8_string::size_type utf8_string::raw_find_first_of( const value_type* str , s
 
 utf8_string::size_type utf8_string::find_last_of( const value_type* str , size_type start_pos ) const
 {
-	reverse_iterator it = ( start_pos >= length() ) ? rbegin() : rget( start_pos );
+	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
 	
 	while( it < rend() )
 	{
@@ -980,7 +980,7 @@ utf8_string::size_type utf8_string::find_first_not_of( const value_type* str , s
 	if( start_pos >= length() )
 		return utf8_string::npos;
 	
-	for( iterator it = get(start_pos) ; it < end() ; it++ )
+	for( const_iterator it = get(start_pos) ; it < cend() ; it++ )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
@@ -1027,7 +1027,7 @@ utf8_string::size_type utf8_string::find_last_not_of( const value_type* str , si
 	if( empty() )
 		return utf8_string::npos;
 	
-	reverse_iterator it = ( start_pos >= length() ) ? rbegin() : rget( start_pos );
+	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
 	
 	while( it < rend() )
 	{
@@ -1076,18 +1076,18 @@ utf8_string::size_type utf8_string::raw_find_last_not_of( const value_type* str 
 
 
 
-int operator-( const utf8_string::iterator& left , const utf8_string::iterator& right )
+int operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs )
 {
-	utf8_string::size_type minIndex = std::min( left.raw_index , right.raw_index );
-	utf8_string::size_type max_index = std::max( left.raw_index , right.raw_index );
-	utf8_string::size_type num_codepoints = left.instance->get_num_resulting_codepoints( minIndex , max_index - minIndex );
-	return max_index == left.raw_index ? num_codepoints : -num_codepoints;
+	utf8_string::size_type minIndex = std::min( lhs.get_index() , rhs.get_index() );
+	utf8_string::size_type max_index = std::max( lhs.get_index() , rhs.get_index() );
+	utf8_string::size_type num_codepoints = lhs.get_instance()->get_num_resulting_codepoints( minIndex , max_index - minIndex );
+	return max_index == lhs.get_index() ? num_codepoints : -num_codepoints;
 }
 
-int operator-( const utf8_string::reverse_iterator& left , const utf8_string::reverse_iterator& right )
+int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs )
 {
-	utf8_string::difference_type	minIndex = std::min( left.raw_index , right.raw_index );
-	utf8_string::difference_type	max_index = std::max( left.raw_index , right.raw_index );
-	utf8_string::size_type			num_codepoints = left.instance->get_num_resulting_codepoints( minIndex , max_index - minIndex );
-	return max_index == right.raw_index ? num_codepoints : -num_codepoints;
+	utf8_string::difference_type	minIndex = std::min( lhs.get_index() , rhs.get_index() );
+	utf8_string::difference_type	max_index = std::max( lhs.get_index() , rhs.get_index() );
+	utf8_string::size_type			num_codepoints = lhs.get_instance()->get_num_resulting_codepoints( minIndex , max_index - minIndex );
+	return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
 }

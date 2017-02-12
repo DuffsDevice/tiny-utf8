@@ -1,0 +1,58 @@
+﻿Test 1: 
+-------
+String: Hello ツ World
+Length: 13
+Size (bytes): 15
+RequiresUnicode: 1
+MisFormatted: 0
+NumMultibytes: 1
+
+Test 2: 
+-------
+String: Hello ツ ♫ World
+Length: 15
+Size (bytes): 19
+RequiresUnicode: 1
+MisFormatted: 0
+NumMultibytes: 2
+
+Test 3: 
+-------
+String: Hello ツ World ♫
+MisFormatted: 0
+Iterative output: Hello U\12484 World U\9835
+Reverse iterative output: U\9835 dlroW U\12484 olleH
+
+Test 4: 
+-------
+String: Hello ツ World ♫
+MisFormatted: 0
+Replaced codepoint 6 with ~: Hello ~ World ♫
+Replaced codepoints 5-7 with ' ': Hello World ♫
+Inserted at the start 'ツ ': ツ Hello World ♫
+
+Test 5: 
+-------
+String: Hello ツ World ♫
+MisFormatted: 0
+Erased codepoint 14: Hello ツ World 
+Erased codepoints 0 to 6:  World 
+
+Test 6: 
+-------
+String (ANSI): L�wen, B�ren, V�gel und K�fer sind Tiere.
+MisFormatted: 1
+Iterative Output: LU\246wen, BU\228ren, VU\246gel und KU\228fer sind Tiere.
+Reverse Iterative Output: .ereiT dnis refU\228K dnu legU\246V ,nerU\228B ,newU\246L
+Converted to UTF-8: Löwen, Bären, Vögel und Käfer sind Tiere.
+
+Test 7: 
+-------
+Find Last Not of ツ:11
+Correct Result: 11
+Find Last of ツ:1
+Correct Result: 1
+Find l:2
+Correct Result: 2
+RFind l:9
+Correct Result: 9
