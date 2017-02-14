@@ -17,7 +17,7 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 	
 	if( num_bytes > 1 )
 	{
-		size_type*	indices = this->new_indices_of_multibyte( num_bytes > 1 ? number : 0 );
+		size_type*	indices = this->new_indices_table( num_bytes > 1 ? number : 0 );
 		char		representation[6];
 		char*		orig_buffer = buffer;
 		
@@ -98,7 +98,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	
 	// Initialize the internal buffer
 	char* buffer = this->new_buffer( num_bytes + 1 ); // +1 for the trailling zero
-	size_type* indices = new_indices_of_multibyte( num_multibytes );
+	size_type* indices = this->new_indices_table( num_multibytes );
 	
 	char* cur_writer = buffer;
 	
@@ -108,7 +108,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 		// Encode wide char to utf8
 		unsigned char num_bytes = encode_utf8( str[i] , cur_writer );
 		
-		// Push position of character to 'indices_of_multibyte'
+		// Push position of character to 'indices'
 		if( num_bytes > 1 && indices )
 			indices[cur_multibyte_index++] = cur_writer - buffer;
 		
@@ -135,12 +135,12 @@ utf8_string::utf8_string( utf8_string&& str ) :
 	, buffer_len( str.buffer_len )
 	, buffer( str.buffer )
 	, string_len( str.string_len )
-	, indices_of_multibyte( str.indices_of_multibyte )
+	, indices( str.indices )
 	, indices_len( str.indices_len )
 {
 	// Reset old string
 	str.buffer = nullptr;
-	str.indices_of_multibyte = nullptr;
+	str.indices = nullptr;
 	str.indices_len = 0;
 	str.buffer_len = 0;
 	str.string_len = 0;
@@ -151,7 +151,7 @@ utf8_string::utf8_string( const utf8_string& str ) :
 	, buffer_len( str.buffer_len )
 	, buffer( nullptr )
 	, string_len( str.string_len )
-	, indices_of_multibyte( nullptr )
+	, indices( nullptr )
 	, indices_len( 0 )
 {
 	// Clone data
@@ -161,7 +161,7 @@ utf8_string::utf8_string( const utf8_string& str ) :
 	
 	// Clone indices
 	if( const size_type* indices = str.get_indices_of_multibyte() )
-		if( size_type* my_indices = this->new_indices_of_multibyte( str.indices_len ) )
+		if( size_type* my_indices = this->new_indices_table( str.indices_len ) )
 			std::memcpy( my_indices , indices , str.indices_len * sizeof(size_type) );
 }
 
@@ -183,8 +183,8 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 	
 	// Clone indices
 	if( !is_small_string( this->buffer_len ) )
-		if( size_type* indices = this->new_indices_of_multibyte( str.get_indices_len() ) )
-			std::memcpy( indices , str.indices_of_multibyte , this->indices_len * sizeof(size_type) );
+		if( size_type* indices = this->new_indices_table( str.get_indices_len() ) )
+			std::memcpy( indices , str.indices , this->indices_len * sizeof(size_type) );
 	
 	this->misformatted = str.misformatted;
 	
@@ -205,7 +205,7 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 	memcpy( this , &str , sizeof(utf8_string) );
 	
 	// Reset old string
-	str.indices_of_multibyte = nullptr;
+	str.indices = nullptr;
 	str.indices_len = 0;
 	str.buffer = nullptr;
 	str.buffer_len = 0;
@@ -465,12 +465,12 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type star
 		size_type index_multibyte_table = 0;
 		
 		// Iterate to the start of the relevant part of the multibyte table
-		for( ; index_multibyte_table < this->indices_len && this->indices_of_multibyte[index_multibyte_table] < start_byte ; index_multibyte_table++ );
+		for( ; index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte ; index_multibyte_table++ );
 		
 		// Iterate over relevant multibyte indices
 		while( index_multibyte_table < this->indices_len )
 		{
-			cur_index = this->indices_of_multibyte[index_multibyte_table];
+			cur_index = this->indices[index_multibyte_table];
 			
 			if( cur_index > end_index )
 				break;
@@ -515,12 +515,12 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 		size_type index_multibyte_table = 0;
 		
 		// Iterate to the start of the relevant part of the multibyte table
-		for( ; index_multibyte_table < this->indices_len && this->indices_of_multibyte[index_multibyte_table] < start_byte ; index_multibyte_table++ );
+		for( ; index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte ; index_multibyte_table++ );
 		
 		// Iterate over relevant multibyte indices
 		while( index_multibyte_table < this->indices_len )
 		{
-			size_type multibyte_pos = this->indices_of_multibyte[index_multibyte_table];
+			size_type multibyte_pos = this->indices[index_multibyte_table];
 		
 			if( multibyte_pos >= cur_byte )
 				break;
@@ -586,7 +586,7 @@ unsigned char utf8_string::encode_utf8( value_type codepoint , char* dest )
 void utf8_string::compute_multibyte_table( size_type num_multibytes , bool* misformatted )
 {
 	// initialize indices table
-	size_type*	indices = this->new_indices_of_multibyte( num_multibytes );
+	size_type*	indices = this->new_indices_table( num_multibytes );
 	char*		buffer = this->get_buffer();
 	
 	// if we could allocate the indices table
@@ -640,24 +640,24 @@ utf8_string utf8_string::raw_substr( size_type start_byte , size_type byte_count
 		{
 			// Look for start of indices
 			size_type index_multibyte_table = 0;
-			while( index_multibyte_table < this->indices_len && this->indices_of_multibyte[index_multibyte_table] < start_byte )
+			while( index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte )
 				index_multibyte_table++;
 			
 			size_type	start_of_multibytes_in_range = index_multibyte_table;
 			
 			// Look for the end
-			while( index_multibyte_table < this->indices_len && this->indices_of_multibyte[index_multibyte_table] < end_index )
+			while( index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < end_index )
 				index_multibyte_table++;
 			
 			// Compute number of indices 
 			size_type new_indices_len = index_multibyte_table - start_of_multibytes_in_range;
 			
 			// Create new indices
-			size_type* dest_indices = result.new_indices_of_multibyte( new_indices_len );
+			size_type* dest_indices = result.new_indices_table( new_indices_len );
 			
 			// Copy indices
 			for( size_type i = 0 ; i < new_indices_len ; i++ )
-				dest_indices[i] = this->indices_of_multibyte[start_of_multibytes_in_range + i] - start_byte;
+				dest_indices[i] = this->indices[start_of_multibytes_in_range + i] - start_byte;
 		}
 		
 		// Set string length
@@ -686,7 +686,7 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 	difference_type	byte_difference = replaced_bytes - replacement_bytes;
 	char*			old_buffer = this->get_buffer();
 	size_type		old_buffer_len = this->buffer_len;
-	size_type*		old_indices = this->indices_of_multibyte;
+	size_type*		old_indices = this->indices;
 	size_type		old_indices_len = this->indices_len;
 	char*			dest_buffer = old_buffer;
 	size_type		normalized_buffer_len = std::max<size_type>( this->buffer_len , 1 );
@@ -805,12 +805,12 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 	size_type		replaced_indices_start = 0;
 	
 	// Look for start of indices
-	while( replaced_indices_start < this->indices_len && this->indices_of_multibyte[replaced_indices_start] < start_byte )
+	while( replaced_indices_start < this->indices_len && this->indices[replaced_indices_start] < start_byte )
 		replaced_indices_start++;
 	
 	// Look for the end
 	size_type replaced_indices_end = replaced_indices_start;
-	while( replaced_indices_end < this->indices_len && this->indices_of_multibyte[replaced_indices_end] < end_byte )
+	while( replaced_indices_end < this->indices_len && this->indices[replaced_indices_end] < end_byte )
 		replaced_indices_end++;
 	
 	// Compute the number of relevant multibytes
@@ -833,7 +833,7 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 		// Since the old string was not small, it had an allocated table of multibytes that we need to delete
 		delete[] old_indices;
 		
-		this->indices_of_multibyte = nullptr;
+		this->indices = nullptr;
 		this->indices_len = 0;
 		
 		return;
@@ -843,7 +843,7 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 	if( old_indices_len != new_indices_len )
 	{
 		// Allocate new buffer
-		new_indices = this->new_indices_of_multibyte( new_indices_len );
+		new_indices = this->new_indices_table( new_indices_len );
 		
 		size_type		num_indices_before_replacement = replaced_indices_start;
 		size_type		num_indices_after_replacement = old_indices_len - replaced_indices_end;
@@ -896,7 +896,7 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 		replacement_codepoints = replacement.length();
 		
 		// Copy indices of replacement
-		size_type*		source = replacement.indices_of_multibyte;
+		size_type*		source = replacement.indices;
 		while( num_replacement_multibytes-- > 0 )
 			*dest++ = *source++ + start_byte;
 	}

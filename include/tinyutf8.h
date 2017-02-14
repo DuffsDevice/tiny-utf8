@@ -374,7 +374,7 @@ class utf8_string
 		};
 		char*			buffer;
 		size_type		string_len;
-		size_type*		indices_of_multibyte;
+		size_type*		indices; // Holds a list of the indices of all multibytes, so we can have random access in O(NumberOfMultibytes) time
 		size_type		indices_len;
 		
 		//! Get the maximum number of bytes that can be stored within a utf8_string object
@@ -404,16 +404,16 @@ class utf8_string
 		
 		//! Get indices (used for SSO)
 		size_type* get_indices_of_multibyte(){
-			return is_small_string( this->buffer_len ) ? nullptr : this->indices_of_multibyte;
+			return is_small_string( this->buffer_len ) ? nullptr : this->indices;
 		}
 		const size_type* get_indices_of_multibyte() const {
-			return is_small_string( this->buffer_len ) ? nullptr : this->indices_of_multibyte;
+			return is_small_string( this->buffer_len ) ? nullptr : this->indices;
 		}
-		size_type* new_indices_of_multibyte( size_type new_size ){
+		size_type* new_indices_table( size_type new_size ){
 			if( is_small_string( this->buffer_len ) || !new_size )
 				return nullptr;
 			this->indices_len = new_size;
-			return this->indices_of_multibyte = new size_type[new_size];
+			return this->indices = new size_type[new_size];
 		}
 		
 		//! Returns the length of the indices table
@@ -531,12 +531,12 @@ class utf8_string
 		size_type get_num_resulting_bytes( size_type byte_start , size_type codepoint_count ) const ;
 		
 		//! Ctor from buffer and indices
-		utf8_string( char* buffer , size_type buffer_len , size_type string_len , size_type* indices_of_multibyte , size_type indices_len ) :
+		utf8_string( char* buffer , size_type buffer_len , size_type string_len , size_type* indices , size_type indices_len ) :
 			misformatted( false )
 			, buffer_len( buffer_len )
 			, buffer( buffer )
 			, string_len( string_len )
-			, indices_of_multibyte( indices_of_multibyte )
+			, indices( indices )
 			, indices_len( indices_len )
 		{}
 		
@@ -555,7 +555,7 @@ class utf8_string
 			, buffer_len( 0 )
 			, buffer( nullptr )
 			, string_len( 0 )
-			, indices_of_multibyte( nullptr )
+			, indices( nullptr )
 			, indices_len( 0 )
 		{}
 		
@@ -699,10 +699,10 @@ class utf8_string
 		 */
 		void clear(){
 			if( !is_small_string( this->buffer_len ) ){
-				delete[] this->indices_of_multibyte;
+				delete[] this->indices;
 				delete[] this->buffer;
 				this->indices_len = 0;
-				this->indices_of_multibyte = 0;
+				this->indices = 0;
 			}
 			this->string_len = 0;
 			this->misformatted = false;
@@ -1440,22 +1440,22 @@ class utf8_string
 		//! Get the number of bytes of codepoint in utf8_string
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr );
 		}
 		unsigned char get_index_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr );
 		}
 		
 		
 		//! Get the number of bytes before a codepoint, that build up a new codepoint
 		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return this->string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr  ) : 1;
+			return this->string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr  ) : 1;
 		}
 		unsigned char get_index_pre_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return this->buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr ) : 1;
+			return this->buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr ) : 1;
 		}
 		
 		//! Friend iterator difference computation functions
