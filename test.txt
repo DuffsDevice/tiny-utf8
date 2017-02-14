@@ -1,11 +1,37 @@
-﻿Test 1: 
+﻿Test 1a: 
 -------
-String: Hello ツ World
-Length: 13
-Size (bytes): 15
+String: SSO: ツ♫
+Length: 7
+Size (bytes): 11
+RequiresUnicode: 1
+MisFormatted: 0
+NumMultibytes: 2
+SSOActive: 1
+MaxSmallStringBytes: 16
+7th codepoint: 9835
+
+Test 1b: 
+-------
+String: ツ
+Length: 1
+Size (bytes): 3
 RequiresUnicode: 1
 MisFormatted: 0
 NumMultibytes: 1
+SSOActive: 1
+MaxSmallStringBytes: 16
+7th codepoint: 0
+
+Test 1c: 
+-------
+String: Hello  ツ  World
+Length: 15
+Size (bytes): 17
+RequiresUnicode: 1
+MisFormatted: 0
+NumMultibytes: 1
+SSOActive: 0
+9nd codepoint:  
 
 Test 2: 
 -------
@@ -15,35 +41,57 @@ Size (bytes): 19
 RequiresUnicode: 1
 MisFormatted: 0
 NumMultibytes: 2
+SSOActive: 0
+Appended '♫ World': Hello ツ ♫ World and ♫ World
+Length: 27
+Size (bytes): 33
+RequiresUnicode: 1
+MisFormatted: 0
+NumMultibytes: 3
+SSOActive: 0
+
 
 Test 3: 
 -------
 String: Hello ツ World ♫
+SSOActive: 0
+RequiresUnicode: 1
 MisFormatted: 0
 Iterative output: Hello U\12484 World U\9835
 Reverse iterative output: U\9835 dlroW U\12484 olleH
+Random access output: Hello U\12484 World U\9835
 
 Test 4: 
 -------
-String: Hello ツ World ♫
+String: Hello ツ World
+SSOActive: 1
+RequiresUnicode: 1
 MisFormatted: 0
-Replaced codepoint 6 with ~: Hello ~ World ♫
-Replaced codepoints 5-7 with ' ': Hello World ♫
-Inserted at the start 'ツ ': ツ Hello World ♫
+Replaced codepoint 6 with 🤝: Hello 🤝 World
+Replaced codepoints 5-7 with ' ': Hello World
+Replaced the space and its neighbours with '🤝': Hell~ 🤝 ~orld
+SSOActive: 0
+NumMultibytes: 1
+MisFormatted: 0
 
 Test 5: 
 -------
-String: Hello ツ World ♫
+String: Hello ツ World♫
+SSOActive: 0
+RequiresUnicode: 1
 MisFormatted: 0
-Erased codepoint 14: Hello ツ World 
-Erased codepoints 0 to 6:  World 
+Erased 14th codepoint: Hello ツ World
+SSOActive: 1
+Erased codepoints [0,8): World
 
 Test 6: 
 -------
 String (ANSI): L�wen, B�ren, V�gel und K�fer sind Tiere.
+RequiresUnicode: 0
+SSOActive: 0
 MisFormatted: 1
-Iterative Output: LU\246wen, BU\228ren, VU\246gel und KU\228fer sind Tiere.
-Reverse Iterative Output: .ereiT dnis refU\228K dnu legU\246V ,nerU\228B ,newU\246L
+Iterative Output: LU\-10wen, BU\-28ren, VU\-10gel und KU\-28fer sind Tiere.
+Reverse Iterative Output: .ereiT dnis rU\-28K dnu U\-10V ,nU\-28B ,U\-10L
 Converted to UTF-8: Löwen, Bären, Vögel und Käfer sind Tiere.
 
 Test 7: 
@@ -56,3 +104,11 @@ Find l:2
 Correct Result: 2
 RFind l:9
 Correct Result: 9
+
+Test 8: 
+-------
+Full String: Hello ツ World rg rth rt he rh we gxgre
+Substring 3[16]: lo ツ World rg rt
+SSOActive: 0
+MisFormatted: 0
+7th codepoint: o

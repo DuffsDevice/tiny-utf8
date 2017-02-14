@@ -2,23 +2,25 @@
 #include <algorithm>
 #include <fstream>
 #include <string>
+#include <utility>
 #define _TINY_UTF8_H_USE_IOSTREAM_
 #include <tinyutf8.h>
 
 using namespace std;
 
-int main(int argc, char ** argv)
+
+int main()
 {
 	ofstream fout = ofstream( "test.txt" , std::ios::binary );
 	
 	// Prepend the UTF-8 Byte Order Mark
 	fout << utf8_string().cpp_str(true);
 	
-	// Test 1
+	// Test 1a
 	{
-		fout << "Test 1: " << endl << "-------" << endl;
+		fout << "Test 1a: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ World" );
+		utf8_string str = utf8_string( U"SSO: ツ♫" );
 		
 		fout << "String: " << str << endl;
 		fout << "Length: " << str.length() << endl;
@@ -26,6 +28,44 @@ int main(int argc, char ** argv)
 		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
+		fout << "7th codepoint: " << str[6] << endl;
+		fout << endl;
+	}
+	
+	// Test 1b
+	{
+		fout << "Test 1b: " << endl << "-------" << endl;
+		
+		utf8_string str = utf8_string( 1 , U'ツ' );
+		
+		fout << "String: " << str << endl;
+		fout << "Length: " << str.length() << endl;
+		fout << "Size (bytes): " << str.size() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
+		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
+		fout << "7th codepoint: " << str[6] << endl;
+		fout << endl;
+	}
+	
+	// Test 1c
+	{
+		fout << "Test 1c: " << endl << "-------" << endl;
+		
+		utf8_string str = utf8_string( U"Hello  ツ  World" );
+		
+		fout << "String: " << str << endl;
+		fout << "Length: " << str.length() << endl;
+		fout << "Size (bytes): " << str.size() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
+		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "9nd codepoint: " << (char)str[8] << endl;
 		fout << endl;
 	}
 	
@@ -42,7 +82,20 @@ int main(int argc, char ** argv)
 		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
-		fout << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		
+		str.append( U" and ♫ World" );
+		
+		
+		fout << "Appended '♫ World': " << str << endl;
+		fout << "Length: " << str.length() << endl;
+		fout << "Size (bytes): " << str.size() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
+		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		
+		fout << endl << endl;
 	}
 	
 	// Test 3
@@ -52,6 +105,8 @@ int main(int argc, char ** argv)
 		utf8_string str = utf8_string( U"Hello ツ World ♫" );
 		
 		fout << "String: " << str << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		fout << "Iterative output: ";
@@ -76,6 +131,17 @@ int main(int argc, char ** argv)
 			}
 		);
 		
+		fout << endl << "Random access output: ";
+		
+		for( int i = 0 ; i < str.length() ; i++ )
+		{
+			char32_t cp = str[i];
+			if( cp <= 127 )
+				fout << char(cp);
+			else
+				fout << "U\\" << int(cp);
+		}
+		
 		fout << endl << endl;
 	}
 	
@@ -83,40 +149,48 @@ int main(int argc, char ** argv)
 	{
 		fout << "Test 4: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ World ♫" );
+		utf8_string str = utf8_string( U"Hello ツ World" );
 		
 		fout << "String: " << str << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
-		str[6] = '~';
+		str[6] = U'🤝';
 		
-		fout << "Replaced codepoint 6 with ~: " << str << endl;
+		fout << "Replaced codepoint 6 with 🤝: " << str << endl;
 		
 		str.replace( 5 , 3 , " " );
 		
 		fout << "Replaced codepoints 5-7 with ' ': " << str << endl;
 		
-		str.insert( str.begin() , utf8_string(U"ツ ") );
+		str.replace( str.begin() + 4 , str.begin() + 7 , utf8_string(U"~ 🤝 ~") );
 		
-		fout << "Inserted at the start 'ツ ': " << str << endl << endl;
+		fout << "Replaced the space and its neighbours with '🤝': " << str << endl ;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "NumMultibytes: " << str.get_num_multibytes() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl << endl;
 	}
 	
 	// Test 5
 	{
 		fout << "Test 5: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ World ♫" );
+		utf8_string str = utf8_string( U"Hello ツ World♫" );
 		
 		fout << "String: " << str << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
-		str.erase( 14 );
+		str.erase( 13 );
 		
-		fout << "Erased codepoint 14: " << str << endl;
+		fout << "Erased 14th codepoint: " << str << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
 		
-		str.erase( str.begin() , str.begin() + 7 );
+		str.erase( str.begin() , str.begin() + 8 );
 		
-		fout << "Erased codepoints 0 to 7: " << str << endl << endl;
+		fout << "Erased codepoints [0,8): " << str << endl << endl;
 	}
 	
 	// Test 6
@@ -128,6 +202,8 @@ int main(int argc, char ** argv)
 		utf8_string str = std::string( (std::istreambuf_iterator<char>(in)) , std::istreambuf_iterator<char>() );
 		
 		fout << "String (ANSI): " << str << endl;
+		fout << "RequiresUnicode: " << str.requires_unicode() << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
 		fout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		fout << "Iterative Output: ";
@@ -181,6 +257,23 @@ int main(int argc, char ** argv)
 		
 		fout << "RFind l:" << str.rfind( U'l' ) << endl;
 		fout << "Correct Result: " << string("Hello World *+") .rfind( 'l' ) << endl;
+		
+		fout << endl;
+	}
+	
+	// Test 5
+	{
+		fout << "Test 8: " << endl << "-------" << endl;
+		
+		utf8_string fullstr = utf8_string( U"Hello ツ World rg rth rt he rh we gxgre" );
+		
+		fout << "Full String: " << fullstr << endl;
+		
+		utf8_string str = fullstr.substr( 3 , 16 );
+		fout << "Substring 3[16]: " << str << endl;
+		fout << "SSOActive: " << str.sso_active() << endl;
+		fout << "MisFormatted: " << str.is_misformatted() << endl;
+		fout << "7th codepoint: " << (char)str[6] << endl;
 	}
 	
 	return 0;
