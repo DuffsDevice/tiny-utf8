@@ -499,25 +499,6 @@ class utf8_string
 		 */
 		static unsigned char encode_utf8( value_type codepoint , char* dest );
 		
-		/**
-		 * Counts the number of bytes required
-		 * to hold the given wide character string.
-		 * num_multibytes is set to the number of multibyte
-		 * codepoints (ones that consume mor than 1 byte).
-		 */
-		static size_type get_num_required_bytes( const value_type* lit , size_type& num_multibytes );
-		
-		/**
-		 * Counts the number of bytes required
-		 * to hold at max n codepoints of the given utf8 character string.
-		 */
-		static size_type get_num_required_bytes( const char* lit , size_type n = utf8_string::npos ){
-			const char* orig = lit;
-			while( n-- > 0 && *lit )
-				lit += get_num_bytes_of_utf8_char( lit , 0 );
-			return lit - orig;
-		}
-		
 		//! Returns the number of multibytes within the given utf8 sequence
 		static size_type get_num_multibytes( const char* lit , size_type bytes_count = utf8_string::npos , bool* misformatted = nullptr )
 		{
@@ -600,7 +581,10 @@ class utf8_string
 		utf8_string( const char (&str)[LITLEN] , size_type len = utf8_string::npos , enable_if_small_string<LITLEN> = nullptr ) :
 			misformatted( false )
 		{
-			char* buffer = this->new_buffer( utf8_string::get_num_required_bytes( str , len ) + 1 ); // +1 for trailling '\0'
+			const char* cur = str;
+			for( size_type i = 0 ; i < len && *cur ; i++ )
+				cur += get_num_bytes_of_utf8_char( str , 0 );
+			char* buffer = this->new_buffer( cur - str + 1 ); // +1 for trailling '\0'
 			std::memcpy( buffer , str , this->buffer_len );
 		}
 		template<size_type LITLEN>
