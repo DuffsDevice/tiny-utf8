@@ -84,10 +84,17 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	if( !(str && str[0] && len ) )
 		return;
 	
-	size_type	num_multibytes;
+	size_type	num_multibytes = 0;
 	size_type	cur_multibyte_index = 0;
 	size_type	string_len = 0;
-	size_type	num_bytes = get_num_required_bytes( str , num_multibytes );
+	size_type	num_bytes = 0;
+	
+	for( size_type i = 0 ; str[i] ; i++ ){
+		unsigned char cur_bytes = get_num_bytes_of_utf8_codepoint( str[i] );
+		if( cur_bytes > 1 )
+			num_multibytes++;
+		num_bytes += cur_bytes;
+	}
 	
 	// Initialize the internal buffer
 	char* buffer = this->new_buffer( num_bytes + 1 ); // +1 for the trailling zero
@@ -428,20 +435,6 @@ std::string utf8_string::cpp_str_bom() const
 	std::memcpy( tmp_buffer + 3 , buffer , this->buffer_len );
 	
 	return std::move(result);
-}
-
-
-utf8_string::size_type utf8_string::get_num_required_bytes( const value_type* lit , size_type& num_multibytes )
-{
-	size_type num_bytes = 0;
-	num_multibytes = 0;
-	for( size_type i = 0 ; lit[i] ; i++ ){
-		unsigned char cur_bytes = get_num_bytes_of_utf8_codepoint( lit[i] );
-		if( cur_bytes > 1 )
-			num_multibytes++;
-		num_bytes += cur_bytes;
-	}
-	return num_bytes;
 }
 
 utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type start_byte , size_type byte_count ) const 
