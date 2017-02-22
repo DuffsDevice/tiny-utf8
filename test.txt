@@ -42,9 +42,9 @@ RequiresUnicode: 1
 MisFormatted: 0
 NumMultibytes: 2
 SSOActive: 0
-Appended '♫ World': Hello ツ ♫ World and ♫ World
-Length: 27
-Size (bytes): 33
+Appended '♫ World': Hello ツ ♫ World♫ World
+Length: 22
+Size (bytes): 28
 RequiresUnicode: 1
 MisFormatted: 0
 NumMultibytes: 3
@@ -56,6 +56,7 @@ Test 3:
 String: Hello ツ World ♫
 SSOActive: 0
 RequiresUnicode: 1
+NumMultibytes: 2
 MisFormatted: 0
 Iterative output: Hello U\12484 World U\9835
 Reverse iterative output: U\9835 dlroW U\12484 olleH
@@ -65,14 +66,17 @@ Test 4:
 -------
 String: Hello ツ World
 SSOActive: 1
+Length: 13
 RequiresUnicode: 1
 MisFormatted: 0
 Replaced codepoint 6 with 🤝: Hello 🤝 World
 Replaced codepoints 5-7 with ' ': Hello World
-Replaced the space and its neighbours with '🤝': Hell~ 🤝 ~orld
+Replaced the space with '~ 🤝 ~': Hello~ 🤝 ~World
 SSOActive: 0
+Length: 15
 NumMultibytes: 1
 MisFormatted: 0
+Random access output: Hello~ U\129309 ~World
 
 Test 5: 
 -------

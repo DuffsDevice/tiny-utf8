@@ -29,7 +29,9 @@
 #include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::strlen
 #include <string> // for std::string
-#include <cstddef> // for char32_t, ptrdiff_t
+#include <limits> // for numeric_limits
+#include <cstddef> // for ptrdiff_t, size_t
+#include <cstdint> // for uint8_t, uint16_t
 
 //! TODO: Remove
 #include <stdio.h>
@@ -44,8 +46,8 @@ class utf8_string
 {
 	public:
 		
-		typedef size_t					size_type;
-		typedef ptrdiff_t				difference_type;
+		typedef std::size_t				size_type;
+		typedef std::ptrdiff_t			difference_type;
 		typedef char32_t				value_type;
 		typedef value_type				const_reference;
 		constexpr static size_type		npos = -1;
@@ -369,17 +371,17 @@ class utf8_string
 		
 		//! Attributes
 		struct{
-		mutable bool	misformatted : 1;
-		size_type		buffer_len : sizeof(size_type) * 8 - 1;
+		mutable bool	_misformatted : 1;
+		size_type		_buffer_len : sizeof(size_type) * 8 - 1;
 		};
-		char*			buffer;
-		size_type		string_len;
-		size_type*		indices; // Holds a list of the indices of all multibytes, so we can have random access in O(NumberOfMultibytes) time
-		size_type		indices_len;
+		size_type		_capacity;
+		char*			_buffer;
+		size_type		_string_len;
+		size_type		_indices_len;
 		
 		//! Get the maximum number of bytes that can be stored within a utf8_string object
 		static constexpr size_type get_max_small_string_len(){
-			return sizeof(char*) + sizeof(size_type) * 3;
+			return sizeof(_capacity) + sizeof(_buffer) + sizeof(_string_len) + sizeof(_indices_len);
 		}
 		
 		//! Determine, whether the supplied number of bytes is able to fit inside the utf8_string object itself
@@ -387,38 +389,69 @@ class utf8_string
 			return buffer_len <= get_max_small_string_len();
 		}
 		
+		//! Determine, whether we will use a 'uint8_t', 'uint16_t', or 'size_type'-based index table
+		static constexpr unsigned char get_index_datatype_bytes( size_type buffer_size ){
+			return buffer_size <= std::numeric_limits<std::uint8_t>::max()
+				? sizeof(std::uint8_t)
+				: buffer_size <= std::numeric_limits<std::uint16_t>::max()
+					? sizeof(std::uint16_t)
+					: sizeof(size_type);
+		}
+		
+		//! Get the nth index within a multibyte index table
+		static inline size_type get_nth_index( const void* table , unsigned char table_element_size , size_type idx ){
+			switch( table_element_size ){
+			case sizeof(std::uint8_t):		return static_cast<const std::uint8_t*>(table)[idx];
+			case sizeof(std::uint16_t):	return static_cast<const std::uint16_t*>(table)[idx];
+			}
+			return static_cast<const size_type*>(table)[idx];
+		}
+		static inline void set_nth_index( void* table , unsigned char table_element_size , size_type idx , size_type value ){
+			switch( table_element_size ){
+			case sizeof(std::uint8_t):		static_cast<std::uint8_t*>(table)[idx] = value; break;
+			case sizeof(std::uint16_t):	static_cast<std::uint16_t*>(table)[idx] = value; break;
+			case sizeof(size_type):			static_cast<size_type*>(table)[idx] = value; break;
+			}
+		}
+		
+		static inline size_type get_required_capacity( size_type buffer_size , size_type indices_size ){
+			return buffer_size + indices_size * get_index_datatype_bytes( buffer_size );
+		}
+		
+		//! Get internal buffer
+		char* get_sso_buffer(){ return reinterpret_cast<char*>(&this->_buffer); }
+		const char* get_sso_buffer() const { return reinterpret_cast<const char*>(&this->_buffer); }
+		
+		
 		//! Get buffer (used for SSO)
 		char* get_buffer(){
-			return is_small_string( this->buffer_len ) ? reinterpret_cast<char*>(&this->buffer) : this->buffer;
-		}
-		char* new_buffer( size_type new_size ){
-			this->buffer_len = new_size;
-			if( is_small_string( new_size ) || !new_size )
-				return reinterpret_cast<char*>(&this->buffer);
-			return this->buffer = new char[new_size];
+			return this->sso_active() ? get_sso_buffer() : this->_buffer;
 		}
 		const char* get_buffer() const {
-			return is_small_string( this->buffer_len ) ? reinterpret_cast<const char*>(&this->buffer) : this->buffer;
+			return this->sso_active() ? get_sso_buffer() : this->_buffer;
 		}
+		
+		//! Allocates a new buffer
+		std::pair<char*,void*> new_buffer( size_type buffer_size , size_type indices_size );
 		
 		
 		//! Get indices (used for SSO)
-		size_type* get_indices_of_multibyte(){
-			return is_small_string( this->buffer_len ) ? nullptr : this->indices;
+		void* get_indices(){
+			return const_cast<void*>( static_cast<const utf8_string*>(this)->get_indices() );
 		}
-		const size_type* get_indices_of_multibyte() const {
-			return is_small_string( this->buffer_len ) ? nullptr : this->indices;
-		}
-		size_type* new_indices_table( size_type new_size ){
-			if( is_small_string( this->buffer_len ) || !new_size )
+		const void* get_indices() const {
+			if( this->sso_active() || !this->_indices_len )
 				return nullptr;
-			this->indices_len = new_size;
-			return this->indices = new size_type[new_size];
+			return reinterpret_cast<std::uint8_t*>(
+				this->_buffer
+				+ this->_capacity // Go to end of buffer
+				- ( this->_indices_len * get_index_datatype_bytes( this->_buffer_len ) ) // Subtract the number of bytes that the indices table occupies
+			);
 		}
 		
 		//! Returns the length of the indices table
 		size_type get_indices_len() const {
-			return is_small_string( this->buffer_len ) ? get_num_multibytes( this->get_buffer() ) : this->indices_len;
+			return this->sso_active() ? get_num_multibytes( this->get_buffer() ) : this->_indices_len;
 		}
 		
 		
@@ -515,7 +548,7 @@ class utf8_string
 		/**
 		 * Fills the multibyte table and sets the misformatted flag (if its not 0)
 		 */
-		void compute_multibyte_table( size_type num_multibytes , bool* misformatted = nullptr );
+		void compute_multibyte_table( void* table , bool* misformatted = nullptr );
 		
 		
 		/**
@@ -530,16 +563,6 @@ class utf8_string
 		 */
 		size_type get_num_resulting_bytes( size_type byte_start , size_type codepoint_count ) const ;
 		
-		//! Ctor from buffer and indices
-		utf8_string( char* buffer , size_type buffer_len , size_type string_len , size_type* indices , size_type indices_len ) :
-			misformatted( false )
-			, buffer_len( buffer_len )
-			, buffer( buffer )
-			, string_len( string_len )
-			, indices( indices )
-			, indices_len( indices_len )
-		{}
-		
 		//! Constructs a utf8_string from a character literal of unknown length
 		utf8_string( const char* str , size_type len , void* ); // the (void*) is a dummy to call this function
 		
@@ -551,12 +574,12 @@ class utf8_string
 		 * @note Creates an Instance of type utf8_string that is empty
 		 */
 		utf8_string() :
-			misformatted( false )
-			, buffer_len( 0 )
-			, buffer( nullptr )
-			, string_len( 0 )
-			, indices( nullptr )
-			, indices_len( 0 )
+			_misformatted( false )
+			, _buffer_len( 0 )
+			, _capacity( 0 )
+			, _buffer( nullptr )
+			, _string_len( 0 )
+			, _indices_len( 0 )
 		{}
 		
 		/**
@@ -567,29 +590,28 @@ class utf8_string
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		template<typename T>
-		utf8_string( T&& str , size_type len = utf8_string::npos , enable_if_ptr<T,char> = nullptr ) :
+		utf8_string( T&& str , enable_if_ptr<T,char> = nullptr ) :
+			utf8_string( str , utf8_string::npos , (void*)nullptr )
+		{}
+		utf8_string( const char* str , size_type len ) :
 			utf8_string( str , len , (void*)nullptr )
 		{}
 		/**
-		 * Contructor taking an utf8 char literal and the maximum length to read from it (in number of codepoints)
+		 * Contructor taking an utf8 char literal
 		 * 
 		 * @note	Creates an Instance of type utf8_string that holds the given utf8 sequence
 		 * @param	str		The UTF-8 literal to fill the utf8_string with
-		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		template<size_type LITLEN>
-		utf8_string( const char (&str)[LITLEN] , size_type len = utf8_string::npos , enable_if_small_string<LITLEN> = nullptr ) :
-			misformatted( false )
+		utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ) :
+			_misformatted( false )
+			, _buffer_len( LITLEN )
 		{
-			const char* cur = str;
-			for( size_type i = 0 ; i < len && *cur ; i++ )
-				cur += get_num_bytes_of_utf8_char( str , 0 );
-			char* buffer = this->new_buffer( cur - str + 1 ); // +1 for trailling '\0'
-			std::memcpy( buffer , str , this->buffer_len );
+			std::memcpy( this->get_sso_buffer() , str , LITLEN );
 		}
 		template<size_type LITLEN>
-		utf8_string( const char (&str)[LITLEN] , size_type len = utf8_string::npos , enable_if_not_small_string<LITLEN> = nullptr ) :
-			utf8_string( str , len , (void*)nullptr ) // Call the one that works on arbitrary character arrays
+		utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = nullptr ) :
+			utf8_string( str , utf8_string::npos , (void*)nullptr ) // Call the one that works on arbitrary character arrays
 		{}
 		
 		
@@ -698,15 +720,10 @@ class utf8_string
 		 * @note	Resets the data to an empty string ("")
 		 */
 		void clear(){
-			if( !is_small_string( this->buffer_len ) ){
-				delete[] this->indices;
-				delete[] this->buffer;
-				this->indices_len = 0;
-				this->indices = 0;
-			}
-			this->string_len = 0;
-			this->misformatted = false;
-			this->buffer_len = 0;
+			if( !this->sso_active() )
+				delete[] this->_buffer;
+			this->_misformatted = false;
+			this->_buffer_len = 0;
 		}
 		
 		
@@ -715,7 +732,15 @@ class utf8_string
 		 * 
 		 * @return	True, if there is an encoding error, false, if the contained data is properly encoded
 		 */
-		bool is_misformatted() const { return this->misformatted; }
+		bool is_misformatted() const { return this->_misformatted; }
+		
+		
+		/**
+		 * Returns the current capacity of this string
+		 * 
+		 * @return	The number of bytes currently allocated
+		 */
+		bool capacity() const { return this->sso_active() ? get_max_small_string_len() : this->_capacity; }
 		
 		
 		/**
@@ -741,9 +766,9 @@ class utf8_string
 		}
 		value_type raw_at( size_type byte_index ) const {
 			if( !this->requires_unicode() )
-				return this->buffer[byte_index];
+				return this->get_buffer()[byte_index];
 			value_type dest;
-			decode_utf8( this->buffer + byte_index , dest , this->misformatted );
+			decode_utf8( this->get_buffer() + byte_index , dest , this->_misformatted );
 			return dest;
 		}
 		
@@ -814,8 +839,9 @@ class utf8_string
 		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, trailled by a '\0'
 		 */
-		const char* c_str() const { return this->get_buffer() ? this->get_buffer() : ""; }
+		const char* c_str() const { const char* data = this->get_buffer(); return data ? data : ""; }
 		const char* data() const { return this->get_buffer(); }
+		char* data(){ return this->get_buffer(); }
 		
 		
 		/**
@@ -834,7 +860,7 @@ class utf8_string
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		size_type length() const { return is_small_string( this->buffer_len ) ? cend() - cbegin() : this->string_len; }
+		size_type length() const { return this->sso_active() ? cend() - cbegin() : this->_string_len; }
 		
 		
 		/**
@@ -844,7 +870,7 @@ class utf8_string
 		 *			That is, without counting the trailling '\0'
 		 * @return	Number of bytes (not codepoints!)
 		 */
-		size_type size() const { return std::max<size_type>( 1 , this->buffer_len ) - 1; }
+		size_type size() const { return std::max<size_type>( 1 , this->_buffer_len ) - 1; }
 		
 		
 		/**
@@ -853,7 +879,7 @@ class utf8_string
 		 * @note	Returns True, if this utf8_string is empty, that also is comparing true with ""
 		 * @return	True, if this utf8_string is empty, false if its length is >0
 		 */
-		bool empty() const { return this->buffer_len <= 1; }
+		bool empty() const { return this->_buffer_len <= 1; }
 		
 		
 		/**
@@ -863,7 +889,7 @@ class utf8_string
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ascii characters (<128) inside
 		 */
-		bool requires_unicode() const { return is_small_string( this->buffer_len ) ? length() != size() : this->indices_len > 0; }
+		bool requires_unicode() const { return this->sso_active() ? length() != size() : this->_indices_len > 0; }
 		
 		
 		
@@ -872,8 +898,8 @@ class utf8_string
 		 * @return	True, if the utf8 data is stored within the utf8_string object itself
 		 *			false, otherwise
 		 */
-		bool sso_active(){
-			return is_small_string( this->buffer_len );
+		bool sso_active() const {
+			return is_small_string( this->_buffer_len );
 		}
 		/**
 		 * Get the maximum number of bytes that can be stored within the utf8_string object itself
@@ -889,9 +915,9 @@ class utf8_string
 		 * @return	The number of codepoints that take more than one byte
 		 */
 		size_type get_num_multibytes() const {
-			if( bool tmp = is_small_string( this->buffer_len ) )
-				return get_num_multibytes( this->get_buffer() , utf8_string::npos , this->misformatted ? &tmp : nullptr );
-			return this->indices_len;
+			if( bool tmp = this->sso_active() )
+				return get_num_multibytes( this->get_buffer() , max_sso_bytes() , this->_misformatted ? &tmp : nullptr );
+			return this->_indices_len;
 		}
 		
 		
@@ -977,14 +1003,14 @@ class utf8_string
 		 * @return	A reference wrapper to the first codepoint in the utf8_string
 		 */
 		utf8_codepoint_raw_reference front(){ return utf8_codepoint_raw_reference( 0 , this ); }
-		value_type front() const { return raw_at( 0 ); }
+		value_type front() const { return empty() ? 0 : raw_at( 0 ); }
 		/**
 		 * Returns a reference to the last codepoint in the utf8_string
 		 * 
 		 * @return	A reference wrapper to the last codepoint in the utf8_string
 		 */
 		utf8_codepoint_raw_reference back(){ return utf8_codepoint_raw_reference( empty() ? 0 : back_index() , this ); }
-		value_type back() const { return raw_at( empty() ? 0 : back_index() ); }
+		value_type back() const { return empty() ? 0 : raw_at( back_index() ); }
 		
 		
 		/**
@@ -997,8 +1023,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( size_type index , value_type repl , size_type n = 1 ){
-			replace( index , 1 , utf8_string( n , repl ) );
-			return *this;
+			return replace( index , 1 , repl , n );
 		}
 		/**
 		 * Replace a number of codepoints of this utf8_string by a number of other codepoints
@@ -1010,8 +1035,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( size_type index , size_type len , value_type repl , size_type n = 1 ){
-			replace( index , len , utf8_string( n , repl ) );
-			return *this;
+			return replace( index , len , utf8_string( n , repl ) );
 		}
 		/**
 		 * Replace a range of codepoints by a number of codepoints
@@ -1023,8 +1047,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( iterator first , iterator last , value_type repl , size_type n = 1 ){
-			raw_replace( first.raw_index , last.raw_index - first.raw_index , utf8_string( n , repl ) );
-			return *this;
+			return raw_replace( first.raw_index , last.raw_index - first.raw_index , utf8_string( n , repl ) );
 		}
 		/**
 		 * Replace a range of codepoints with the contents of the supplied utf8_string
@@ -1035,8 +1058,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( iterator first , iterator last , const utf8_string& repl ){
-			raw_replace( first.raw_index , last.raw_index - first.raw_index , repl );
-			return *this;
+			return raw_replace( first.raw_index , last.raw_index - first.raw_index , repl );
 		}
 		/**
 		 * Replace a number of codepoints of this utf8_string with the contents of the supplied utf8_string
@@ -1048,12 +1070,11 @@ class utf8_string
 		 */
 		utf8_string& replace( size_type index , size_type count , const utf8_string& repl ){
 			size_type start_byte = get_num_resulting_bytes( 0 , index );
-			raw_replace(
+			return raw_replace(
 				start_byte
 				, count == utf8_string::npos ? utf8_string::npos : get_num_resulting_bytes( start_byte , count )
 				, repl
 			);
-			return *this;
 		}
 		/**
 		 * Replace a number of bytes of this utf8_string with the contents of the supplied utf8_string
@@ -1065,7 +1086,7 @@ class utf8_string
 		 * @param	repl		The utf8_string to replace all bytes inside the range
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		void raw_replace( size_type start_byte , size_type byte_count , const utf8_string& repl );
+		utf8_string& raw_replace( size_type start_byte , size_type byte_count , const utf8_string& repl );
 		
 		
 		/**
@@ -1075,8 +1096,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the supplied string prepended
 		 */
 		utf8_string& prepend( const utf8_string& prependix ){
-			raw_replace( 0 , 0 , prependix );
-			return *this;
+			return raw_replace( 0 , 0 , prependix );
 		}
 		
 		/**
@@ -1086,12 +1106,10 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the supplied string appended
 		 */
 		utf8_string& append( const utf8_string& appendix ){
-			raw_replace( size() , 0 , appendix );
-			return *this;
+			return raw_replace( size() , 0 , appendix );
 		}
 		utf8_string& operator+=( const utf8_string& summand ){
-			raw_replace( size() , 0 , summand );
-			return *this;
+			return raw_replace( size() , 0 , summand );
 		}
 		
 		
@@ -1102,8 +1120,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the supplied codepoint appended
 		 */
 		utf8_string& push_back( value_type ch ){
-			raw_replace( size() , 0 , utf8_string( 1 , ch ) );
-			return *this;
+			return raw_replace( size() , 0 , utf8_string( 1 , ch ) );
 		}
 		
 		/**
@@ -1113,8 +1130,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the supplied codepoint prepended
 		 */
 		utf8_string& push_front( value_type ch ){
-			raw_replace( 0 , 0 , utf8_string( 1 , ch ) );
-			return *this;
+			return raw_replace( 0 , 0 , utf8_string( 1 , ch ) );
 		}
 		
 		
@@ -1127,7 +1143,7 @@ class utf8_string
 		utf8_string operator+( const utf8_string& summand ) const {
 			utf8_string str = *this;
 			str.append( summand );
-			return std::move( str );
+			return str;
 		}
 		
 		
@@ -1139,8 +1155,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
 		utf8_string& insert( size_type pos , value_type ch ){
-			replace( pos , 0 , utf8_string( 1 , ch ) );
-			return *this;
+			return replace( pos , 0 , utf8_string( 1 , ch ) );
 		}
 		/**
 		 * Inserts a given utf8_string into this utf8_string at the supplied codepoint index
@@ -1150,8 +1165,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
 		utf8_string& insert( size_type pos , const utf8_string& str ){
-			replace( pos , 0 , str );
-			return *this;
+			return replace( pos , 0 , str );
 		}
 		/**
 		 * Inserts a given codepoint into this utf8_string at the supplied iterator position
@@ -1161,8 +1175,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
 		utf8_string& insert( iterator it , value_type ch ){
-			raw_replace( it.raw_index , 0 , utf8_string( 1 , ch ) );
-			return *this;
+			return raw_replace( it.raw_index , 0 , utf8_string( 1 , ch ) );
 		}
 		/**
 		 * Inserts a given utf8_string into this utf8_string at the supplied iterator position
@@ -1172,8 +1185,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
 		 */
 		utf8_string& insert( iterator it , const utf8_string& str ){
-			raw_replace( it.raw_index , 0 , str );
-			return *this;
+			return raw_replace( it.raw_index , 0 , str );
 		}
 		/**
 		 * Inserts a given utf8_string into this utf8_string at the supplied byte position
@@ -1185,8 +1197,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
 		utf8_string& raw_insert( size_type pos , const utf8_string& str ){
-			raw_replace( pos , 0 , str );
-			return *this;
+			return raw_replace( pos , 0 , str );
 		}
 		
 		
@@ -1197,8 +1208,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the codepoint erased
 		 */
 		utf8_string& erase( iterator pos ){
-			raw_replace( pos.raw_index , get_index_bytes( pos.raw_index )  , utf8_string() );
-			return *this;
+			return raw_replace( pos.raw_index , get_index_bytes( pos.raw_index )  , utf8_string() );
 		}
 		/**
 		 * Erases the codepoints inside the supplied range
@@ -1208,8 +1218,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the codepoints erased
 		 */
 		utf8_string& erase( iterator first , iterator last ){
-			raw_replace( first.raw_index , last.raw_index - first.raw_index , utf8_string() );
-			return *this;
+			return raw_replace( first.raw_index , last.raw_index - first.raw_index , utf8_string() );
 		}
 		/**
 		 * Erases a portion of this string
@@ -1219,8 +1228,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied portion erased
 		 */
 		utf8_string& erase( size_type pos , size_type len = 1 ){
-			replace( pos , len , utf8_string() );
-			return *this;
+			return replace( pos , len , utf8_string() );
 		}
 		/**
 		 * Erases a byte range of this string
@@ -1232,8 +1240,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, with the supplied bytes erased
 		 */
 		utf8_string& raw_erase( size_type pos , size_type len ){
-			raw_replace( pos , len , utf8_string() );
-			return *this;
+			return raw_replace( pos , len , utf8_string() );
 		}
 		
 		
@@ -1302,13 +1309,14 @@ class utf8_string
 		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const utf8_string& pattern , size_type start_codepoint = 0 ) const {
-		    if( start_codepoint >= length() )
+			if( start_codepoint >= length() )
 		        return utf8_string::npos;
 		    size_type actual_start = get_num_resulting_bytes( 0 , start_codepoint );
+			const char* buffer = this->get_buffer();
 		    const char* result = std::strstr( buffer + actual_start , pattern.c_str() );
 		    if( !result )
 		        return utf8_string::npos;
-		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - (buffer + actual_start) );
+		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
 		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
@@ -1318,13 +1326,14 @@ class utf8_string
 		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const char* pattern , size_type start_codepoint = 0 ) const {
-		    if( start_codepoint >= length() )
+			if( start_codepoint >= length() )
 		        return utf8_string::npos;
 		    size_type actual_start = get_num_resulting_bytes( 0 , start_codepoint );
+			const char* buffer = this->get_buffer();
 		    const char* result = std::strstr( buffer + actual_start , pattern );
 		    if( !result )
 		        return utf8_string::npos;
-		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - (buffer + actual_start) );
+		    return start_codepoint + get_num_resulting_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
 		 * Finds a specific codepoint inside the utf8_string starting at the supplied byte position
@@ -1342,8 +1351,9 @@ class utf8_string
 		 * @return	The byte position where and if the pattern was found or utf8_string::npos
 		 */
 		size_type raw_find( const utf8_string& pattern , size_type start_byte = 0 ) const {
-		    if( start_byte >= size() )
+			if( start_byte >= size() )
 		        return utf8_string::npos;
+			const char* buffer = this->get_buffer();
 		    const char* result = std::strstr( buffer + start_byte , pattern.c_str() );
 		    if( !result )
 		        return utf8_string::npos;
@@ -1357,8 +1367,9 @@ class utf8_string
 		 * @return	The byte position where and if the pattern was found or utf8_string::npos
 		 */
 		size_type raw_find( const char* pattern , size_type start_byte = 0 ) const {
-		    if( start_byte >= size() )
+			if( start_byte >= size() )
 		        return utf8_string::npos;
+			const char* buffer = this->get_buffer();
 		    const char* result = std::strstr( buffer + start_byte , pattern );
 		    if( !result )
 		        return utf8_string::npos;
@@ -1400,8 +1411,7 @@ class utf8_string
 		//! Removes the last codepoint in the utf8_string
 		utf8_string& pop_back(){
 			size_type pos = back_index();
-			raw_replace( pos , get_index_bytes( pos ) , utf8_string() );
-			return *this;
+			return raw_replace( pos , get_index_bytes( pos ) , utf8_string() );
 		}
 		
 		/**
@@ -1440,22 +1450,22 @@ class utf8_string
 		//! Get the number of bytes of codepoint in utf8_string
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len , this->_misformatted ? &tmp : nullptr );
 		}
 		unsigned char get_index_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->_buffer_len , this->_misformatted ? &tmp : nullptr );
 		}
 		
 		
 		//! Get the number of bytes before a codepoint, that build up a new codepoint
 		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return this->string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->buffer_len , this->misformatted ? &tmp : nullptr  ) : 1;
+			return this->_string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len , this->_misformatted ? &tmp : nullptr  ) : 1;
 		}
 		unsigned char get_index_pre_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return this->buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->buffer_len , this->misformatted ? &tmp : nullptr ) : 1;
+			return this->_buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->_buffer_len , this->_misformatted ? &tmp : nullptr ) : 1;
 		}
 		
 		//! Friend iterator difference computation functions

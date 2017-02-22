@@ -1,6 +1,6 @@
 @echo off
 
 REM execute...
-result.exe Cbb D# A
+result.exe
 
 pause
