@@ -8,18 +8,22 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 	if( !( number && ch ) )
 		return;
 	
-	unsigned char	num_bytes = get_num_bytes_of_utf8_codepoint( ch );
-	char*			buffer = this->new_buffer( number * num_bytes + 1 );
+	unsigned char			num_bytes = get_num_bytes_of_utf8_codepoint( ch );
+	std::pair<char*,void*>	result = this->new_buffer( number * num_bytes + 1 , num_bytes > 1 ? number : 0 );
+	char*					buffer = result.first;
 	
 	// Set string length
-	if( !is_small_string( this->buffer_len ) )
-		this->string_len = number;
+	if( !this->sso_active() )
+		this->_string_len = number;
 	
 	if( num_bytes > 1 )
 	{
-		size_type*	indices = this->new_indices_table( num_bytes > 1 ? number : 0 );
-		char		representation[6];
-		char*		orig_buffer = buffer;
+		char			representation[6];
+		char*			orig_buffer = buffer;
+		void*			indices = result.second;
+		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
+		size_type	idx = 0;
+		
 		
 		// Encode the wide character in utf8
 		encode_utf8( ch , representation );
@@ -27,7 +31,7 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 		while( number-- > 0 )
 		{
 			if( indices )
-				*indices++ = buffer - orig_buffer;
+				utf8_string::set_nth_index( indices , indices_datatype_bytes , idx++ , buffer - orig_buffer );
 			for( unsigned char byte = 0 ; byte < num_bytes ; byte++ )
 				*buffer++ = representation[byte];
 		}
@@ -43,9 +47,6 @@ utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_typ
 utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	utf8_string()
 {
-	if( !(str && str[0] && len ) )
-		return;
-	
 	size_type		num_multibytes = 0;
 	size_type		num_bytes = 0;
 	size_type		string_len = 0;
@@ -64,18 +65,23 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	}
 	
 	// Initialize buffer
-	char* buffer = this->new_buffer( num_bytes + 1 );
-	std::memcpy( buffer , str , this->buffer_len );
+	std::pair<char*,void*> buffer = this->new_buffer( num_bytes + 1 , num_multibytes );
 	
-	// Set string length
-	if( !is_small_string( this->buffer_len ) )
-		this->string_len = string_len;
+	// Fill the buffer
+	std::memcpy( buffer.first , str , num_bytes );
+	buffer.first[num_bytes] = '\0';
 	
-	// Compute the multibyte table
-	this->compute_multibyte_table( num_multibytes , misformatted ? &misformatted : nullptr );
+	if( !this->sso_active() )
+	{
+		// Set string length
+		this->_string_len = string_len;
+		
+		// Compute the multibyte table
+		this->compute_multibyte_table( buffer.second , misformatted ? &misformatted : nullptr );
+	}
 	
 	// Set misformatted flag
-	this->misformatted = misformatted;
+	this->_misformatted = misformatted;
 }
 
 utf8_string::utf8_string( const value_type* str , size_type len ) :
@@ -85,84 +91,75 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 		return;
 	
 	size_type	num_multibytes = 0;
-	size_type	cur_multibyte_index = 0;
-	size_type	string_len = 0;
 	size_type	num_bytes = 0;
+	size_type	string_len = 0;
 	
-	for( size_type i = 0 ; str[i] ; i++ ){
-		unsigned char cur_bytes = get_num_bytes_of_utf8_codepoint( str[i] );
-		if( cur_bytes > 1 )
+	// Count bytes and mutlibytes
+	while( string_len < len && str[string_len] )
+	{
+		unsigned char codepoint_bytes = get_num_bytes_of_utf8_codepoint( str[string_len++] );
+		if( codepoint_bytes > 1 )
 			num_multibytes++;
-		num_bytes += cur_bytes;
+		num_bytes += codepoint_bytes;
 	}
 	
 	// Initialize the internal buffer
-	char* buffer = this->new_buffer( num_bytes + 1 ); // +1 for the trailling zero
-	size_type* indices = this->new_indices_table( num_multibytes );
+	std::pair<char*,void*> buffer = this->new_buffer( num_bytes + 1 , num_multibytes ); // +1 for the trailling zero
 	
-	char* cur_writer = buffer;
+	void*			indices = buffer.second;
+	size_type		cur_multibyte_index = 0;
+	char*			orig_writer = buffer.first;
+	char*			cur_writer = orig_writer;
+	unsigned char	indices_datatype_bytes = get_index_datatype_bytes( num_bytes + 1 );
 	
 	// Iterate through wide char literal
-	for( size_type i = 0; str[i] && string_len < len ; i++ )
+	for( size_type i = 0; i < string_len ; i++ )
 	{
 		// Encode wide char to utf8
-		unsigned char num_bytes = encode_utf8( str[i] , cur_writer );
-		
+		unsigned char codepoint_bytes = encode_utf8( str[i] , cur_writer );
 		// Push position of character to 'indices'
-		if( num_bytes > 1 && indices )
-			indices[cur_multibyte_index++] = cur_writer - buffer;
+		if( codepoint_bytes > 1 && indices )
+			utf8_string::set_nth_index( indices , indices_datatype_bytes , cur_multibyte_index++ , cur_writer - orig_writer );
 		
 		// Step forward with copying to internal utf8 buffer
-		cur_writer += num_bytes;
-		
-		// Increase string length by 1
-		string_len++;
+		cur_writer += codepoint_bytes;
 	}
 	
 	// Add trailling \0 char to utf8 buffer
 	*cur_writer = 0;
 	
-	// set string length
-	if( !is_small_string( this->buffer_len ) )
-		this->string_len = string_len;
+	// Set string length
+	if( !this->sso_active() )
+		this->_string_len = string_len;
 }
 
 
 
 
 utf8_string::utf8_string( utf8_string&& str ) :
-	misformatted( str.misformatted )
-	, buffer_len( str.buffer_len )
-	, buffer( str.buffer )
-	, string_len( str.string_len )
-	, indices( str.indices )
-	, indices_len( str.indices_len )
+	_misformatted( str._misformatted )
+	, _buffer_len( str._buffer_len )
+	, _capacity( str._capacity )
+	, _buffer( str._buffer )
+	, _string_len( str._string_len )
+	, _indices_len( str._indices_len )
 {
 	// Reset old string
-	str.buffer = nullptr;
-	str.indices = nullptr;
-	str.indices_len = 0;
-	str.buffer_len = 0;
-	str.string_len = 0;
+	str._buffer_len = 0;
 }
 
 utf8_string::utf8_string( const utf8_string& str ) :
-	misformatted( str.misformatted )
-	, buffer_len( str.buffer_len )
-	, buffer( nullptr )
-	, string_len( str.string_len )
-	, indices( nullptr )
-	, indices_len( 0 )
+	_misformatted( str._misformatted )
+	, _buffer_len( str._buffer_len )
+	, _string_len( str._string_len )
+	, _indices_len( str._indices_len )
 {
-	// Clone data
-	if( const char* buffer = str.get_buffer() )
-		if( char* my_buffer = this->new_buffer( str.buffer_len ) )
-			std::memcpy( my_buffer , buffer , str.buffer_len * sizeof(char) );
-	
-	// Clone indices
-	if( const size_type* indices = str.get_indices_of_multibyte() )
-		if( size_type* my_indices = this->new_indices_table( str.indices_len ) )
-			std::memcpy( my_indices , indices , str.indices_len * sizeof(size_type) );
+	if( !is_small_string( str._buffer_len ) ){
+		this->_buffer = new char[str._capacity];
+		std::memcpy( this->_buffer , str._buffer , str._capacity );
+	}
+	else
+		this->_buffer = str._buffer;
 }
 
 
@@ -176,21 +173,17 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 	if( str.empty() )
 		return *this;
 	
-	char*		buffer = this->new_buffer( str.buffer_len );
+	this->_misformatted = str._misformatted;
+	this->_buffer_len = str._buffer_len;
+	this->_string_len = str._string_len;
+	this->_indices_len = str._indices_len;
 	
-	// Clone data
-	std::memcpy( buffer , str.get_buffer() , this->buffer_len );
-	
-	// Clone indices
-	if( !is_small_string( this->buffer_len ) )
-		if( size_type* indices = this->new_indices_table( str.get_indices_len() ) )
-			std::memcpy( indices , str.indices , this->indices_len * sizeof(size_type) );
-	
-	this->misformatted = str.misformatted;
-	
-	// Set string length
-	if( !is_small_string( this->buffer_len ) )
-		this->string_len = str.string_len;
+	if( !is_small_string( str._buffer_len ) ){
+		this->_buffer = new char[str._capacity];
+		std::memcpy( this->_buffer , str._buffer , str._capacity );
+	}
+	else
+		this->_buffer = str._buffer;
 	
 	return *this;
 }
@@ -201,15 +194,15 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 	// Reset old data
 	clear();
 	
-	// Copy data
-	memcpy( this , &str , sizeof(utf8_string) );
+	if( !str.empty() )
+	{
+		// Copy data
+		std::memcpy( this , &str , sizeof(utf8_string) );
+		
+		// Reset old string
+		str._buffer_len = 0;
+	}
 	
-	// Reset old string
-	str.indices = nullptr;
-	str.indices_len = 0;
-	str.buffer = nullptr;
-	str.buffer_len = 0;
-	str.string_len = 0;
 	return *this;
 }
 
@@ -425,16 +418,16 @@ std::string utf8_string::cpp_str_bom() const
 		return std::string( bom );
 	
 	// Create std::string
-	std::string result = std::string( this->buffer_len + 3 , ' ' );
+	std::string result = std::string( this->_buffer_len + 3 , ' ' );
 	char* tmp_buffer = const_cast<char*>( result.data() );
 	tmp_buffer[0] = bom[0];
 	tmp_buffer[1] = bom[1];
 	tmp_buffer[2] = bom[2];
 	
 	// Copy my data into it
-	std::memcpy( tmp_buffer + 3 , buffer , this->buffer_len );
+	std::memcpy( tmp_buffer + 3 , buffer , this->_buffer_len );
 	
-	return std::move(result);
+	return result;
 }
 
 utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type start_byte , size_type byte_count ) const 
@@ -445,38 +438,45 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type star
 		return 0;
 	
 	bool		misformatted;
-	bool*		check_misformatted = this->misformatted ? &misformatted : nullptr;
+	bool*		check_misformatted = this->_misformatted ? &misformatted : nullptr;
 	size_type	cur_index = start_byte;
 	size_type	end_index = start_byte + byte_count;
 	
 	byte_count = std::min<difference_type>( byte_count , size() - start_byte );
 	
 	// Reduce the byte count by the number of bytes by the number of utf8 data bytes
-	if( is_small_string( this->buffer_len ) )
+	if( this->sso_active() )
 	{
 		while( cur_index < end_index ){
-			unsigned char num_bytes = get_num_bytes_of_utf8_char( buffer , cur_index , this->buffer_len , check_misformatted );
+			unsigned char num_bytes = get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len , check_misformatted );
 			cur_index += num_bytes;
 			byte_count -= num_bytes - 1;
 		}
 	}
-	else if( this->indices_len > 0 )
+	else if( size_type indices_len = this->_indices_len )
 	{
-		size_type index_multibyte_table = 0;
+		size_type		index_multibyte_table = 0;
+		const void*		indices = this->get_indices();
+		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
 		
 		// Iterate to the start of the relevant part of the multibyte table
-		for( ; index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte ; index_multibyte_table++ );
+		while( index_multibyte_table < indices_len )
+		{
+			if( utf8_string::get_nth_index( indices , indices_datatype_bytes , index_multibyte_table ) >= start_byte )
+				break;
+			index_multibyte_table++;
+		}
 		
 		// Iterate over relevant multibyte indices
-		while( index_multibyte_table < this->indices_len )
+		while( index_multibyte_table < indices_len )
 		{
-			cur_index = this->indices[index_multibyte_table];
+			cur_index = utf8_string::get_nth_index( indices , indices_datatype_bytes , index_multibyte_table );
 			
-			if( cur_index > end_index )
+			if( cur_index >= end_index )
 				break;
 			
 			index_multibyte_table++;
-			byte_count -= get_num_bytes_of_utf8_char( buffer , cur_index , this->buffer_len , check_misformatted ) - 1; // Remove utf8 data bytes
+			byte_count -= get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len , check_misformatted ) - 1; // Remove utf8 data bytes
 		}
 	}
 	
@@ -497,38 +497,45 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 		return size - start_byte;
 	
 	bool misformatted;
-	bool* check_misformatted = this->misformatted ? &misformatted : nullptr;
+	bool* check_misformatted = this->_misformatted ? &misformatted : nullptr;
 	size_type cur_byte = start_byte;
 	
 	// Reduce the byte count by the number of utf8 data bytes
-	if( is_small_string( this->buffer_len ) )
+	if( this->sso_active() )
 		while( codepoint_count-- > 0 && cur_byte < size )
-			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , this->buffer_len , check_misformatted );
-	else if( this->indices_len > 0 )
+			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , this->_buffer_len , check_misformatted );
+	else if( size_type indices_len = this->_indices_len )
 	{
-		if( codepoint_count >= this->buffer_len )
+		if( codepoint_count >= this->_buffer_len )
 			return size;
 		
 		// Add at least as many bytes as codepoints
 		cur_byte += codepoint_count;
 		
-		size_type index_multibyte_table = 0;
+		size_type 		index_multibyte_table = 0;
+		const void*		indices = this->get_indices();
+		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
 		
 		// Iterate to the start of the relevant part of the multibyte table
-		for( ; index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte ; index_multibyte_table++ );
+		while( index_multibyte_table < indices_len )
+		{
+			if( utf8_string::get_nth_index( indices , indices_datatype_bytes , index_multibyte_table ) >= start_byte )
+				break;
+			index_multibyte_table++;
+		}
 		
 		// Iterate over relevant multibyte indices
-		while( index_multibyte_table < this->indices_len )
+		while( index_multibyte_table < indices_len )
 		{
-			size_type multibyte_pos = this->indices[index_multibyte_table];
-		
+			size_type multibyte_pos = utf8_string::get_nth_index( indices , indices_datatype_bytes , index_multibyte_table );
+			
 			if( multibyte_pos >= cur_byte )
 				break;
 			
 			index_multibyte_table++;
 			
 			// Add the utf8 data bytes to the number of bytes
-			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , this->buffer_len , check_misformatted ) - 1; // Add utf8 data bytes
+			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , this->_buffer_len , check_misformatted ) - 1; // Add utf8 data bytes
 		}
 	}
 	
@@ -583,27 +590,62 @@ unsigned char utf8_string::encode_utf8( value_type codepoint , char* dest )
 	return 1;
 }
 
-void utf8_string::compute_multibyte_table( size_type num_multibytes , bool* misformatted )
+
+
+std::pair<char*,void*> utf8_string::new_buffer( utf8_string::size_type buffer_size , utf8_string::size_type indices_size )
+{
+	// Backup
+	bool was_small_string = sso_active();
+	
+	// Set new buffer length
+	this->_buffer_len = buffer_size;
+	
+	// If the new buffer siez is small, return the internal buffer
+	if( is_small_string( buffer_size ) )
+		return { this->get_sso_buffer() , nullptr };
+	
+	// Compute required capacity
+	size_type required_capacity = get_required_capacity( buffer_size , indices_size );
+	
+	// Only allocate memory, if we need to
+	if( was_small_string || this->_capacity < required_capacity ){
+		this->_buffer = new char[required_capacity];
+		this->_capacity = required_capacity;
+	}
+	
+	this->_indices_len = indices_size;
+	
+	// Return memory
+	if( indices_size )
+		return { this->_buffer , reinterpret_cast<void*>( this->_buffer + this->_capacity - this->_indices_len * get_index_datatype_bytes( buffer_size ) ) };
+	
+	return { this->_buffer , nullptr };
+}
+
+
+void utf8_string::compute_multibyte_table( void* table , bool* misformatted )
 {
 	// initialize indices table
-	size_type*	indices = this->new_indices_table( num_multibytes );
-	char*		buffer = this->get_buffer();
+	char*	buffer = this->get_buffer();
 	
 	// if we could allocate the indices table
-	if( indices )
+	if( table )
 	{
-		size_type multibyte_index = 0;
+		size_type		multibyte_index = 0;
+		size_type		buffer_len = this->_buffer_len;
+		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( buffer_len );
 		
 		// Fill Multibyte Table
-		for( size_type index = 0 ; index < this->buffer_len ; index++ )
+		for( size_type index = 0 ; index < buffer_len ; index++ )
 		{
-			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , this->buffer_len , misformatted ) - 1;
+			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , buffer_len , misformatted ) - 1;
 			if( cur_num_bytes > 1 )
-				indices[multibyte_index++] = index;
+				utf8_string::set_nth_index( table , indices_datatype_bytes , multibyte_index++ , index );
 			index += cur_num_bytes;
 		}
 	}
 }
+
 
 
 utf8_string utf8_string::raw_substr( size_type start_byte , size_type byte_count , size_type num_substr_codepoints ) const
@@ -619,58 +661,74 @@ utf8_string utf8_string::raw_substr( size_type start_byte , size_type byte_count
 	byte_count = end_index - start_byte;
 	
 	// Create result instance
-	utf8_string result;
+	utf8_string	result;
 	
-	//
-	// Manage utf8 string
-	//
-	char* dest_buffer = result.new_buffer( byte_count + 1 );
-	
-	// Partly copy
-	std::memcpy( dest_buffer , this->get_buffer() + start_byte , byte_count );
-	dest_buffer[byte_count] = 0;
-	
-	
-	//
-	// Manage indices
-	//
-	if( !is_small_string( byte_count + 1 ) )
+	// If the new string is a small string
+	if( is_small_string( byte_count + 1 ) )
 	{
-		if( this->indices_len > 0 )
-		{
-			// Look for start of indices
-			size_type index_multibyte_table = 0;
-			while( index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < start_byte )
-				index_multibyte_table++;
-			
-			size_type	start_of_multibytes_in_range = index_multibyte_table;
-			
-			// Look for the end
-			while( index_multibyte_table < this->indices_len && this->indices[index_multibyte_table] < end_index )
-				index_multibyte_table++;
-			
-			// Compute number of indices 
-			size_type new_indices_len = index_multibyte_table - start_of_multibytes_in_range;
-			
-			// Create new indices
-			size_type* dest_indices = result.new_indices_table( new_indices_len );
-			
-			// Copy indices
-			for( size_type i = 0 ; i < new_indices_len ; i++ )
-				dest_indices[i] = this->indices[start_of_multibytes_in_range + i] - start_byte;
-		}
+		char* dest_buffer = result.new_buffer( byte_count + 1 , 0 ).first;
+	
+		// Partly copy
+		std::memcpy( dest_buffer , this->get_buffer() + start_byte , byte_count );
+		dest_buffer[byte_count] = 0;
 		
-		// Set string length
-		result.string_len = num_substr_codepoints;
+		return result;
 	}
 	
-	return std::move(result);
+	// BELOW HERE ALL ATTRIBUTES ARE VALID //
+	
+	if( this->_indices_len > 0 )
+	{
+		// Look for start of indices
+		size_type		index_multibyte_table = 0;
+		const void*		my_indices = this->get_indices();
+		unsigned char	my_indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
+		
+		while( index_multibyte_table < this->_indices_len ){
+			if( utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , index_multibyte_table ) >= start_byte )
+				break;
+			index_multibyte_table++;
+		}
+		
+		size_type		start_of_multibytes_in_range = index_multibyte_table;
+		
+		// Look for the end
+		while( index_multibyte_table < this->_indices_len )
+		{
+			if( utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , index_multibyte_table ) >= end_index )
+				break;
+			index_multibyte_table++;
+		}
+		
+		// Compute number of indices 
+		size_type		new_indices_len = index_multibyte_table - start_of_multibytes_in_range;
+		
+		// Create new buffer
+		std::pair<char*,void*> dest_buffer = result.new_buffer( byte_count + 1 , new_indices_len );
+		
+		// Partly copy character data
+		std::memcpy( dest_buffer.first , this->get_buffer() + start_byte , byte_count );
+		dest_buffer.first[byte_count] = '\0';
+		
+		// Partly copy indices
+		if( void* indices = dest_buffer.second ){
+			unsigned char	indices_datatype_bytes = get_index_datatype_bytes( byte_count + 1 );
+			for( size_type i = 0 ; i < new_indices_len ; i++ )
+				utf8_string::set_nth_index( indices , indices_datatype_bytes , i , utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , start_of_multibytes_in_range + i ) - start_byte );
+		}
+	}
+	
+	// Set string length
+	result._string_len = num_substr_codepoints;
+	
+	return result;
 }
 
 
-void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes , const utf8_string& replacement )
+utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes , const utf8_string& replacement )
 {
 	size_type my_size = size();
+	
 	// Boundary check
 	if( start_byte > my_size )
 		start_byte = my_size;
@@ -683,230 +741,334 @@ void utf8_string::raw_replace( size_type start_byte , size_type replaced_bytes ,
 	// Predefs and Backups
 	size_type		replacement_bytes = replacement.size();
 	const char* 	replacement_buffer = replacement.get_buffer();
+	size_type		replacement_codepoints = 0;
 	difference_type	byte_difference = replaced_bytes - replacement_bytes;
 	char*			old_buffer = this->get_buffer();
-	size_type		old_buffer_len = this->buffer_len;
-	size_type*		old_indices = this->indices;
-	size_type		old_indices_len = this->indices_len;
+	size_type		old_buffer_len = this->_buffer_len;
+	size_type		old_size = this->size();
+	void*			old_indices = this->get_indices();
+	unsigned char	old_indices_datatype_bytes = get_index_datatype_bytes( old_buffer_len );
+	unsigned char	new_indices_datatype_bytes = 0;
+	size_type		old_indices_len = this->_indices_len;
+	size_type		old_string_len = 0;
+	size_type		new_capacity = 0;
 	char*			dest_buffer = old_buffer;
-	size_type		normalized_buffer_len = std::max<size_type>( this->buffer_len , 1 );
+	size_type		normalized_buffer_len = std::max<size_type>( this->_buffer_len , 1 );
 	size_type		new_buffer_len = normalized_buffer_len - byte_difference;
 	bool			was_small_string = is_small_string( old_buffer_len );
+	bool			will_be_small_string = is_small_string( new_buffer_len );
+	bool			replacement_small_string = is_small_string( replacement._buffer_len );
+	void*			new_indices = old_indices;
+	size_type		new_indices_len = 0;
+	size_type		replaced_condepoints = 0;
+	size_type		num_replacement_multibytes = 0;
+	size_type		num_replaced_multibytes = 0;
+	bool			misformatted = false;
+	bool			delete_buffer = false;
+	size_type		replaced_indices_start = 0; // The starting index of the section within the index_of_mutlibyte table that will get replaced
+	size_type		replaced_indices_end = 0; // The corresp. end index
+	difference_type difference_in_num_multibytes = 0;
 	replaced_bytes = end_byte - start_byte;
 	
+	if( !new_buffer_len ){
+		clear(); // Reset because empty
+		return *this;
+	}
+	
 	
 	//
-	// Manage utf8 data
+	// Get information about replacement
 	//
-	
-	if( new_buffer_len > 1 )
+	if( replacement_small_string )
 	{
-		// Allocate new buffer
-		if( new_buffer_len != old_buffer_len )
+		// Count Multibytes of replacement
+		for( size_type i = 0 ; i < replacement_bytes ; )
 		{
-			// Allocate new buffer
-			if( is_small_string( new_buffer_len ) )
-				dest_buffer = reinterpret_cast<char*>( &this->buffer );
-			else
-				dest_buffer = new char[new_buffer_len];
-			
-			// Copy after replacement
-			std::memmove(
-				dest_buffer + start_byte + replacement_bytes
-				, old_buffer + end_byte
-				, normalized_buffer_len - end_byte - 1 // ('-1' for skipping the trailling zero which is not present in case the buffer_len was 0)
-			);
-			
-			// Check, if the buffer changed
-			if( dest_buffer != old_buffer )
-			{
-				// Copy until replacement
-				std::memcpy( dest_buffer , old_buffer , start_byte );
-				
-				// If the previous buffer was not "inplace", delete it
-				if( !was_small_string )
-					delete[] old_buffer;
-				
-				// Set the new buffer
-				if( !is_small_string( new_buffer_len ) )
-					this->buffer = dest_buffer;
-			}
-			
-			this->buffer_len = new_buffer_len;
-			my_size = size();
-			
-			// Set trailling zero
-			dest_buffer[my_size] = '\0';
+			// Compute the number of bytes to skip
+			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , i , replacement._buffer_len , &misformatted );
+			i += cur_num_bytes;
+			if( cur_num_bytes > 1 )
+				num_replacement_multibytes++;
+			replacement_codepoints++;
 		}
-		
-		// Copy replacement into gap
-		std::memcpy( dest_buffer + start_byte , replacement_buffer , replacement_bytes );
 	}
 	else{
-		// Reset because empty
-		clear();
-		return;
+		replacement_codepoints = replacement._string_len;
+		num_replacement_multibytes = replacement._indices_len;
 	}
+	
+	
+	//
+	// Compute the new size of the indices table and
+	// Allocate the new buffer!
+	//
+	if( !will_be_small_string )
+	{
+		if( was_small_string )
+		{
+			new_indices_len = num_replacement_multibytes; // The minimal number of indices
+			
+			// Count Multibytes
+			for( size_type idx = 0 ; idx < old_size ; )
+			{
+				old_string_len++; // Increase number of codepoints
+				
+				// Compute the number of bytes to skip
+				unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( dest_buffer , idx , new_buffer_len , &misformatted );
+				
+				// Check if were in the range of replaced codepoints
+				if( idx >= start_byte && idx < end_byte )
+					replaced_condepoints++; // Increase number of codepoints that will get replaced
+				else if( cur_num_bytes > 1 )
+					new_indices_len++; // Increase number of multibyte indices to store
+				
+				idx += cur_num_bytes;
+			}
+			
+			// Allocate new buffer
+			new_capacity = get_required_capacity( new_buffer_len , new_indices_len );
+			new_capacity += new_capacity >> 1; // Allocate some more!
+			dest_buffer = new char[new_capacity];
+			new_indices = reinterpret_cast<void*>( dest_buffer + new_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) );
+		}
+		else
+		{
+			old_string_len = this->_string_len;
+			replaced_condepoints = get_num_resulting_codepoints( start_byte , replaced_bytes );
+			
+			// Look for start of indices
+			while( replaced_indices_start < this->_indices_len ){
+				if( utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , replaced_indices_start ) >= start_byte )
+					break;
+				replaced_indices_start++;
+			}
+			
+			replaced_indices_end = replaced_indices_start;
+			
+			// Look for the end
+			while( replaced_indices_end < this->_indices_len )
+			{
+				if( utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , replaced_indices_start ) >= end_byte )
+					break;
+				replaced_indices_end++;
+			}
+			
+			// Compute the number of relevant multibytes
+			num_replaced_multibytes = replaced_indices_end - replaced_indices_start;
+			
+			// Compute difference in number of indices
+			difference_in_num_multibytes = num_replaced_multibytes - num_replacement_multibytes;
+			
+			// Compute new indices table size
+			new_indices_len = old_indices_len - difference_in_num_multibytes;
+			
+			// Compute new capacity
+			new_capacity = std::max<size_type>( this->_capacity , get_required_capacity( new_buffer_len , new_indices_len ) );
+			
+			// Allocate new buffer, if we exceed the old one
+			if( this->_capacity != new_capacity )
+			{
+				new_capacity += new_capacity >> 1;
+				dest_buffer = new char[new_capacity];
+				
+				new_indices = new_indices_len
+					? reinterpret_cast<void*>( this->_buffer + this->_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) )
+					: nullptr;
+			}
+		}
+	}
+	else{
+		dest_buffer = this->get_sso_buffer();
+		new_indices = nullptr;
+	}
+	
+	
+	
+	// 
+	// Copy the utf8 data of this tring into the possibly new one
+	//
+	if( new_buffer_len != old_buffer_len )
+	{
+		// Copy after replacement
+		std::memmove(
+			dest_buffer + start_byte + replacement_bytes
+			, old_buffer + end_byte
+			, normalized_buffer_len - end_byte - 1 // ('-1' for skipping the trailling zero which is not present in case the buffer_len was 0)
+		);
+		
+		// Check, if the buffer changed
+		if( dest_buffer != old_buffer )
+		{
+			// Copy until replacement
+			std::memcpy( dest_buffer , old_buffer , start_byte );
+			
+			// If the previous buffer was not "inplace", delete it
+			if( !was_small_string )
+				delete_buffer = true;
+			
+			// Set the new buffer
+			if( !is_small_string( new_buffer_len ) )
+				this->_buffer = dest_buffer;
+		}
+		
+		this->_buffer_len = new_buffer_len;
+		my_size = size();
+		
+		// Set trailling zero
+		dest_buffer[my_size] = '\0';
+	}
+	
+	
+	//
+	// Copy the utf8 data of the replacement into gap
+	//
+	std::memcpy( dest_buffer + start_byte , replacement_buffer , replacement_bytes );
+	
 	
 	// If the resulting string is small, we dont compute any additional information,
 	// since the attributes are used to store the actual data
-	if( is_small_string( new_buffer_len ) )
-	{
-		// If the old string was not small, it had an indices table that we need to delete
-		if( !was_small_string )
-			delete[] old_indices;
-		
-		return;
+	if( will_be_small_string )
+		goto END_OF_REPLACE;
+	else{
+		this->_buffer = dest_buffer;
+		this->_capacity = new_capacity;
+		this->_indices_len = new_indices_len;
 	}
 	
 	
 	
 	//
-	// Manage indices
+	// Manage multibyte indices
 	//
 	
-	// If the previous string was small, we simply have to compute everything, that's quick
+	
+	// If the previous string was small, we simply have to recompute everything, that's easy
 	if( was_small_string )
 	{
-		size_type		num_multibytes = 0;
-		size_type		string_len = 0;
-		bool			misformatted = false;
-		size_type		new_size = new_buffer_len - 1;
-		
-		// Count Multibytes
-		for( size_type idx = 0 ; idx < new_size ; )
-		{
-			string_len++; // Increase number of codepoints
-			
-			// Compute the number of bytes to skip
-			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( dest_buffer , idx , new_buffer_len , &misformatted );
-			if( cur_num_bytes > 1 )
-				num_multibytes++; // Increase number of occoured multibytes
-			idx += cur_num_bytes;
-		}
+		// Adjust string length
+		this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 		
 		// Make new multibytes table
-		compute_multibyte_table( num_multibytes , misformatted ? &misformatted : nullptr );
+		compute_multibyte_table( new_indices , misformatted ? &misformatted : nullptr );
 		
-		// Set misformatted flag
-		this->misformatted = misformatted;
-		this->string_len = string_len;
-		
-		return;
+		goto END_OF_REPLACE;
 	}
 	
 	
+	//
+	// This instance had a multibyte table. Thus, copy existing indices
+	//
 	
-	// BELOW HERE, ALL BACKUP-ATTRIBUTES ARE VALID //
-	
-	
-	
-	// The starting index of the section within the index_of_mutlibyte table that will get replaced
-	size_type		replaced_indices_start = 0;
-	
-	// Look for start of indices
-	while( replaced_indices_start < this->indices_len && this->indices[replaced_indices_start] < start_byte )
-		replaced_indices_start++;
-	
-	// Look for the end
-	size_type replaced_indices_end = replaced_indices_start;
-	while( replaced_indices_end < this->indices_len && this->indices[replaced_indices_end] < end_byte )
-		replaced_indices_end++;
-	
-	// Compute the number of relevant multibytes
-	size_type		num_replacement_multibytes = replacement.get_indices_len();
-	size_type		num_replaced_multibytes = replaced_indices_end - replaced_indices_start;
-	
-	// Compute difference in number of indices
-	difference_type difference_in_num_multibytes = num_replaced_multibytes - num_replacement_multibytes;
-	
-	// Compute new indices table size
-	size_type		new_indices_len = old_indices_len - difference_in_num_multibytes;
-	size_type*		new_indices = old_indices;
-	
-	// if we don't need a new indices table, set some flages and return
-	if( !new_indices_len )
+	// If we don't need a new indices table, set some flages and return
+	if( !new_indices )
 	{
-		this->string_len = my_size;
-		this->misformatted |= replacement.misformatted;
+		this->_string_len = my_size;
+		misformatted |= replacement._misformatted;
 		
-		// Since the old string was not small, it had an allocated table of multibytes that we need to delete
-		delete[] old_indices;
-		
-		this->indices = nullptr;
-		this->indices_len = 0;
-		
-		return;
+		goto END_OF_REPLACE;
 	}
 	
-	// If the size of the indices table changes
-	if( old_indices_len != new_indices_len )
+	new_indices_datatype_bytes = get_index_datatype_bytes( new_buffer_len );
+	
+	// If the table address changed, copy the indices
+	if( old_indices != new_indices )
 	{
-		// Allocate new buffer
-		new_indices = this->new_indices_table( new_indices_len );
-		
 		size_type		num_indices_before_replacement = replaced_indices_start;
 		size_type		num_indices_after_replacement = old_indices_len - replaced_indices_end;
 		
 		// Copy the values after the replacement
 		{
-			size_type*		source = old_indices + replaced_indices_end;
-			size_type*		dest = new_indices + replaced_indices_end - difference_in_num_multibytes;
+			size_type	source = replaced_indices_end; // old_indices
+			size_type	dest = replaced_indices_end - difference_in_num_multibytes; // new_indices
 			
-			if( byte_difference )
-				while( num_indices_after_replacement-- > 0 )
-					*dest++ = *source++ - byte_difference;
+			if( new_indices_datatype_bytes == old_indices_datatype_bytes )
+				std::memmove(
+					((uint8_t*)new_indices) + ( dest * new_indices_datatype_bytes )
+					, ((uint8_t*)old_indices) + ( source * new_indices_datatype_bytes )
+					, num_indices_after_replacement * new_indices_datatype_bytes
+				);
 			else
-				memcpy( dest , source , num_indices_after_replacement );
+				while( num_indices_after_replacement-- > 0 ){
+					utf8_string::set_nth_index(
+						new_indices
+						, new_indices_datatype_bytes
+						, dest++
+						, utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , source++ ) - byte_difference
+					);
+				}
 		}
 		
 		// Copy values before replacement
-		memcpy( new_indices , old_indices , num_indices_before_replacement );
-		
-		// Since the old string was not small, it had an allocated table of multibytes that has to be deleted
-		delete[] old_indices;
+		if( new_indices_datatype_bytes == old_indices_datatype_bytes )
+			std::memmove(
+				new_indices
+				, old_indices
+				, num_indices_before_replacement * new_indices_datatype_bytes
+			);
+		else
+			while( num_indices_before_replacement-- > 0 ){
+				utf8_string::set_nth_index(
+					new_indices
+					, new_indices_datatype_bytes
+					, num_indices_before_replacement
+					, utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , num_indices_before_replacement )
+				);
+			}
 	}
 	
-	
-	// Predefs
-	bool misformatted = this->misformatted;
-	size_type*		dest = new_indices + replaced_indices_start;
-	size_type		replacement_codepoints = 0;
-	
+	//
 	// Insert indices of replacement
-	if( is_small_string( replacement.buffer_len ) )
+	//
 	{
-		// Compute the multibyte table
-		for( size_type idx = 0 ; idx < replacement_bytes ; )
-		{
-			unsigned char num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , idx , replacement_bytes , &misformatted );
-			
-			// Add character index to multibyte table
-			if( num_bytes > 1 )
-				*dest++ = idx;
-			
-			idx += num_bytes;
-			replacement_codepoints++;
-		}
-	}
-	else
-	{
-		// Set flags
-		misformatted |= replacement.is_misformatted();
-		replacement_codepoints = replacement.length();
+		size_type	dest = replaced_indices_start; // new_indices
 		
-		// Copy indices of replacement
-		size_type*		source = replacement.indices;
-		while( num_replacement_multibytes-- > 0 )
-			*dest++ = *source++ + start_byte;
+		// Insert indices of replacement
+		if( is_small_string( replacement._buffer_len ) )
+		{
+			// Compute the multibyte table
+			for( size_type idx = 0 ; idx < replacement_bytes ; )
+			{
+				unsigned char num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , idx , replacement_bytes , &misformatted );
+				
+				// Add character index to multibyte table
+				if( num_bytes > 1 )
+					utf8_string::set_nth_index( new_indices , new_indices_datatype_bytes , dest++ , idx );
+				
+				idx += num_bytes;
+			}
+		}
+		else
+		{
+			// Set flag
+			misformatted |= replacement.is_misformatted();
+			
+			unsigned char	replacement_indices_datatype_bytes = get_index_datatype_bytes( replacement._buffer_len );
+			
+			// Copy indices of replacement
+			size_type	source = 0;
+			while( num_replacement_multibytes-- > 0 )
+				utf8_string::set_nth_index(
+					new_indices
+					, new_indices_datatype_bytes
+					, dest++
+					, utf8_string::get_nth_index( old_indices , replacement_indices_datatype_bytes , source++ ) + start_byte
+				);
+		}
+		
+		// Adjust string length
+		this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 	}
+	
+	
+	END_OF_REPLACE:
 	
 	// Set misformatted flag
-	this->misformatted = misformatted;
+	this->_misformatted = misformatted;
 	
-	// Adjust string length
-	this->string_len -= get_num_resulting_codepoints( start_byte , replaced_bytes );
-	this->string_len += replacement_codepoints;
+	if( delete_buffer )
+		delete[] old_buffer;
+	
+	return *this;
 }
 
 
@@ -917,12 +1079,12 @@ utf8_string::value_type utf8_string::at( size_type requested_index ) const
 	if( requested_index >= size() )
 		return 0;
 	
-	if( !is_small_string( this->buffer_len ) && !requires_unicode() )
-		return (value_type) this->buffer[requested_index];
+	if( !this->sso_active() && !requires_unicode() )
+		return (value_type) this->_buffer[requested_index];
 	
 	// Decode internal buffer at position n
 	value_type codepoint = 0;
-	decode_utf8( this->get_buffer() + get_num_resulting_bytes( 0 , requested_index ) , codepoint , this->misformatted );
+	decode_utf8( this->get_buffer() + get_num_resulting_bytes( 0 , requested_index ) , codepoint , this->_misformatted );
 	
 	return codepoint;
 }
@@ -935,14 +1097,16 @@ std::unique_ptr<utf8_string::value_type[]> utf8_string::wide_literal() const
 	if( empty() )
 		return std::unique_ptr<value_type[]>( new value_type[1]{0} );
 	
-	std::unique_ptr<value_type[]>	dest = std::unique_ptr<value_type[]>( new value_type[length()] );
+	std::unique_ptr<value_type[]>	dest = std::unique_ptr<value_type[]>( new value_type[length()+1] );
 	value_type*						tempDest = dest.get();
-	char*							source = this->buffer;
+	const char*						source = this->get_buffer();
 	
 	while( *source )
-		source += decode_utf8( source , *tempDest++ , this->misformatted );
+		source += decode_utf8( source , *tempDest++ , this->_misformatted );
 	
-	return std::move(dest);
+	*tempDest = 0;
+	
+	return dest;
 }
 
 
@@ -967,7 +1131,7 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 
 bool utf8_string::equals( const char* str ) const
 {
-	const char* it1 = this->buffer;
+	const char* it1 = this->_buffer;
 	
 	if( !it1 || !str )
 		return it1 == str;
