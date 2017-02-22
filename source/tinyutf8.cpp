@@ -406,6 +406,40 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest , bo
 	return num_bytes;
 }
 
+void utf8_string::shrink_to_fit()
+{
+	if( this->sso_active() )
+		return;
+	
+	size_type	required_capacity = this->get_required_capacity( this->_buffer_len , this->_indices_len );
+	size_type	threshold = std::max<size_type>( required_capacity + 10 , required_capacity >> 2 );
+	
+	// Do we save at least one quarter of the capacity and at least 10 bytes?
+	if( this->_capacity < threshold )
+		return;
+	
+	// Allocate new buffer
+	char*			new_buffer = new char[required_capacity];
+	unsigned char	index_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
+	
+	// Copy indices
+	if( this->_indices_len )
+		std::memcpy(
+			new_buffer + required_capacity - this->_indices_len * index_datatype_bytes
+			, this->_buffer + this->_capacity - this->_indices_len * index_datatype_bytes
+			, this->_indices_len * index_datatype_bytes
+		);
+	
+	// Copy data
+	std::memcpy(
+		new_buffer
+		, this->_buffer
+		, this->_buffer_len
+	);
+	
+	this->_capacity = required_capacity;
+}
+
 
 
 std::string utf8_string::cpp_str_bom() const
@@ -828,6 +862,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			// Allocate new buffer
 			new_capacity = get_required_capacity( new_buffer_len , new_indices_len );
 			new_capacity += new_capacity >> 1; // Allocate some more!
+			
 			dest_buffer = new char[new_capacity];
 			new_indices = reinterpret_cast<void*>( dest_buffer + new_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) );
 		}
@@ -868,7 +903,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			// Allocate new buffer, if we exceed the old one
 			if( this->_capacity != new_capacity )
 			{
-				new_capacity += new_capacity >> 1;
+				new_capacity += new_capacity >> 1; // Make some room for more: 1.5 times the number of bytes we actually need
 				dest_buffer = new char[new_capacity];
 				
 				new_indices = new_indices_len

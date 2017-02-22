@@ -736,11 +736,21 @@ class utf8_string
 		
 		
 		/**
-		 * Returns the current capacity of this string
+		 * Returns the current capacity of this string. That is, the number of codepoints it can hold without reallocation
 		 * 
 		 * @return	The number of bytes currently allocated
 		 */
-		bool capacity() const { return this->sso_active() ? get_max_small_string_len() : this->_capacity; }
+		size_type capacity() const {
+			return this->sso_active()
+				? get_max_small_string_len()
+				: this->_capacity - this->_indices_len * get_index_datatype_bytes( this->_buffer_len ) - 1; // -1 for the trailling zero we have to store
+		}
+		
+		
+		/**
+		 * Requests the removal of unused capacity.
+		 */
+		void shrink_to_fit();
 		
 		
 		/**

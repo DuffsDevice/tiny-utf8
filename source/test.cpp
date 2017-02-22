@@ -290,7 +290,34 @@ int main()
 		cout << "Substring 3[16]: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "MisFormatted: " << str.is_misformatted() << endl;
-		cout << "7th codepoint: " << (char)str[6] << endl;
+		cout << "7th codepoint: " << (char)str[6] << endl << endl;
+	}
+	
+	// Test 6
+	{
+		cout << "Test 6: " << endl << "-------" << endl;
+		
+		utf8_string str = utf8_string( U"SSO: ツ♫" );
+		
+		cout << "String: " << str << endl;
+		cout << "Capacity: " << str.capacity() << endl;
+		
+		for( int i = 0 ; i < 10 ; i++ )
+		{
+			str.append( U"SSO: ツ♫" );
+			cout << "String after insertion: " << str << endl;
+			cout << "Capacity after insertion: " << str.capacity() << endl;
+			cout << "Length: " << str.length() << endl;
+			cout << "Size (bytes): " << str.size() << endl << endl;
+		}
+		
+		str.shrink_to_fit();
+		cout << "String after insertion: " << str << endl;
+		cout << "Capacity after insertion: " << str.capacity() << endl;
+		cout << "Length: " << str.length() << endl;
+		cout << "Size (bytes): " << str.size() << endl << endl;
+		
+		cout << endl;
 	}
 	
 	out << cout.rdbuf();
