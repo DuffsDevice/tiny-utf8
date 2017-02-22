@@ -116,3 +116,64 @@ Substring 3[16]: lo ツ World rg rt
 SSOActive: 0
 MisFormatted: 0
 7th codepoint: o
+
+Test 6: 
+-------
+String: SSO: ツ♫
+Capacity: 16
+String after insertion: SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 35
+Length: 14
+Size (bytes): 22
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 33
+Length: 21
+Size (bytes): 33
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 70
+Length: 28
+Size (bytes): 44
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 68
+Length: 35
+Size (bytes): 55
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 66
+Length: 42
+Size (bytes): 66
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 123
+Length: 49
+Size (bytes): 77
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 121
+Length: 56
+Size (bytes): 88
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 119
+Length: 63
+Size (bytes): 99
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 117
+Length: 70
+Size (bytes): 110
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 193
+Length: 77
+Size (bytes): 121
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 121
+Length: 77
+Size (bytes): 121
+
+
