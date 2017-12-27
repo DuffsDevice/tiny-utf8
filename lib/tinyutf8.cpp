@@ -535,17 +535,17 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 	size_type cur_byte = start_byte;
 	
 	// Reduce the byte count by the number of utf8 data bytes
-	if( this->sso_active() )
+	if( this->sso_active() ){
 		while( codepoint_count-- > 0 && cur_byte < size )
 			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , this->_buffer_len , check_misformatted );
-	else if( size_type indices_len = this->_indices_len )
+		return cur_byte - start_byte;
+	}
+	
+	// Add at least as many bytes as codepoints
+	cur_byte += codepoint_count;
+	
+	if( size_type indices_len = this->_indices_len )
 	{
-		if( codepoint_count >= this->_buffer_len )
-			return size;
-		
-		// Add at least as many bytes as codepoints
-		cur_byte += codepoint_count;
-		
 		size_type 		index_multibyte_table = 0;
 		const void*		indices = this->get_indices();
 		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
@@ -1166,18 +1166,20 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 
 bool utf8_string::equals( const char* str ) const
 {
-	const char* it1 = this->_buffer;
+	const char* it = this->get_buffer();
 	
-	if( !it1 || !str )
-		return it1 == str;
+	if( !it )
+		return !str || !*str;
+	else if( !str )
+		return !*it; // '!it' must be false
 	
-	while( *it1 && *str ){
-		if( *it1 != *str )
+	while( *it && *str ){
+		if( *it != *str )
 			return false;
-		it1++;
+		it++;
 		str++;
 	}
-	return *it1 == *str;
+	return *it == *str;
 }
 
 bool utf8_string::equals( const value_type* str ) const

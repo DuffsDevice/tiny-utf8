@@ -33,6 +33,8 @@
 #include <cstddef> // for ptrdiff_t, size_t
 #include <cstdint> // for uint8_t, uint16_t
 
+#include <iostream>
+
 //! TODO: Remove
 #include <stdio.h>
 
@@ -423,22 +425,19 @@ class utf8_string
 		const char* get_sso_buffer() const { return reinterpret_cast<const char*>(&this->_buffer); }
 		
 		
-		//! Get buffer (used for SSO)
-		char* get_buffer(){
-			return this->sso_active() ? get_sso_buffer() : this->_buffer;
-		}
+		//! Get buffer
 		const char* get_buffer() const {
 			return this->sso_active() ? get_sso_buffer() : this->_buffer;
+		}
+		char* get_buffer(){
+			return const_cast<char*>( static_cast<const utf8_string*>(this)->get_buffer() );
 		}
 		
 		//! Allocates a new buffer
 		std::pair<char*,void*> new_buffer( size_type buffer_size , size_type indices_size );
 		
 		
-		//! Get indices (used for SSO)
-		void* get_indices(){
-			return const_cast<void*>( static_cast<const utf8_string*>(this)->get_indices() );
-		}
+		//! Get indices
 		const void* get_indices() const {
 			if( this->sso_active() || !this->_indices_len )
 				return nullptr;
@@ -447,6 +446,9 @@ class utf8_string
 				+ this->_capacity // Go to end of buffer
 				- ( this->_indices_len * get_index_datatype_bytes( this->_buffer_len ) ) // Subtract the number of bytes that the indices table occupies
 			);
+		}
+		void* get_indices(){
+			return const_cast<void*>( static_cast<const utf8_string*>(this)->get_indices() );
 		}
 		
 		//! Returns the length of the indices table
@@ -514,7 +516,7 @@ class utf8_string
 		/**
 		 * Get the byte index of the last codepoint
 		 */
-		size_type back_index() const { return size() - get_index_pre_bytes( size() ); }
+		size_type back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		/**
 		 * Get the byte index of the index behind the last codepoint
 		 */
