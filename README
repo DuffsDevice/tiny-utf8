@@ -4,7 +4,6 @@ add "tinyutf8.cpp" to the projects source files.
 
 If there are any bugs or you want to add features,
 such as the wstring::rfind method for substrings,
-don't hesitate to do so (You should have write
-access to the svn in sourceforge :D )!
+don't hesitate to do so!
 
 Have fun!
