@@ -1,9 +1,30 @@
-Thank You for downloading tinyutf8!
-Include "tinyutf8.h" in your project and
-add "tinyutf8.cpp" to the projects source files.
+DESCRIPTION
+***********
+TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
+The library consists solely of the class "utf8_string", which acts as a drop-in replacement for std::string.
+Its implementation is successfully in the middle between small memory footprint and fast access.
+Due to its robust architecture, malformed multibyte sequences¹ will be interpreted as ANSI characters (0-255).
 
-If there are any bugs or you want to add features,
-such as the wstring::rfind method for substrings,
-don't hesitate to do so!
+¹) That means, the number of adjacent chars >127 is 1 OR if the following characters are >= 192.
 
-Have fun!
+FEATURES
+********
+- Drop-in replacement for std::string
+- Very Lightweight ~2k LOC
+- Very Fast (Random Access is O( Num. Codepoints > 127 ))
+- sizeof(utf8_string) = 24bytes (x86)
+- Codepoint Range: 0x0 - 0x7FFFFFFF (6 Bytes)
+- Single Header file, Single Source file
+- NO Exceptions (Defensive Programming)
+- Straightforward C++11 design
+- Small String Optimization (SSO) (Currently only in Nightly)
+- Even Understands ANSI Strings (Characters 127-255) (with the above mentioned limitations)
+- Prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
+- Supports raw (Byte-based) access (where Speed is needed)
+
+WHAT TINY-UTF8 DOES NOT
+***********************
+- conversion between iso encodings and utf8
+- other unicode encodings like UTF16 or UTF32
+- visible character comparison ('ch' vs. 'c'+'h')
+- codepoint normalization
