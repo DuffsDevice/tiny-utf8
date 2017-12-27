@@ -33,15 +33,10 @@
 #include <cstddef> // for ptrdiff_t, size_t
 #include <cstdint> // for uint8_t, uint16_t
 
-#include <iostream>
-
-//! TODO: Remove
-#include <stdio.h>
-
 // Define the following macro, if you plan to output an utf8_string
 // to an ostream or read an utf8_string from an istream
 #ifdef _TINY_UTF8_H_USE_IOSTREAM_
-#include <iostream> // for ostream/istream overloadings
+#include <iostream> // for ostream/istream overloads
 #endif
 
 class utf8_string

@@ -1,6 +1,4 @@
 #include "tinyutf8.h"
-#include <limits>
-#include <stdio.h>
 
 utf8_string::utf8_string( utf8_string::size_type number , utf8_string::value_type ch ) :
 	utf8_string()
