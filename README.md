@@ -1,5 +1,6 @@
-DESCRIPTION
-***********
+# TINYUTF8
+
+### DESCRIPTION
 TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
 The library consists solely of the class "utf8_string", which acts as a drop-in replacement for std::string.
 Its implementation is successfully in the middle between small memory footprint and fast access.
@@ -7,8 +8,7 @@ Due to its robust architecture, malformed multibyte sequences¹ will be interpre
 
 ¹) That means, the number of adjacent chars >127 is 1 OR if the following characters are >= 192.
 
-FEATURES
-********
+### FEATURES
 - Drop-in replacement for std::string
 - Very Lightweight ~2k LOC
 - Very Fast (Random Access is O( Num. Codepoints > 127 ))
@@ -22,8 +22,7 @@ FEATURES
 - Prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
 - Supports raw (Byte-based) access (where Speed is needed)
 
-WHAT TINY-UTF8 DOES NOT
-***********************
+### WHAT TINYUTF8 DOES NOT
 - conversion between iso encodings and utf8
 - other unicode encodings like UTF16 or UTF32
 - visible character comparison ('ch' vs. 'c'+'h')
