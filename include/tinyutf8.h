@@ -1,4 +1,4 @@
-// Copyright (c) 2017 Jakob Riedle (DuffsDevice)
+// Copyright (c) 2018 Jakob Riedle (DuffsDevice)
 // All rights reserved.
 
 // Redistribution and use in source and binary forms, with or without
@@ -1150,7 +1150,7 @@ class utf8_string
 		utf8_string operator+( const utf8_string& summand ) const {
 			utf8_string str = *this;
 			str.append( summand );
-			return str;
+			return std::move(str);
 		}
 		
 		
