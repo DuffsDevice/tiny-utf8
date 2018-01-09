@@ -17,13 +17,13 @@ Due to its robust architecture, malformed multibyte sequences¹ will be interpre
 - Single Header file, Single Source file
 - NO Exceptions (Defensive Programming)
 - Straightforward C++11 design
-- Small String Optimization (SSO) (Currently only in Nightly)
+- Small String Optimization (SSO)
 - Even Understands ANSI Strings (Characters 127-255) (with the above mentioned limitations)
 - Prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
 - Supports raw (Byte-based) access (where Speed is needed)
 
 ### WHAT TINYUTF8 DOES NOT
-- conversion between iso encodings and utf8
-- other unicode encodings like UTF16 or UTF32
-- visible character comparison ('ch' vs. 'c'+'h')
-- codepoint normalization
+- Conversion between iso encodings and utf8
+- Other unicode encodings like UTF16 or UTF32
+- Visible character comparison ('ch' vs. 'c'+'h')
+- Codepoint normalization
