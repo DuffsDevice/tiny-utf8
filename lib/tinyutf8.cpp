@@ -556,26 +556,24 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 	bool misformatted;
 	bool* check_misformatted = this->_misformatted ? &misformatted : nullptr;
 	size_type cur_byte = start_byte;
+	size_type buffer_len = size + 1;
 	
 	// Reduce the byte count by the number of utf8 data bytes
-	if( this->sso_active() ){
+	if( utf8_string::is_small_string(buffer_len) ){ // this->sso_active(), but we have already cached size()
 		while( codepoint_count-- > 0 && cur_byte < size )
-			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , this->_buffer_len , check_misformatted );
-		return cur_byte - start_byte;
+			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , buffer_len , check_misformatted );
 	}
-	
-	// Add at least as many bytes as codepoints
-	cur_byte += codepoint_count;
-	
-	if( size_type indices_len = this->_indices_len )
+	else if( size_type indices_len = this->_indices_len )
 	{
+		// Add at least as many bytes as codepoints
+		cur_byte += codepoint_count;
+		
 		size_type 		index_multibyte_table = 0;
 		const void*		indices = this->get_indices();
-		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( this->_buffer_len );
+		unsigned char	indices_datatype_bytes = get_index_datatype_bytes(buffer_len);
 		
 		// Iterate to the start of the relevant part of the multibyte table
-		while( index_multibyte_table < indices_len )
-		{
+		while( index_multibyte_table < indices_len ){
 			if( utf8_string::get_nth_index( indices , indices_datatype_bytes , index_multibyte_table ) >= start_byte )
 				break;
 			index_multibyte_table++;
@@ -592,9 +590,11 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 			index_multibyte_table++;
 			
 			// Add the utf8 data bytes to the number of bytes
-			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , this->_buffer_len , check_misformatted ) - 1; // Add utf8 data bytes
+			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , buffer_len , check_misformatted ) - 1; // Add utf8 data bytes
 		}
 	}
+	else
+		return codepoint_count;
 	
 	return cur_byte - start_byte;
 }
@@ -693,9 +693,9 @@ void utf8_string::compute_multibyte_table( void* table , bool* misformatted )
 		unsigned char	indices_datatype_bytes = get_index_datatype_bytes( buffer_len );
 		
 		// Fill Multibyte Table
-		for( size_type index = 0 ; index < buffer_len ; index++ )
+		for( size_type index = 0 ; index < buffer_len ; )
 		{
-			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , buffer_len , misformatted ) - 1;
+			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , buffer_len , misformatted );
 			if( cur_num_bytes > 1 )
 				utf8_string::set_nth_index( table , indices_datatype_bytes , multibyte_index++ , index );
 			index += cur_num_bytes;
@@ -1137,12 +1137,14 @@ utf8_string::value_type utf8_string::at( size_type requested_index ) const
 	if( requested_index >= size() )
 		return 0;
 	
-	if( !this->sso_active() && !requires_unicode() )
-		return (value_type) this->_buffer[requested_index];
+	const char* buffer = this->get_buffer();
+	
+	if( !requires_unicode() )
+		return (value_type) buffer[requested_index];
 	
 	// Decode internal buffer at position n
 	value_type codepoint = 0;
-	decode_utf8( this->get_buffer() + get_num_resulting_bytes( 0 , requested_index ) , codepoint , this->_misformatted );
+	decode_utf8( buffer + get_num_resulting_bytes( 0 , requested_index ) , codepoint , this->_misformatted );
 	
 	return codepoint;
 }

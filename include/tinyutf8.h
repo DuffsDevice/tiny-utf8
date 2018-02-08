@@ -398,16 +398,19 @@ class utf8_string
 		//! Get the nth index within a multibyte index table
 		static inline size_type get_nth_index( const void* table , unsigned char table_element_size , size_type idx ){
 			switch( table_element_size ){
-			case sizeof(std::uint8_t):		return static_cast<const std::uint8_t*>(table)[idx];
+			case sizeof(std::uint8_t):	return static_cast<const std::uint8_t*> (table)[idx];
 			case sizeof(std::uint16_t):	return static_cast<const std::uint16_t*>(table)[idx];
+			case sizeof(size_type):
+			default:					return static_cast<const size_type*>    (table)[idx];
 			}
 			return static_cast<const size_type*>(table)[idx];
 		}
 		static inline void set_nth_index( void* table , unsigned char table_element_size , size_type idx , size_type value ){
 			switch( table_element_size ){
-			case sizeof(std::uint8_t):		static_cast<std::uint8_t*>(table)[idx] = value; break;
+			case sizeof(std::uint8_t):	static_cast<std::uint8_t*> (table)[idx] = value; break;
 			case sizeof(std::uint16_t):	static_cast<std::uint16_t*>(table)[idx] = value; break;
-			case sizeof(size_type):			static_cast<size_type*>(table)[idx] = value; break;
+			case sizeof(size_type):		
+			default:					static_cast<size_type*>    (table)[idx] = value; break;
 			}
 		}
 		
@@ -436,11 +439,9 @@ class utf8_string
 		const void* get_indices() const {
 			if( this->sso_active() || !this->_indices_len )
 				return nullptr;
-			return reinterpret_cast<std::uint8_t*>(
-				this->_buffer
-				+ this->_capacity // Go to end of buffer
+			return this->_buffer + this->_capacity // Go to end of buffer
 				- ( this->_indices_len * get_index_datatype_bytes( this->_buffer_len ) ) // Subtract the number of bytes that the indices table occupies
-			);
+			;
 		}
 		void* get_indices(){
 			return const_cast<void*>( static_cast<const utf8_string*>(this)->get_indices() );
