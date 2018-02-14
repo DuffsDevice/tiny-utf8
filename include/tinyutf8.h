@@ -920,7 +920,7 @@ class utf8_string
 		 * @return	The number of codepoints that take more than one byte
 		 */
 		size_type get_num_multibytes() const {
-			if( bool tmp = this->sso_active() )
+			if( this->sso_active() )
 				return get_num_multibytes( this->get_buffer() , max_sso_bytes() );
 			return this->_indices_len;
 		}
@@ -1454,22 +1454,18 @@ class utf8_string
 		
 		//! Get the number of bytes of codepoint in utf8_string
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
-			bool tmp = false;
 			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len );
 		}
 		unsigned char get_index_bytes( size_type byte_index ) const {
-			bool tmp = false;
 			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->_buffer_len );
 		}
 		
 		
 		//! Get the number of bytes before a codepoint, that build up a new codepoint
 		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
-			bool tmp = false;
 			return this->_string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len ) : 1;
 		}
 		unsigned char get_index_pre_bytes( size_type byte_index ) const {
-			bool tmp = false;
 			return this->_buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->_buffer_len ) : 1;
 		}
 		
