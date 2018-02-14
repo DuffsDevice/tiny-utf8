@@ -39,6 +39,9 @@
 #include <iostream> // for ostream/istream overloads
 #endif
 
+// Define the following macro, if you want to be guarded against malformed utf8 sequences
+#define _TINY_UTF8_H_SAFE_MODE_
+
 class utf8_string
 {
 	public:
@@ -290,7 +293,7 @@ class utf8_string
 				}
 				
 				//! Decrease the Iterator by one
-				reverse_iterator&  operator--(){ // prefix --iter
+				reverse_iterator& operator--(){ // prefix --iter
 					increment();
 					return *this;
 				}
@@ -367,10 +370,7 @@ class utf8_string
 	private:
 		
 		//! Attributes
-		struct [[gnu::packed, packed]]{
-		mutable bool	_misformatted : 1;
-		size_type		_buffer_len : sizeof(size_type) * 8 - 1;
-		};
+		size_type		_buffer_len;
 		size_type		_capacity;
 		char*			_buffer;
 		size_type		_string_len;
@@ -482,12 +482,12 @@ class utf8_string
 		/**
 		 * Returns the number of bytes to expect behind this one (including this one) that belong to this utf8 char
 		 */
-		static unsigned char get_num_bytes_of_utf8_char( const char* data , size_type first_byte_index , size_type buffer_len = utf8_string::npos , bool* misformatted = nullptr );
+		static unsigned char get_num_bytes_of_utf8_char( const char* data , size_type first_byte_index , size_type buffer_len = utf8_string::npos );
 		
 		/**
 		 * Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
 		 */
-		static unsigned char get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index , size_type buffer_len = utf8_string::npos , bool* misformatted = nullptr );
+		static unsigned char get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index , size_type buffer_len = utf8_string::npos );
 		
 		/**
 		 * Returns the number of bytes to expect behind this one that belong to this utf8 char
@@ -522,7 +522,7 @@ class utf8_string
 		 * Decodes a given input of rle utf8 data to a
 		 * unicode codepoint and returns the number of bytes it used
 		 */
-		static unsigned char decode_utf8( const char* data , value_type& codepoint , bool misformatted );
+		static unsigned char decode_utf8( const char* data , value_type& codepoint );
 		
 		/**
 		 * Encodes a given codepoint to a character buffer of at least 7 bytes
@@ -531,11 +531,11 @@ class utf8_string
 		static unsigned char encode_utf8( value_type codepoint , char* dest );
 		
 		//! Returns the number of multibytes within the given utf8 sequence
-		static size_type get_num_multibytes( const char* lit , size_type bytes_count = utf8_string::npos , bool* misformatted = nullptr )
+		static size_type get_num_multibytes( const char* lit , size_type bytes_count = utf8_string::npos )
 		{
 			size_type num_multibytes = 0;
 			while( *lit && bytes_count-- > 0 ){
-				unsigned char num_bytes = get_num_bytes_of_utf8_char( lit , 0 , utf8_string::npos , misformatted ); // Compute the number of bytes to skip
+				unsigned char num_bytes = get_num_bytes_of_utf8_char( lit , 0 , utf8_string::npos ); // Compute the number of bytes to skip
 				lit += num_bytes;
 				if( num_bytes > 1 )
 					num_multibytes++; // Increase number of occoured multibytes
@@ -543,10 +543,8 @@ class utf8_string
 			return num_multibytes;
 		}
 		
-		/**
-		 * Fills the multibyte table and sets the misformatted flag (if its not 0)
-		 */
-		void compute_multibyte_table( void* table , bool* misformatted = nullptr );
+		//! Fills the multibyte table
+		void compute_multibyte_table( void* table );
 		
 		
 		/**
@@ -572,8 +570,7 @@ class utf8_string
 		 * @note Creates an Instance of type utf8_string that is empty
 		 */
 		utf8_string() :
-			_misformatted( false )
-			, _buffer_len( 0 )
+			_buffer_len( 0 )
 			, _capacity( 0 )
 			, _buffer( nullptr )
 			, _string_len( 0 )
@@ -601,10 +598,7 @@ class utf8_string
 		 * @param	str		The UTF-8 literal to fill the utf8_string with
 		 */
 		template<size_type LITLEN>
-		utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ) :
-			_misformatted( false )
-			, _buffer_len( LITLEN )
-		{
+		utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ) : _buffer_len( LITLEN ) {
 			std::memcpy( this->get_sso_buffer() , str , LITLEN );
 		}
 		template<size_type LITLEN>
@@ -720,17 +714,20 @@ class utf8_string
 		void clear(){
 			if( !this->sso_active() )
 				delete[] this->_buffer;
-			this->_misformatted = false;
 			this->_buffer_len = 0;
 		}
 		
 		
 		/**
-		 * Returns whether there is an UTF-8 error in the string
+		 * [DEPRECATED] Returns whether there is an UTF-8 error in the string
 		 * 
 		 * @return	True, if there is an encoding error, false, if the contained data is properly encoded
+		 * @note	This function is deprecated, because the misformatted flag was removed.
 		 */
-		bool is_misformatted() const { return this->_misformatted; }
+		[[deprecated("The misformatted flag was removed.")]]
+		bool is_misformatted() const {
+			return false;
+		}
 		
 		
 		/**
@@ -776,7 +773,7 @@ class utf8_string
 			if( !this->requires_unicode() )
 				return this->get_buffer()[byte_index];
 			value_type dest;
-			decode_utf8( this->get_buffer() + byte_index , dest , this->_misformatted );
+			decode_utf8( this->get_buffer() + byte_index , dest );
 			return dest;
 		}
 		
@@ -924,7 +921,7 @@ class utf8_string
 		 */
 		size_type get_num_multibytes() const {
 			if( bool tmp = this->sso_active() )
-				return get_num_multibytes( this->get_buffer() , max_sso_bytes() , this->_misformatted ? &tmp : nullptr );
+				return get_num_multibytes( this->get_buffer() , max_sso_bytes() );
 			return this->_indices_len;
 		}
 		
@@ -1458,22 +1455,22 @@ class utf8_string
 		//! Get the number of bytes of codepoint in utf8_string
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len , this->_misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len );
 		}
 		unsigned char get_index_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->_buffer_len , this->_misformatted ? &tmp : nullptr );
+			return get_num_bytes_of_utf8_char( this->get_buffer() , byte_index , this->_buffer_len );
 		}
 		
 		
 		//! Get the number of bytes before a codepoint, that build up a new codepoint
 		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
 			bool tmp = false;
-			return this->_string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len , this->_misformatted ? &tmp : nullptr  ) : 1;
+			return this->_string_len > codepoint_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , get_num_resulting_bytes( 0 , codepoint_index ) , this->_buffer_len ) : 1;
 		}
 		unsigned char get_index_pre_bytes( size_type byte_index ) const {
 			bool tmp = false;
-			return this->_buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->_buffer_len , this->_misformatted ? &tmp : nullptr ) : 1;
+			return this->_buffer_len > byte_index ? get_num_bytes_of_utf8_char_before( this->get_buffer() , byte_index , this->_buffer_len ) : 1;
 		}
 		
 		//! Friend iterator difference computation functions

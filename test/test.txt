@@ -4,7 +4,6 @@ String: SSO: ツ♫
 Length: 7
 Size (bytes): 11
 RequiresUnicode: 1
-MisFormatted: 0
 NumMultibytes: 2
 SSOActive: 1
 MaxSmallStringBytes: 16
@@ -16,7 +15,6 @@ String: ツ
 Length: 1
 Size (bytes): 3
 RequiresUnicode: 1
-MisFormatted: 0
 NumMultibytes: 1
 SSOActive: 1
 MaxSmallStringBytes: 16
@@ -28,7 +26,6 @@ String: Hello  ツ  World
 Length: 15
 Size (bytes): 17
 RequiresUnicode: 1
-MisFormatted: 0
 NumMultibytes: 1
 SSOActive: 0
 9nd codepoint:  
@@ -39,14 +36,12 @@ String: Hello ツ ♫ World
 Length: 15
 Size (bytes): 19
 RequiresUnicode: 1
-MisFormatted: 0
 NumMultibytes: 2
 SSOActive: 0
 Appended '♫ World': Hello ツ ♫ World♫ World
 Length: 22
 Size (bytes): 28
 RequiresUnicode: 1
-MisFormatted: 0
 NumMultibytes: 3
 SSOActive: 0
 
@@ -57,7 +52,6 @@ String: Hello ツ World ♫
 SSOActive: 0
 RequiresUnicode: 1
 NumMultibytes: 2
-MisFormatted: 0
 Iterative output: Hello U\12484 World U\9835
 Reverse iterative output: U\9835 dlroW U\12484 olleH
 Random access output: Hello U\12484 World U\9835
@@ -68,14 +62,12 @@ String: Hello ツ World
 SSOActive: 1
 Length: 13
 RequiresUnicode: 1
-MisFormatted: 0
 Replaced codepoint 6 with 🤝: Hello 🤝 World
 Replaced codepoints 5-7 with ' ': Hello World
 Replaced the space with '~ 🤝 ~': Hello~ 🤝 ~World
 SSOActive: 0
 Length: 15
 NumMultibytes: 1
-MisFormatted: 0
 Random access output: Hello~ U\129309 ~World
 
 Test 5: 
@@ -83,7 +75,6 @@ Test 5:
 String: Hello ツ World♫
 SSOActive: 0
 RequiresUnicode: 1
-MisFormatted: 0
 Erased 14th codepoint: Hello ツ World
 SSOActive: 1
 Erased codepoints [0,8): World
@@ -93,9 +84,8 @@ Test 6:
 String (ANSI): L�wen, B�ren, V�gel und K�fer sind Tiere.
 RequiresUnicode: 0
 SSOActive: 0
-MisFormatted: 1
 Iterative Output: LU\-10wen, BU\-28ren, VU\-10gel und KU\-28fer sind Tiere.
-Reverse Iterative Output: .ereiT dnis rU\-28K dnu U\-10V ,nU\-28B ,U\-10L
+Reverse Iterative Output: .ereiT dnis refU\-28K dnu legU\-10V ,nerU\-28B ,newU\-10L
 Converted to UTF-8: Löwen, Bären, Vögel und Käfer sind Tiere.
 
 Test 7: 
@@ -114,7 +104,6 @@ Test 8:
 Full String: Hello ツ World rg rth rt he rh we gxgre
 Substring 3[16]: lo ツ World rg rt
 SSOActive: 0
-MisFormatted: 0
 7th codepoint: o
 
 Test 6: 

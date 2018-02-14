@@ -29,7 +29,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
@@ -47,7 +46,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
@@ -65,7 +63,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "9nd codepoint: " << (char)str[8] << endl;
@@ -84,7 +81,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		
@@ -96,7 +92,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		
@@ -112,7 +107,6 @@ int main()
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		cout << "Iterative output: ";
 		
@@ -159,7 +153,6 @@ int main()
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "Length: " << str.length() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		str[6] = U'🤝';
 		
@@ -175,7 +168,6 @@ int main()
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "Length: " << str.length() << endl;
 		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "Random access output: ";
 		
 		for( int i = 0 ; i < str.length() ; i++ )
@@ -199,7 +191,6 @@ int main()
 		cout << "String: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		str.erase( 13 );
 		
@@ -222,7 +213,6 @@ int main()
 		cout << "String (ANSI): " << str << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		
 		cout << "Iterative Output: ";
 		
@@ -289,7 +279,6 @@ int main()
 		utf8_string str = fullstr.substr( 3 , 16 );
 		cout << "Substring 3[16]: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
-		cout << "MisFormatted: " << str.is_misformatted() << endl;
 		cout << "7th codepoint: " << (char)str[6] << endl << endl;
 	}
 	

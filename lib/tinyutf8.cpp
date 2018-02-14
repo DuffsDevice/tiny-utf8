@@ -73,7 +73,6 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	size_type		num_multibytes = 0;
 	size_type		num_bytes = 0;
 	size_type		string_len = 0;
-	bool			misformatted = false;
 	
 	// Count Multibytes
 	while( str[num_bytes] && string_len < len )
@@ -81,7 +80,7 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 		string_len++; // Count number of codepoints
 		
 		// Compute the number of bytes to skip
-		unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( str , num_bytes , utf8_string::npos , &misformatted );
+		unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( str , num_bytes , utf8_string::npos );
 		num_bytes += cur_num_bytes;
 		if( cur_num_bytes > 1 )
 			num_multibytes++; // Increase number of occoured multibytes
@@ -100,11 +99,8 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 		this->_string_len = string_len;
 		
 		// Compute the multibyte table
-		this->compute_multibyte_table( buffer.second , misformatted ? &misformatted : nullptr );
+		this->compute_multibyte_table( buffer.second );
 	}
-	
-	// Set misformatted flag
-	this->_misformatted = misformatted;
 }
 
 utf8_string::utf8_string( const value_type* str , size_type len ) :
@@ -160,8 +156,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 
 
 utf8_string::utf8_string( utf8_string&& str ) :
-	_misformatted( str._misformatted )
-	, _buffer_len( str._buffer_len )
+	_buffer_len( str._buffer_len )
 	, _capacity( str._capacity )
 	, _buffer( str._buffer )
 	, _string_len( str._string_len )
@@ -172,8 +167,7 @@ utf8_string::utf8_string( utf8_string&& str ) :
 }
 
 utf8_string::utf8_string( const utf8_string& str ) :
-	_misformatted( str._misformatted )
-	, _buffer_len( str._buffer_len )
+	_buffer_len( str._buffer_len )
 	, _string_len( str._string_len )
 	, _indices_len( str._indices_len )
 {
@@ -196,7 +190,6 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 	if( str.empty() )
 		return *this;
 	
-	this->_misformatted = str._misformatted;
 	this->_buffer_len = str._buffer_len;
 	this->_string_len = str._string_len;
 	this->_indices_len = str._indices_len;
@@ -230,75 +223,76 @@ utf8_string& utf8_string::operator=( utf8_string&& str )
 }
 
 
-unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index , size_type buffer_len , bool* misformatted )
+unsigned char utf8_string::get_num_bytes_of_utf8_char_before( const char* data , size_type current_byte_index , size_type buffer_len )
 {
 	if( current_byte_index >= buffer_len || current_byte_index < 1 )
 		return 1;
 	
 	data += current_byte_index;
 	
-	// If we know the utf8 string is misformatted, we have to check, how many 
-	if( !misformatted || *misformatted )
+#ifdef _TINY_UTF8_H_SAFE_MODE_
+	
+	// Check if byte is ascii
+	if( static_cast<unsigned char>(data[-1]) <= 0x7F )
+		return 1;
+	
+	// Check if byte is no data-blob
+	if( ( static_cast<unsigned char>(data[-1]) & 0xC0) != 0x80 || current_byte_index < 2 )	return 1;
+	// 110XXXXX - two bytes?
+	if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )	return 2;
+	
+	// Check if byte is no data-blob
+	if( ( static_cast<unsigned char>(data[-2]) & 0xC0) != 0x80 || current_byte_index < 3 )	return 1;
+	// 1110XXXX - three bytes?
+	if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )	return 3;
+	
+	// Check if byte is no data-blob
+	if( ( static_cast<unsigned char>(data[-3]) & 0xC0) != 0x80 || current_byte_index < 4 )	return 1;
+	// 11110XXX - four bytes?
+	if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )	return 4;
+	
+	// Check if byte is no data-blob
+	if( ( static_cast<unsigned char>(data[-4]) & 0xC0) != 0x80 || current_byte_index < 5 )	return 1;
+	// 111110XX - five bytes?
+	if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )	return 5;
+	
+	// Check if byte is no data-blob
+	if( ( static_cast<unsigned char>(data[-5]) & 0xC0) != 0x80 || current_byte_index < 6 )	return 1;
+	// 1111110X - six bytes?
+	if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )	return 6;
+	
+#else
+	
+	// Only Check the possibilities, that could appear
+	switch( current_byte_index )
 	{
-		// Check if byte is ascii
-		if( static_cast<unsigned char>(data[-1]) <= 0x7F )
-			return 1;
-		
-		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-1]) & 0xC0) != 0x80 || current_byte_index < 2 )	return 1;
-		// 110XXXXX - two bytes?
-		if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )	return 2;
-		
-		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-2]) & 0xC0) != 0x80 || current_byte_index < 3 )	return 1;
-		// 1110XXXX - three bytes?
-		if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )	return 3;
-		
-		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-3]) & 0xC0) != 0x80 || current_byte_index < 4 )	return 1;
-		// 11110XXX - four bytes?
-		if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )	return 4;
-		
-		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-4]) & 0xC0) != 0x80 || current_byte_index < 5 )	return 1;
-		// 111110XX - five bytes?
-		if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )	return 5;
-		
-		// Check if byte is no data-blob
-		if( ( static_cast<unsigned char>(data[-5]) & 0xC0) != 0x80 || current_byte_index < 6 )	return 1;
-		// 1111110X - six bytes?
-		if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )	return 6;
+		default:
+			if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )  // 1111110X  six bytes
+				return 6;
+		case 5:
+			if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )  // 111110XX  five bytes
+				return 5;
+		case 4:
+			if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )  // 11110XXX  four bytes
+				return 4;
+		case 3:
+			if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
+				return 3;
+		case 2:
+			if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
+				return 2;
+		case 1:
+			break;
 	}
-	else
-	{
-		// Only Check the possibilities, that could appear
-		switch( current_byte_index )
-		{
-			default:
-				if( ( static_cast<unsigned char>(data[-6]) & 0xFE) == 0xFC )  // 1111110X  six bytes
-					return 6;
-			case 5:
-				if( ( static_cast<unsigned char>(data[-5]) & 0xFC) == 0xF8 )  // 111110XX  five bytes
-					return 5;
-			case 4:
-				if( ( static_cast<unsigned char>(data[-4]) & 0xF8) == 0xF0 )  // 11110XXX  four bytes
-					return 4;
-			case 3:
-				if( ( static_cast<unsigned char>(data[-3]) & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
-					return 3;
-			case 2:
-				if( ( static_cast<unsigned char>(data[-2]) & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
-					return 2;
-			case 1:
-				break;
-		}
-	}
+	
+#endif
+	
 	return 1;
 }
 
 
 
-unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_type first_byte_index , size_type buffer_len , bool* misformatted )
+unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_type first_byte_index , size_type buffer_len )
 {
 	if( buffer_len <= first_byte_index )
 		return 1;
@@ -306,71 +300,68 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( const char* data , size_t
 	data += first_byte_index;
 	unsigned char first_byte =  static_cast<unsigned char>(data[0]);
 	
-	// If we know the utf8 string is misformatted, we have to check, how many 
-	if( misformatted )
+#ifdef _TINY_UTF8_H_SAFE_MODE_
+	if( first_byte <= 0x7F )
+		return 1;
+	
+	// Check if byte is data-blob
+	if( ( static_cast<unsigned char>(data[1]) & 0xC0) != 0x80 )		return 1;
+	// 110XXXXX - two bytes?
+	if( (first_byte & 0xE0) == 0xC0 )	return 2;
+	
+	// Check if byte is data-blob
+	if( ( static_cast<unsigned char>(data[2]) & 0xC0) != 0x80 )		return 1;
+	// 1110XXXX - three bytes?
+	if( (first_byte & 0xF0) == 0xE0 )	return 3;
+	
+	// Check if byte is data-blob
+	if( ( static_cast<unsigned char>(data[3]) & 0xC0) != 0x80 )		return 1;
+	// 11110XXX - four bytes?
+	if( (first_byte & 0xF8) == 0xF0 )	return 4;
+	
+	// Check if byte is data-blob
+	if( ( static_cast<unsigned char>(data[4]) & 0xC0) != 0x80 )		return 1;
+	// 111110XX - five bytes?
+	if( (first_byte & 0xFC) == 0xF8 )	return 5;
+	
+	// Check if byte is data-blob
+	if( ( static_cast<unsigned char>(data[5]) & 0xC0) != 0x80 )		return 1;
+	// 1111110X - six bytes?
+	if( (first_byte & 0xFE) == 0xFC )	return 6;
+#else
+	// Only Check the possibilities, that could appear
+	switch( buffer_len - first_byte_index )
 	{
-		if( first_byte <= 0x7F )
-			return 1;
-		
-		// Check if byte is data-blob
-		if( ( static_cast<unsigned char>(data[1]) & 0xC0) != 0x80 )		return *misformatted = true;
-		// 110XXXXX - two bytes?
-		if( (first_byte & 0xE0) == 0xC0 )	return 2;
-		
-		// Check if byte is data-blob
-		if( ( static_cast<unsigned char>(data[2]) & 0xC0) != 0x80 )		return *misformatted = true;
-		// 1110XXXX - three bytes?
-		if( (first_byte & 0xF0) == 0xE0 )	return 3;
-		
-		// Check if byte is data-blob
-		if( ( static_cast<unsigned char>(data[3]) & 0xC0) != 0x80 )		return *misformatted = true;
-		// 11110XXX - four bytes?
-		if( (first_byte & 0xF8) == 0xF0 )	return 4;
-		
-		// Check if byte is data-blob
-		if( ( static_cast<unsigned char>(data[4]) & 0xC0) != 0x80 )		return *misformatted = true;
-		// 111110XX - five bytes?
-		if( (first_byte & 0xFC) == 0xF8 )	return 5;
-		
-		// Check if byte is data-blob
-		if( ( static_cast<unsigned char>(data[5]) & 0xC0) != 0x80 )		return *misformatted = true;
-		// 1111110X - six bytes?
-		if( (first_byte & 0xFE) == 0xFC )	return 6;
+		default:
+			if( (first_byte & 0xFE) == 0xFC )  // 1111110X  six bytes
+				return 6;
+		case 6:
+			if( (first_byte & 0xFC) == 0xF8 )  // 111110XX  five bytes
+				return 5;
+		case 5:
+			if( (first_byte & 0xF8) == 0xF0 )  // 11110XXX  four bytes
+				return 4;
+		case 4:
+			if( (first_byte & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
+				return 3;
+		case 3:
+			if( (first_byte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
+				return 2;
+		case 2:
+			if( first_byte <= 0x7F )
+				return 1;
+		case 1:
+		case 0:
+			break;
 	}
-	else
-	{	
-		// Only Check the possibilities, that could appear
-		switch( buffer_len - first_byte_index )
-		{
-			default:
-				if( (first_byte & 0xFE) == 0xFC )  // 1111110X  six bytes
-					return 6;
-			case 6:
-				if( (first_byte & 0xFC) == 0xF8 )  // 111110XX  five bytes
-					return 5;
-			case 5:
-				if( (first_byte & 0xF8) == 0xF0 )  // 11110XXX  four bytes
-					return 4;
-			case 4:
-				if( (first_byte & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
-					return 3;
-			case 3:
-				if( (first_byte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
-					return 2;
-			case 2:
-				if( first_byte <= 0x7F )
-					return 1;
-			case 1:
-			case 0:
-				break;
-		}
-	}
+#endif
+	
 	return 1; // one byte
 }
 
 
 
-unsigned char utf8_string::decode_utf8( const char* data , value_type& dest , bool misformatted )
+unsigned char utf8_string::decode_utf8( const char* data , value_type& dest )
 {
 	unsigned char first_char =  static_cast<unsigned char>(*data);
 	
@@ -411,18 +402,19 @@ unsigned char utf8_string::decode_utf8( const char* data , value_type& dest , bo
 		num_bytes = 1;
 	}
 	
-	if( !misformatted )
-		for( int i = 1 ; i < num_bytes ; i++ )
-			codepoint = (codepoint << 6) | (data[i] & 0x3F);
-	else
-		for( int i = 1 ; i < num_bytes ; i++ ){
-			if( !data[i] || ( static_cast<unsigned char>(data[i]) & 0xC0) != 0x80 ){
-				num_bytes = 1;
-				codepoint = first_char;
-				break;
-			}
-			codepoint = (codepoint << 6) | ( static_cast<unsigned char>(data[i]) & 0x3F );
+#ifdef _TINY_UTF8_H_SAFE_MODE_
+	for( int i = 1 ; i < num_bytes ; i++ ){
+		if( !data[i] || ( static_cast<unsigned char>(data[i]) & 0xC0) != 0x80 ){
+			num_bytes = 1;
+			codepoint = first_char;
+			break;
 		}
+		codepoint = (codepoint << 6) | ( static_cast<unsigned char>(data[i]) & 0x3F );
+	}
+#else
+	for( int i = 1 ; i < num_bytes ; i++ )
+		codepoint = (codepoint << 6) | (data[i] & 0x3F);	
+#endif
 	
 	dest = codepoint;
 	
@@ -494,8 +486,6 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type star
 	if( !buffer )
 		return 0;
 	
-	bool		misformatted;
-	bool*		check_misformatted = this->_misformatted ? &misformatted : nullptr;
 	size_type	cur_index = start_byte;
 	size_type	end_index = start_byte + byte_count;
 	
@@ -505,7 +495,7 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type star
 	if( this->sso_active() )
 	{
 		while( cur_index < end_index ){
-			unsigned char num_bytes = get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len , check_misformatted );
+			unsigned char num_bytes = get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len );
 			cur_index += num_bytes;
 			byte_count -= num_bytes - 1;
 		}
@@ -533,7 +523,7 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type star
 				break;
 			
 			index_multibyte_table++;
-			byte_count -= get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len , check_misformatted ) - 1; // Remove utf8 data bytes
+			byte_count -= get_num_bytes_of_utf8_char( buffer , cur_index , this->_buffer_len ) - 1; // Remove utf8 data bytes
 		}
 	}
 	
@@ -553,15 +543,13 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 	if( start_byte + codepoint_count > size )
 		return size - start_byte;
 	
-	bool misformatted;
-	bool* check_misformatted = this->_misformatted ? &misformatted : nullptr;
 	size_type cur_byte = start_byte;
 	size_type buffer_len = size + 1;
 	
 	// Reduce the byte count by the number of utf8 data bytes
 	if( utf8_string::is_small_string(buffer_len) ){ // this->sso_active(), but we have already cached size()
 		while( codepoint_count-- > 0 && cur_byte < size )
-			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , buffer_len , check_misformatted );
+			cur_byte += get_num_bytes_of_utf8_char( buffer , cur_byte , buffer_len );
 	}
 	else if( size_type indices_len = this->_indices_len )
 	{
@@ -590,7 +578,7 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type start_byt
 			index_multibyte_table++;
 			
 			// Add the utf8 data bytes to the number of bytes
-			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , buffer_len , check_misformatted ) - 1; // Add utf8 data bytes
+			cur_byte += get_num_bytes_of_utf8_char( buffer , multibyte_pos , buffer_len ) - 1; // Add utf8 data bytes
 		}
 	}
 	else
@@ -680,7 +668,7 @@ std::pair<char*,void*> utf8_string::new_buffer( utf8_string::size_type buffer_si
 }
 
 
-void utf8_string::compute_multibyte_table( void* table , bool* misformatted )
+void utf8_string::compute_multibyte_table( void* table )
 {
 	// initialize indices table
 	char*	buffer = this->get_buffer();
@@ -695,7 +683,7 @@ void utf8_string::compute_multibyte_table( void* table , bool* misformatted )
 		// Fill Multibyte Table
 		for( size_type index = 0 ; index < buffer_len ; )
 		{
-			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , buffer_len , misformatted );
+			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( buffer , index , buffer_len );
 			if( cur_num_bytes > 1 )
 				utf8_string::set_nth_index( table , indices_datatype_bytes , multibyte_index++ , index );
 			index += cur_num_bytes;
@@ -822,7 +810,6 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	size_type		replaced_condepoints = 0;
 	size_type		num_replacement_multibytes = 0;
 	size_type		num_replaced_multibytes = 0;
-	bool			misformatted = false;
 	bool			delete_buffer = false;
 	size_type		replaced_indices_start = 0; // The starting index of the section within the index_of_mutlibyte table that will get replaced
 	size_type		replaced_indices_end = 0; // The corresp. end index
@@ -844,7 +831,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 		for( size_type i = 0 ; i < replacement_bytes ; )
 		{
 			// Compute the number of bytes to skip
-			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , i , replacement._buffer_len , &misformatted );
+			unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , i , replacement._buffer_len );
 			i += cur_num_bytes;
 			if( cur_num_bytes > 1 )
 				num_replacement_multibytes++;
@@ -877,7 +864,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 				old_string_len++; // Increase number of codepoints
 				
 				// Compute the number of bytes to skip
-				unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( dest_buffer , idx , new_buffer_len , &misformatted );
+				unsigned char cur_num_bytes = get_num_bytes_of_utf8_char( dest_buffer , idx , new_buffer_len );
 				
 				// Check if were in the range of replaced codepoints
 				if( idx >= start_byte && idx < end_byte )
@@ -1007,7 +994,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 		this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 		
 		// Make new multibytes table
-		compute_multibyte_table( new_indices , misformatted ? &misformatted : nullptr );
+		compute_multibyte_table( new_indices );
 		
 		goto END_OF_REPLACE;
 	}
@@ -1018,11 +1005,8 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	//
 	
 	// If we don't need a new indices table, set some flags and return
-	if( !new_indices )
-	{
+	if( !new_indices ){
 		this->_string_len = my_size;
-		misformatted |= replacement._misformatted;
-		
 		goto END_OF_REPLACE;
 	}
 	
@@ -1079,7 +1063,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			// Compute the multibyte table
 			for( size_type idx = 0 ; idx < replacement_bytes ; )
 			{
-				unsigned char num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , idx , replacement_bytes , &misformatted );
+				unsigned char num_bytes = get_num_bytes_of_utf8_char( replacement_buffer , idx , replacement_bytes );
 				
 				// Add character index to multibyte table
 				if( num_bytes > 1 )
@@ -1090,9 +1074,6 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 		}
 		else
 		{
-			// Set flag
-			misformatted |= replacement.is_misformatted();
-			
 			unsigned char	replacement_indices_datatype_bytes = get_index_datatype_bytes( replacement._buffer_len );
 			const void*		replacement_indices = replacement.get_indices();
 			size_type		source = 0;
@@ -1112,9 +1093,6 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 	
 	END_OF_REPLACE:
-	
-	// Set misformatted flag
-	this->_misformatted = misformatted;
 	
 	if( delete_buffer )
 		delete[] old_buffer;
@@ -1137,7 +1115,7 @@ utf8_string::value_type utf8_string::at( size_type requested_index ) const
 	
 	// Decode internal buffer at position n
 	value_type codepoint = 0;
-	decode_utf8( buffer + get_num_resulting_bytes( 0 , requested_index ) , codepoint , this->_misformatted );
+	decode_utf8( buffer + get_num_resulting_bytes( 0 , requested_index ) , codepoint );
 	
 	return codepoint;
 }
@@ -1155,7 +1133,7 @@ std::unique_ptr<utf8_string::value_type[]> utf8_string::wide_literal() const
 	const char*						source = this->get_buffer();
 	
 	while( *source )
-		source += decode_utf8( source , *tempDest++ , this->_misformatted );
+		source += decode_utf8( source , *tempDest++ );
 	
 	*tempDest = 0;
 	
