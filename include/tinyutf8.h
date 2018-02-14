@@ -367,7 +367,7 @@ class utf8_string
 	private:
 		
 		//! Attributes
-		struct{
+		struct [[gnu::packed, packed]]{
 		mutable bool	_misformatted : 1;
 		size_type		_buffer_len : sizeof(size_type) * 8 - 1;
 		};

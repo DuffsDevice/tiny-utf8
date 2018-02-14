@@ -302,7 +302,7 @@ int main()
 		cout << "String: " << str << endl;
 		cout << "Capacity: " << str.capacity() << endl;
 		
-		for( int i = 0 ; i < 10 ; i++ )
+		for( int i = 0 ; i < 20 ; i++ )
 		{
 			str.append( U"SSO: ツ♫" );
 			cout << "String after insertion: " << str << endl;
@@ -312,8 +312,8 @@ int main()
 		}
 		
 		str.shrink_to_fit();
-		cout << "String after insertion: " << str << endl;
-		cout << "Capacity after insertion: " << str.capacity() << endl;
+		cout << "String after shrinking: " << str << endl;
+		cout << "Capacity after shrinking: " << str.capacity() << endl;
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl << endl;
 		

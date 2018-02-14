@@ -171,9 +171,59 @@ Capacity after insertion: 193
 Length: 77
 Size (bytes): 121
 
-String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 121
-Length: 77
-Size (bytes): 121
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 191
+Length: 84
+Size (bytes): 132
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 189
+Length: 91
+Size (bytes): 143
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 187
+Length: 98
+Size (bytes): 154
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 185
+Length: 105
+Size (bytes): 165
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 183
+Length: 112
+Size (bytes): 176
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 298
+Length: 119
+Size (bytes): 187
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 296
+Length: 126
+Size (bytes): 198
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 294
+Length: 133
+Size (bytes): 209
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 292
+Length: 140
+Size (bytes): 220
+
+String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after insertion: 290
+Length: 147
+Size (bytes): 231
+
+String after shrinking: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
+Capacity after shrinking: 231
+Length: 147
+Size (bytes): 231
 
 

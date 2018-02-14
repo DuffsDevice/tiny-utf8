@@ -792,17 +792,19 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	
 	size_type		end_byte = start_byte + replaced_bytes;
 	
-	if( end_byte > my_size )
+	// Second operand of || is needed because of potential integer overflow in the above sum
+	if( end_byte > my_size || end_byte < start_byte )
 		end_byte = my_size;
 	
 	// Predefs and Backups
+	replaced_bytes = end_byte - start_byte;
 	size_type		replacement_bytes = replacement.size();
 	const char* 	replacement_buffer = replacement.get_buffer();
 	size_type		replacement_codepoints = 0;
 	difference_type	byte_difference = replaced_bytes - replacement_bytes;
 	char*			old_buffer = this->get_buffer();
 	size_type		old_buffer_len = this->_buffer_len;
-	size_type		old_size = this->size();
+	size_type		old_size = my_size;
 	void*			old_indices = this->get_indices();
 	unsigned char	old_indices_datatype_bytes = get_index_datatype_bytes( old_buffer_len );
 	unsigned char	new_indices_datatype_bytes = 0;
@@ -810,7 +812,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	size_type		old_string_len = 0;
 	size_type		new_capacity = 0;
 	char*			dest_buffer = old_buffer;
-	size_type		normalized_buffer_len = std::max<size_type>( this->_buffer_len , 1 );
+	size_type		normalized_buffer_len = old_size + 1;
 	size_type		new_buffer_len = normalized_buffer_len - byte_difference;
 	bool			was_small_string = is_small_string( old_buffer_len );
 	bool			will_be_small_string = is_small_string( new_buffer_len );
@@ -825,7 +827,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	size_type		replaced_indices_start = 0; // The starting index of the section within the index_of_mutlibyte table that will get replaced
 	size_type		replaced_indices_end = 0; // The corresp. end index
 	difference_type difference_in_num_multibytes = 0;
-	replaced_bytes = end_byte - start_byte;
+	
 	
 	if( !new_buffer_len ){
 		clear(); // Reset because empty
@@ -859,7 +861,11 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	// Compute the new size of the indices table and
 	// Allocate the new buffer!
 	//
-	if( !will_be_small_string )
+	if( will_be_small_string ){
+		dest_buffer = this->get_sso_buffer();
+		new_indices = nullptr;
+	}
+	else
 	{
 		if( was_small_string )
 		{
@@ -887,7 +893,6 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			new_capacity += new_capacity >> 1; // Allocate some more!
 			
 			dest_buffer = new char[new_capacity];
-			new_indices = reinterpret_cast<void*>( dest_buffer + new_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) );
 		}
 		else
 		{
@@ -904,9 +909,8 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			replaced_indices_end = replaced_indices_start;
 			
 			// Look for the end
-			while( replaced_indices_end < this->_indices_len )
-			{
-				if( utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , replaced_indices_start ) >= end_byte )
+			while( replaced_indices_end < this->_indices_len ){
+				if( utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , replaced_indices_end ) >= end_byte )
 					break;
 				replaced_indices_end++;
 			}
@@ -924,57 +928,53 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			new_capacity = std::max<size_type>( this->_capacity , get_required_capacity( new_buffer_len , new_indices_len ) );
 			
 			// Allocate new buffer, if we exceed the old one
-			if( this->_capacity != new_capacity )
-			{
+			if( this->_capacity != new_capacity ){
 				new_capacity += new_capacity >> 1; // Make some room for more: 1.5 times the number of bytes we actually need
 				dest_buffer = new char[new_capacity];
-				
-				new_indices = new_indices_len
-					? reinterpret_cast<void*>( this->_buffer + this->_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) )
-					: nullptr;
 			}
 		}
+		
+		// Set destination indices
+		new_indices = new_indices_len
+			? reinterpret_cast<void*>( dest_buffer + new_capacity - new_indices_len * get_index_datatype_bytes( new_buffer_len ) )
+			: nullptr;
 	}
-	else{
-		dest_buffer = this->get_sso_buffer();
-		new_indices = nullptr;
-	}
-	
 	
 	
 	// 
-	// Copy the utf8 data of this tring into the possibly new one
+	// Copy the utf8 data of this string into the possibly new one
 	//
-	if( new_buffer_len != old_buffer_len )
+	if( dest_buffer != old_buffer ) // Check, if the buffer changed
 	{
+		// Copy until replacement
+		std::memcpy( dest_buffer , old_buffer , start_byte );
+		
+		// Copy after replacement
+		std::memcpy(
+			dest_buffer + start_byte + replacement_bytes
+			, old_buffer + end_byte
+			, normalized_buffer_len - end_byte - 1 // ('-1' for skipping the trailling zero which is not present in case the buffer_len was 0)
+		);
+		
+		// If the previous buffer was not "inplace", delete it
+		if( !was_small_string )
+			delete_buffer = true;
+	}
+	else if( new_buffer_len != old_buffer_len )
 		// Copy after replacement
 		std::memmove(
 			dest_buffer + start_byte + replacement_bytes
 			, old_buffer + end_byte
 			, normalized_buffer_len - end_byte - 1 // ('-1' for skipping the trailling zero which is not present in case the buffer_len was 0)
 		);
-		
-		// Check, if the buffer changed
-		if( dest_buffer != old_buffer )
-		{
-			// Copy until replacement
-			std::memcpy( dest_buffer , old_buffer , start_byte );
-			
-			// If the previous buffer was not "inplace", delete it
-			if( !was_small_string )
-				delete_buffer = true;
-			
-			// Set the new buffer
-			if( !is_small_string( new_buffer_len ) )
-				this->_buffer = dest_buffer;
-		}
-		
-		this->_buffer_len = new_buffer_len;
-		my_size = size();
-		
-		// Set trailling zero
-		dest_buffer[my_size] = '\0';
-	}
+	
+	
+	// In any way: set trailling zero
+	dest_buffer[new_buffer_len-1] = '\0';
+	
+	// Set new buffer len
+	this->_buffer_len = new_buffer_len;
+	my_size = size();
 	
 	
 	//
@@ -1017,7 +1017,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	// This instance had a multibyte table. Thus, copy existing indices
 	//
 	
-	// If we don't need a new indices table, set some flages and return
+	// If we don't need a new indices table, set some flags and return
 	if( !new_indices )
 	{
 		this->_string_len = my_size;
@@ -1028,35 +1028,28 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 	
 	new_indices_datatype_bytes = get_index_datatype_bytes( new_buffer_len );
 	
-	// If the table address changed, copy the indices
+	// Copy the values after the replacement
+	if( byte_difference != 0 || old_indices != new_indices ) /// @todo create flag, whether there are multibytes after the replaced section
+	{
+		size_type	num_indices_after_replacement = old_indices_len - replaced_indices_end;
+		size_type	source = replaced_indices_end; // old_indices
+		size_type	dest = replaced_indices_end - difference_in_num_multibytes; // new_indices
+		
+		while( num_indices_after_replacement-- > 0 ){
+			utf8_string::set_nth_index(
+				new_indices
+				, new_indices_datatype_bytes
+				, dest++
+				, utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , source++ ) - byte_difference
+			);
+		}
+	}
+	
+	// Copy values before replacement
 	if( old_indices != new_indices )
 	{
 		size_type		num_indices_before_replacement = replaced_indices_start;
-		size_type		num_indices_after_replacement = old_indices_len - replaced_indices_end;
 		
-		// Copy the values after the replacement
-		{
-			size_type	source = replaced_indices_end; // old_indices
-			size_type	dest = replaced_indices_end - difference_in_num_multibytes; // new_indices
-			
-			if( new_indices_datatype_bytes == old_indices_datatype_bytes )
-				std::memmove(
-					((uint8_t*)new_indices) + ( dest * new_indices_datatype_bytes )
-					, ((uint8_t*)old_indices) + ( source * new_indices_datatype_bytes )
-					, num_indices_after_replacement * new_indices_datatype_bytes
-				);
-			else
-				while( num_indices_after_replacement-- > 0 ){
-					utf8_string::set_nth_index(
-						new_indices
-						, new_indices_datatype_bytes
-						, dest++
-						, utf8_string::get_nth_index( old_indices , old_indices_datatype_bytes , source++ ) - byte_difference
-					);
-				}
-		}
-		
-		// Copy values before replacement
 		if( new_indices_datatype_bytes == old_indices_datatype_bytes )
 			std::memmove(
 				new_indices
@@ -1081,7 +1074,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 		size_type	dest = replaced_indices_start; // new_indices
 		
 		// Insert indices of replacement
-		if( is_small_string( replacement._buffer_len ) )
+		if( replacement_small_string )
 		{
 			// Compute the multibyte table
 			for( size_type idx = 0 ; idx < replacement_bytes ; )
@@ -1090,7 +1083,7 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 				
 				// Add character index to multibyte table
 				if( num_bytes > 1 )
-					utf8_string::set_nth_index( new_indices , new_indices_datatype_bytes , dest++ , idx );
+					utf8_string::set_nth_index( new_indices , new_indices_datatype_bytes , dest++ , idx + start_byte );
 				
 				idx += num_bytes;
 			}
@@ -1101,22 +1094,22 @@ utf8_string& utf8_string::raw_replace( size_type start_byte , size_type replaced
 			misformatted |= replacement.is_misformatted();
 			
 			unsigned char	replacement_indices_datatype_bytes = get_index_datatype_bytes( replacement._buffer_len );
+			const void*		replacement_indices = replacement.get_indices();
+			size_type		source = 0;
 			
 			// Copy indices of replacement
-			size_type	source = 0;
 			while( num_replacement_multibytes-- > 0 )
 				utf8_string::set_nth_index(
 					new_indices
 					, new_indices_datatype_bytes
 					, dest++
-					, utf8_string::get_nth_index( old_indices , replacement_indices_datatype_bytes , source++ ) + start_byte
+					, utf8_string::get_nth_index( replacement_indices , replacement_indices_datatype_bytes , source++ ) + start_byte
 				);
 		}
-		
-		// Adjust string length
-		this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 	}
 	
+	// Adjust string length
+	this->_string_len = old_string_len - replaced_condepoints + replacement_codepoints;
 	
 	END_OF_REPLACE:
 	
@@ -1465,3 +1458,5 @@ int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_strin
 	utf8_string::size_type			num_codepoints = lhs.get_instance()->get_num_resulting_codepoints( minIndex , max_index - minIndex );
 	return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
 }
+
+constexpr utf8_string::size_type utf8_string::npos;
