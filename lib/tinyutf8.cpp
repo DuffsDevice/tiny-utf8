@@ -26,7 +26,7 @@
 #include "tinyutf8.h"
 
 utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type ch ) :
-	t_sso( count )
+	t_sso( 0 )
 {
 	if( !count )
 		return;
@@ -38,26 +38,33 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 	// Need to allocate a buffer?
 	if( data_len > get_max_sso_data_len() )
 	{
-		size_type buffer_size = determine_main_buffer_size( data_len , 0 , 0 );
+		size_type buffer_size = determine_main_buffer_size( data_len , num_bytes_per_cp == 1 , 0 );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
+		
+		// Set Attributes
+		set_lut_indiciator( buffer + buffer_size , num_bytes_per_cp == 1 , 0 ); // Set lut indicator
 		set_buffer_size( buffer_size ); // This also disables SSO
 		t_non_sso.data_len = data_len;
 		t_non_sso.string_len = count;
 	}
-	else
+	else{
 		buffer = t_sso.data;
+		
+		// Set Attributes
+		t_sso.set_data_len( data_len );
+	}
 	
 	// Fill the buffer
 	if( num_bytes_per_cp > 1 ){
-		buffer += encode_utf8( ch , buffer );
-		for( size_type i = 0 ; i < count ; i++ )
-			buffer = (char*) std::memcpy( buffer + num_bytes_per_cp , buffer , num_bytes_per_cp );
+		encode_utf8( ch , buffer );
+		for( char* buffer_iter = buffer ; --count > 0 ; )
+			std::memcpy( buffer_iter += num_bytes_per_cp , buffer , num_bytes_per_cp );
 	}
 	else
 		std::memset( buffer , ch , count );
 	
 	// Set trailling zero (in case sso is inactive, this trailing zero also indicates, that no multibyte-tracking is enabled)
-	*buffer = 0;
+	buffer[data_len] = 0;
 }
 
 
@@ -313,39 +320,64 @@ unsigned char utf8_string::get_num_bytes_of_utf8_char( char first_byte , size_ty
 
 
 
-// void utf8_string::shrink_to_fit()
-// {
-	// if( sso_active() )
-		// return;
+void utf8_string::shrink_to_fit()
+{
+	if( sso_active() )
+		return;
 	
-	// size_type	required_capacity = get_required_capacity( _buffer_len , _indices_len );
-	// size_type	threshold = std::max<size_type>( required_capacity + 10 , required_capacity >> 2 );
+	size_type	data_len = size();
+	size_type	buffer_size = get_buffer_size();
+	char*		buffer = get_buffer();
+	char*		lut_base_ptr = utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	size_type	required_buffer_size;
+	size_type	lut_len = 0;
+	size_type	required_lut_width;
 	
-	// // Do we save at least one quarter of the capacity and at least 10 bytes?
-	// if( _capacity < threshold )
-		// return;
+	if( lut_active( lut_base_ptr ) )
+	{
+		lut_len					= get_lut_len( lut_base_ptr );
+		required_lut_width		= get_lut_width( determine_main_buffer_size( data_len , lut_len , 1 ) );
+		required_buffer_size	= determine_main_buffer_size( data_len , lut_len , required_lut_width );
+		
+		//! Determine the threshold above which it's profitable to reallocate (at least 10 bytes and at least a quarter of the memory)
+		if( buffer_size < std::max<size_type>( required_buffer_size + 10 , required_buffer_size >> 2 ) )
+			return;
+		
+		// Allocate new buffer
+		t_non_sso.data					= new char[ determine_total_buffer_size( required_buffer_size ) ];
+		size_type	old_lut_width		= get_lut_width( buffer_size );
+		char*		new_lut_base_ptr	= utf8_string::get_lut_base_ptr( t_non_sso.data , required_buffer_size );
+		
+		// Does the data type width change?
+		if( old_lut_width != required_lut_width ){ // Copy indices one at a time
+			utf8_string::set_lut_indiciator( new_lut_base_ptr , true , lut_len );
+			for( size_type i = 0 ; i < lut_len ; i++ )
+				set_lut(
+					new_lut_base_ptr -= required_lut_width
+					, required_lut_width
+					, get_lut( lut_base_ptr -= old_lut_width , old_lut_width )
+				);
+		}
+		else{ // Copy the lut as well as the lut indicator in one action
+			size_type lut_size = lut_len * old_lut_width;
+			std::memcpy( new_lut_base_ptr - lut_size , lut_base_ptr - lut_size , lut_size + sizeof(indicator_type) );
+		}
+	}
+	else
+	{
+		required_buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
+		
+		//! Determine the threshold above which it's profitable to reallocate (at least 10 bytes and at least a quarter of the memory)
+		if( buffer_size < std::max<size_type>( required_buffer_size + 10 , required_buffer_size >> 2 ) )
+			return;
+		
+		t_non_sso.data = new char[ determine_total_buffer_size( required_buffer_size ) ]; // Allocate new buffer
+		std::memcpy( t_non_sso.data , buffer , data_len + 1 ); // Copy data
+	}
 	
-	// // Allocate new buffer
-	// char*			new_buffer = new char[required_capacity];
-	// unsigned char	index_datatype_bytes = get_index_datatype_bytes( _buffer_len );
-	
-	// // Copy indices
-	// if( _indices_len )
-		// std::memcpy(
-			// new_buffer + required_capacity - _indices_len * index_datatype_bytes
-			// , _buffer + _capacity - _indices_len * index_datatype_bytes
-			// , _indices_len * index_datatype_bytes
-		// );
-	
-	// // Copy data
-	// std::memcpy(
-		// new_buffer
-		// , _buffer
-		// , _buffer_len
-	// );
-	
-	// _capacity = required_capacity;
-// }
+	delete[] buffer; // Delete old buffer
+	set_buffer_size( required_buffer_size ); // Set new buffer size
+}
 
 
 
@@ -420,6 +452,38 @@ utf8_string::size_type utf8_string::get_num_resulting_codepoints( size_type inde
 	return byte_count;
 }
 
+utf8_string::size_type utf8_string::get_num_resulting_bytes_from_start( size_type codepoint_count ) const
+{
+	const char*	buffer		= get_buffer();
+	size_type	data_len	= size();
+	size_type	buffer_size = get_buffer_size();
+	const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	
+	// Is the lut active?
+	if( utf8_string::lut_active( lut_iter ) )
+	{
+		// Reduce the byte count by the number of data bytes within multibytes
+		unsigned char	lut_width = utf8_string::get_lut_width( buffer_size );
+		
+		// Iterate over relevant multibyte indices
+		for( size_type lut_len = utf8_string::get_lut_len( lut_iter ) ; lut_len-- > 0 ; )
+		{
+			size_type multibyte_index = utf8_string::get_lut( lut_iter -= lut_width , lut_width );
+			if( multibyte_index >= codepoint_count )
+				break;
+			codepoint_count += utf8_string::get_num_bytes_of_utf8_char( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+		}
+	}
+	else{
+		int num_bytes = 0;
+		while( codepoint_count-- > 0 )
+			num_bytes += get_num_bytes_of_utf8_char( buffer[num_bytes] , data_len - num_bytes );
+		return num_bytes;
+	}
+	
+	return codepoint_count;
+}
+
 utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type index , size_type codepoint_count ) const 
 {
 	const char*	buffer		= get_buffer();
@@ -473,23 +537,54 @@ utf8_string::size_type utf8_string::get_num_resulting_bytes( size_type index , s
 
 unsigned char utf8_string::encode_utf8( value_type codepoint , char* dest )
 {
-	unsigned char num_bytes = get_num_bytes_of_utf8_codepoint( codepoint ) - 1;
+	unsigned char num_bytes = get_num_bytes_of_utf8_codepoint( codepoint );
 	
-	switch( num_bytes ){
-		case 5: dest[num_bytes-4] = char( 0x80 | ((codepoint >> 24) & 0x3F) );
-		case 4: dest[num_bytes-3] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
-		case 3: dest[num_bytes-2] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
-		case 2: dest[num_bytes-1] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
-		case 1: dest[num_bytes] = char( 0x80 | (codepoint & 0x3F) );
-			if( sizeof(unsigned int) > 1 )
-				dest[0] = ( (unsigned int)0xFF80 >> num_bytes ) | ( codepoint >> ( 6 * num_bytes ) );
-			else
-				dest[0] = ( (unsigned long)0xFF80L >> num_bytes ) | ( codepoint >> ( 6 * num_bytes ) );
+	switch( num_bytes )
+	{
+		case 7: // 11111110 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
+			dest[0] = char( 0xFE );
+			dest[1] = char( 0x80 | ((codepoint >> 30) & 0x3F) );
+			dest[2] = char( 0x80 | ((codepoint >> 24) & 0x3F) );
+			dest[3] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
+			dest[4] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
+			dest[5] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
+			dest[6] = char( 0x80 | (codepoint & 0x3F) );
 			break;
-		case 0: dest[0] = char(codepoint);
+		case 6: // 1111110X 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
+			dest[0] = char( 0xFC | (codepoint >> 30) );
+			dest[1] = char( 0x80 | ((codepoint >> 24) & 0x3F) );
+			dest[2] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
+			dest[3] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
+			dest[4] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
+			dest[5] = char( 0x80 | (codepoint & 0x3F) );
+			break;
+		case 5: // 111110XX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
+			dest[0] = char( 0xF8 | (codepoint >> 24) );
+			dest[1] = char( 0x80 | ((codepoint >> 18) & 0x3F) );
+			dest[2] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
+			dest[3] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
+			dest[4] = char( 0x80 | (codepoint & 0x3F) );
+			break;
+		case 4: // 11110XXX 10XXXXXX 10XXXXXX 10XXXXXX
+			dest[0] = char( 0xF0 | (codepoint >> 18) );
+			dest[1] = char( 0x80 | ((codepoint >> 12) & 0x3F) );
+			dest[2] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
+			dest[3] = char( 0x80 | (codepoint & 0x3F) );
+			break;
+		case 3: // 1110XXXX 10XXXXXX 10XXXXXX
+			dest[0] = char( 0xE0 | (codepoint >> 12) );
+			dest[1] = char( 0x80 | ((codepoint >> 6) & 0x3F) );
+			dest[2] = char( 0x80 | (codepoint & 0x3F) );
+			break;
+		case 2: // 110XXXXX 10XXXXXX
+			dest[0] = char( 0xC0 | (codepoint >> 6) );
+			dest[1] = char( 0x80 | (codepoint & 0x3F) );
+			break;
+		case 1: // 0XXXXXXX
+			dest[0] = char(codepoint);
 	}
 	
-	return num_bytes + 1;
+	return num_bytes;
 }
 
 
@@ -904,20 +999,6 @@ unsigned char utf8_string::encode_utf8( value_type codepoint , char* dest )
 
 
 
-void utf8_string::to_wide_literal( utf8_string::value_type* dest ) const
-{
-	const char*	data = get_buffer();
-	size_type	data_left = size();
-	
-	while( data_left-- > 0 )
-		data += decode_utf8_and_len( data , *dest++ , data_left );
-	
-	*dest = 0;
-}
-
-
-
-
 utf8_string::difference_type utf8_string::compare( const utf8_string& str ) const
 {
 	const_iterator	it1 = cbegin();
@@ -925,65 +1006,14 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 	const_iterator	end1 = cend();
 	const_iterator	end2 = str.cend();
 	
-	while( it1 != end1 && it2 != end2 ){
+	while( it1 < end1 && it2 < end2 ){
 		difference_type diff = *it2 - *it1;
 		if( diff )
 			return diff;
-		it1++;
-		it2++;
+		++it1;
+		++it2;
 	}
 	return ( it1 == end1 ? 1 : 0 ) - ( it2 == end2 ? 1 : 0 );
-}
-
-bool utf8_string::equals( const char* str ) const
-{
-	const char* it = get_buffer();
-	
-	if( !it )
-		return !str || !*str;
-	else if( !str )
-		return !*it; // '!it' must be false
-	
-	while( *it && *str ){
-		if( *it != *str )
-			return false;
-		it++;
-		str++;
-	}
-	return *it == *str;
-}
-
-bool utf8_string::equals( const value_type* str ) const
-{
-	const_iterator	it = cbegin();
-	const_iterator	end = cend();
-	
-	while( it != end && *str ){
-		if( *str != *it )
-			return false;
-		it++;
-		str++;
-	}
-	return *it == *str;
-}
-
-
-
-
-utf8_string::size_type utf8_string::find( value_type ch , size_type start_pos ) const
-{
-	for( const_iterator it = get(start_pos) ; it < cend() ; it++ )
-		if( *it == ch )
-			return it - begin();
-	return utf8_string::npos;
-}
-
-utf8_string::size_type utf8_string::raw_find( value_type ch , size_type index ) const
-{
-	for( size_type it = index ; it < size() ; it += get_index_bytes( it ) )
-		if( raw_at(it) == ch )
-			return it;
-	return utf8_string::npos;
 }
 
 
@@ -1038,7 +1068,7 @@ utf8_string::size_type utf8_string::raw_find_first_of( const value_type* str , s
 	if( index >= size() )
 		return utf8_string::npos;
 	
-	for( size_type it = index ; it < size() ; it += get_index_bytes( it ) )
+	for( size_type it = index, my_size = size() ; it < my_size ; it += get_index_bytes( it ) )
 	{
 		const value_type*	tmp = str;
 		do{
@@ -1057,7 +1087,7 @@ utf8_string::size_type utf8_string::find_last_of( const value_type* str , size_t
 {
 	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
 	
-	while( it < rend() )
+	for( const_reverse_iterator rend = crend() ; it != rend ; )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
@@ -1100,7 +1130,7 @@ utf8_string::size_type utf8_string::find_first_not_of( const value_type* str , s
 	if( start_pos >= length() )
 		return utf8_string::npos;
 	
-	for( const_iterator it = get(start_pos) ; it < cend() ; it++ )
+	for( const_iterator it = get(start_pos) , end = cend() ; it != end ; it++ )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
@@ -1122,7 +1152,7 @@ utf8_string::size_type utf8_string::raw_find_first_not_of( const value_type* str
 	if( index >= size() )
 		return utf8_string::npos;
 	
-	for( size_type it = index ; it < size() ; it += get_index_bytes( it ) )
+	for( size_type it = index, my_size = size() ; it < my_size ; it += get_index_bytes( it ) )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = raw_at(it);

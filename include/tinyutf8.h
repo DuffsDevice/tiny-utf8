@@ -440,7 +440,7 @@ class utf8_string
 		// Layout used, if sso is inactive
 		struct NON_SSO
 		{
-			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <index_mode::rle> ]
+			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <lut_indicator::rle> ]
 			size_type		data_len; // In bytes, excluding the trailing '\0'
 			size_type		string_len;
 			size_type		buffer_size; // Indicates the size of '::data' minus 'lut_width'; Shadows data_len on the last byte
@@ -458,6 +458,8 @@ class utf8_string
 				this->data_len = ( sizeof(SSO::data) - data_len ) << 1;
 			}
 		};
+		
+		typedef size_type indicator_type;
 	
 	public:
 		
@@ -499,12 +501,12 @@ class utf8_string
 		
 		//! Determine the needed buffer size (excluding the trailling LUT indicator)
 		static inline size_type determine_main_buffer_size( size_type data_len , size_type lut_len , unsigned char lut_width ){
-			// Make the buffer a multiple of 8 (don't forget, we need a terminating '\0', distinct from the lut indicator)
-			return ( ( data_len + 1 + 7 ) & ~size_type(7) ) + lut_width * lut_len;
+			// Make the buffer size_type-aligned (don't forget, we need a terminating '\0', distinct from the lut indicator)
+			return ( ( data_len + 1 + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 ) ) + lut_width * lut_len;
 		}
 		//! Same as above but this time including the LUT indicator
 		static inline size_type determine_total_buffer_size( size_type main_buffer_size ){
-			return main_buffer_size + sizeof(size_type); // Add the lut indicator
+			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
 		}
 		
 		//! Get the LUT base pointer
@@ -516,14 +518,14 @@ class utf8_string
 			if( !active )
 				*(unsigned char*)lut_base_ptr &= ~(unsigned char)0x1;
 			else if( !detail::is_little_endian::value ){
-				detail::first_byte<size_type> lb;
+				detail::first_byte<indicator_type> lb;
 				lb.number = lut_len;
 				lb.fbyte <<= 1;
 				lb.fbyte |= (unsigned char)0x1;
-				*(size_type*)lut_base_ptr = lb.number;
+				*(indicator_type*)lut_base_ptr = lb.number;
 			}
 			else
-				*(size_type*)lut_base_ptr = ( lut_len << 1 ) | size_type(0x1);
+				*(indicator_type*)lut_base_ptr = ( lut_len << 1 ) | indicator_type(0x1);
 		}
 		
 		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
@@ -584,12 +586,12 @@ class utf8_string
 		inline const char* get_lut_base_ptr() const { return get_buffer() + get_buffer_size(); }
 		inline char* get_lut_base_ptr(){ return get_buffer() + get_buffer_size(); }
 		
-		//! Get the LUT size (given the lut is active)
+		//! Get the LUT size (given the lut is active!)
 		static inline size_type get_lut_len( const char* lut_base_ptr ){
 			if( detail::is_little_endian::value )
-				return *(size_type*)lut_base_ptr >> 1;
-			detail::first_byte<size_type> fb;
-			fb.number = *(size_type*)lut_base_ptr;
+				return *(indicator_type*)lut_base_ptr >> 1;
+			detail::first_byte<indicator_type> fb;
+			fb.number = *(indicator_type*)lut_base_ptr;
 			fb.fbyte >>= 1;
 			return fb.number;
 		}
@@ -690,11 +692,11 @@ class utf8_string
 		 * Decodes a given input of rle utf8 data to a unicode codepoint, given the number of bytes it's made of
 		 */
 		static value_type decode_utf8( const char* data , unsigned char num_bytes ){
-			value_type codepoint = *data;
+			value_type codepoint = (unsigned char)*data;
 			if( num_bytes > 1 ){
 				codepoint &= 0x7F >> num_bytes; // Mask out the header bits
 				for( int i = 1 ; i < num_bytes ; i++ )
-					codepoint = ( codepoint << 6 ) | ( data[i] & 0x3F );
+					codepoint = ( codepoint << 6 ) | ( (unsigned char)data[i] & 0x3F );
 			}
 			return codepoint;
 		}
@@ -727,9 +729,7 @@ class utf8_string
 		 * required to hold the supplied amount of codepoints starting at the supplied byte index (or 0 for the '_from_start' version)
 		 */
 		size_type get_num_resulting_bytes( size_type byte_start , size_type codepoint_count ) const ;
-		size_type get_num_resulting_bytes_from_start( size_type codepoint_count ) const {
-			return get_num_resulting_bytes( 0 , codepoint_count );
-		}
+		size_type get_num_resulting_bytes_from_start( size_type codepoint_count ) const ;
 		
 		//! Constructs a utf8_string from a character literal of unknown length
 		utf8_string( const char* str , size_type len , void* ); // the (void*) is a dummy to call this function
@@ -938,10 +938,10 @@ class utf8_string
 		 * @return	The Codepoint at position 'n'
 		 */
 		value_type at( size_type n ) const {
-			return raw_at( get_num_resulting_bytes( 0 , n ) );
+			return raw_at( get_num_resulting_bytes_from_start( n ) );
 		}
 		value_type at( size_type n , std::nothrow_t ) const {
-			return raw_at( get_num_resulting_bytes( 0 , n ) , std::nothrow );
+			return raw_at( get_num_resulting_bytes_from_start( n ) , std::nothrow );
 		}
 		utf8_codepoint_reference<true> at( size_type n ){
 			return utf8_codepoint_reference<true>( n , this );
@@ -982,8 +982,8 @@ class utf8_string
 		 * @param	n	The index of the codepoint to get the iterator to
 		 * @return	An iterator pointing to the specified codepoint index
 		 */
-		iterator get( size_type n ){ return iterator( get_num_resulting_bytes( 0 , n ) , this ); }
-		const_iterator get( size_type n ) const { return const_iterator( get_num_resulting_bytes( 0 , n ) , this ); }
+		iterator get( size_type n ){ return iterator( get_num_resulting_bytes_from_start( n ) , this ); }
+		const_iterator get( size_type n ) const { return const_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns an iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -1002,8 +1002,8 @@ class utf8_string
 		 * @param	n	The index of the codepoint to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified codepoint index
 		 */
-		reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_resulting_bytes( 0 , n ) , this ); }
-		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_resulting_bytes( 0 , n ) , this ); }
+		reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
+		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns a reverse iterator pointing to the codepoint at the supplied byte position
 		 * 
@@ -1120,7 +1120,11 @@ class utf8_string
 		 * @param	dest	A buffer capable of holding at least 'length()+1' elements of type 'value_type'
 		 * @return	void
 		 */
-		void to_wide_literal( value_type* dest ) const ;
+		void to_wide_literal( value_type* dest ) const {
+			for( const char* data = get_buffer(), * data_end = data + size() ; data < data_end ; )
+				data += decode_utf8_and_len( data , *dest++ , data_end - data );
+			*dest = 0;
+		}
 		
 		
 		/**
@@ -1261,7 +1265,7 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( size_type index , size_type count , const utf8_string& repl ){
-			size_type start_byte = get_num_resulting_bytes( 0 , index );
+			size_type start_byte = get_num_resulting_bytes_from_start( index );
 			return raw_replace(
 				start_byte
 				, count == utf8_string::npos ? utf8_string::npos : get_num_resulting_bytes( start_byte , count )
@@ -1456,7 +1460,7 @@ class utf8_string
 		 */
 		utf8_string substr( size_type pos , size_type len = utf8_string::npos ) const
 		{
-			size_type byte_start = get_num_resulting_bytes( 0 , pos );
+			size_type byte_start = get_num_resulting_bytes_from_start( pos );
 			
 			if( len == utf8_string::npos )
 				return raw_substr( byte_start , utf8_string::npos );
@@ -1492,7 +1496,14 @@ class utf8_string
 		 * @param	start_codepoint	The index of the first codepoint to start looking from
 		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type find( value_type ch , size_type start_codepoint = 0 ) const ;
+		size_type find( value_type ch , size_type start_codepoint = 0 ) const {
+			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
+				return utf8_string::npos;
+			for( const_iterator it = get(start_codepoint) , end = cend() ; it != end ; ++it )
+				if( *it == ch )
+					return it - begin();
+			return utf8_string::npos;
+		}
 		/**
 		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
 		 * 
@@ -1501,9 +1512,9 @@ class utf8_string
 		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const utf8_string& pattern , size_type start_codepoint = 0 ) const {
-			if( start_codepoint >= length() )
+			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return utf8_string::npos;
-			size_type actual_start = get_num_resulting_bytes( 0 , start_codepoint );
+			size_type actual_start = get_num_resulting_bytes_from_start( start_codepoint );
 			const char* buffer = get_buffer();
 			const char* result = std::strstr( buffer + actual_start , pattern.c_str() );
 			if( !result )
@@ -1518,9 +1529,9 @@ class utf8_string
 		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const char* pattern , size_type start_codepoint = 0 ) const {
-			if( start_codepoint >= length() )
+			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return utf8_string::npos;
-			size_type actual_start = get_num_resulting_bytes( 0 , start_codepoint );
+			size_type actual_start = get_num_resulting_bytes_from_start( start_codepoint );
 			const char* buffer = get_buffer();
 			const char* result = std::strstr( buffer + actual_start , pattern );
 			if( !result )
@@ -1534,7 +1545,15 @@ class utf8_string
 		 * @param	start_byte	The byte position of the first codepoint to start looking from
 		 * @return	The byte position where and if the codepoint was found or utf8_string::npos
 		 */
-		size_type raw_find( value_type ch , size_type start_byte = 0 ) const ;
+		size_type raw_find( value_type ch , size_type start_byte = 0 ) const {
+			size_type my_size = size();
+			if( start_byte >= my_size )
+				return utf8_string::npos;
+			for( const_iterator it = raw_get(start_byte) , end = raw_get(my_size) ; it != end ; ++it )
+				if( *it == ch )
+					return it - begin();
+			return utf8_string::npos;
+		}
 		/**
 		 * Finds a specific pattern within the utf8_string starting at the supplied byte position
 		 * 
@@ -1609,6 +1628,7 @@ class utf8_string
 		/**
 		 * Compares this utf8_string to the supplied one
 		 *
+		 * @param	str	The string to compare this one with
 		 * @return	0	They compare equal
 		 *			<0	Either the value of the first character that does not match is lower in
 		 *			the compared string, or all compared characters match but the compared string is shorter.
@@ -1617,21 +1637,64 @@ class utf8_string
 		 */
 		difference_type compare( const utf8_string& str ) const ;
 		
-		//! Returns true, if the supplied string compares equal to this one
-		bool equals( const utf8_string& str ) const { return equals( str.c_str() ); }
-		bool equals( const std::string& str ) const { return equals( str.c_str() ); }
-		bool equals( const char* str ) const ;
-		bool equals( const value_type* str ) const ;
+		/**
+		 * Returns true, if the supplied string compares unequal to this one.
+		 *
+		 * @param	str		The string to compare this one with
+		 * @return	true	They compare unequal
+		 *			false	They compare equal
+		 */
+		bool equals_not( const utf8_string& str ) const {
+			size_type my_size = size();
+			return my_size != str.size() || std::memcmp( str.data() , data() , my_size + 1 );
+		}
+		/**
+		 * Returns true, if the supplied string compares unequal to this one.
+		 *
+		 * @param	str		The string to compare this one with, interpreted as UTF-8.
+		 * @return	true	They compare equal
+		 *			false	They compare different
+		 */
+		bool equals_not( const std::string& str ) const {
+			size_type my_size = size();
+			return my_size != str.size() || std::memcmp( str.data() , data() , my_size + 1 );
+		}
+		/**
+		 * Returns true, if the supplied string compares unequal to the contents of this utf8 string.
+		 * If this utf8 string contains embedded zeros, the result will always be false.
+		 *
+		 * @param	str		Null-terminated string literal, interpreted as UTF-8. The pointer is expected to be valid
+		 * @return	true	They compare unequal
+		 *			false	They compare equal
+		 */
+		bool equals_not( const char* str ) const {
+			const char* it = data();
+			for( const char* end = it + size() ; it != end && *it == *str ; ++it, ++str );
+			return *it != *str; // Even if it == end, it points to the zero after the data, because its 0 terminated
+		}
+		/**
+		 * Returns true, if the supplied string compares unequal to the contents of this utf8 string.
+		 * If this utf8 string contains embedded zeros, the result will always be false.
+		 *
+		 * @param	str		Pointer to a null-terminated string literal, interpreted as UTF-32. The pointer is expected to be valid
+		 * @return	true	They compare unequal
+		 *			false	They compare equal
+		 */
+		bool equals_not( const value_type* str ) const {
+			const_iterator it = cbegin();
+			for( const_iterator end = cend() ; it != end && *str == *it ; ++it, ++str );
+			return *it != *str; // Even if it == end, it points to the zero after the data, because its 0 terminated
+		}
 		
 		//! Compare this utf8_string to another string
-		bool operator==( const utf8_string& str ) const { return equals( str ); }
-		bool operator!=( const utf8_string& str ) const { return !equals( str ); }
-		bool operator==( const char* str ) const { return equals( str ); }
-		bool operator!=( const char* str ) const { return !equals( str ); }
-		bool operator==( const value_type* str ) const { return equals( str ); }
-		bool operator!=( const value_type* str ) const { return !equals( str ); }
-		bool operator==( const std::string& str ) const { return equals( str ); }
-		bool operator!=( const std::string& str ) const { return !equals( str ); }
+		bool operator==( const utf8_string& str ) const { return !equals_not( str ); }
+		bool operator!=( const utf8_string& str ) const { return equals_not( str ); }
+		bool operator==( const char* str ) const { return !equals_not( str ); }
+		bool operator!=( const char* str ) const { return equals_not( str ); }
+		bool operator==( const value_type* str ) const { return !equals_not( str ); }
+		bool operator!=( const value_type* str ) const { return equals_not( str ); }
+		bool operator==( const std::string& str ) const { return !equals_not( str ); }
+		bool operator!=( const std::string& str ) const { return equals_not( str ); }
 		
 		bool operator>( const utf8_string& str ) const { return str.compare( *this ) > 0; }
 		bool operator>=( const utf8_string& str ) const { return str.compare( *this ) >= 0; }
@@ -1644,7 +1707,7 @@ class utf8_string
 			return get_num_bytes_of_utf8_char( get_buffer()[byte_index] , size() - byte_index );
 		}
 		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
-			return get_index_bytes( get_num_resulting_bytes( 0 , codepoint_index ) );
+			return get_index_bytes( get_num_resulting_bytes_from_start( codepoint_index ) );
 		}
 		
 		
@@ -1654,7 +1717,7 @@ class utf8_string
 			return get_num_bytes_of_utf8_char_before( buffer + byte_index , buffer );
 		}
 		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
-			return get_index_pre_bytes( get_num_resulting_bytes( 0 , codepoint_index ) );
+			return get_index_pre_bytes( get_num_resulting_bytes_from_start( codepoint_index ) );
 		}
 		
 		
