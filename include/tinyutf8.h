@@ -39,7 +39,7 @@
 
 // Includes
 #include <memory> // for std::unique_ptr
-#include <cstring> // for std::memcpy, std::strlen
+#include <cstring> // for std::memcpy, std::memmove
 #include <string> // for std::string
 #include <limits> // for numeric_limits
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
@@ -98,11 +98,12 @@ class utf8_string
 {
 	public:
 		
-		typedef std::size_t				size_type;
-		typedef std::ptrdiff_t			difference_type;
-		typedef char32_t				value_type;
-		typedef value_type				const_reference;
-		constexpr static size_type		npos = -1;
+		typedef std::size_t					size_type;
+		typedef std::ptrdiff_t				difference_type;
+		typedef char32_t					value_type;
+		typedef value_type					const_reference;
+		typedef unsigned char				width_type; // Data type capable of holding the number of code units in a code point
+		constexpr const static size_type	npos = -1;
 		
 	private:
 		
@@ -130,8 +131,8 @@ class utf8_string
 				}
 				
 				//! Assignment operator
-				utf8_codepoint_reference& operator=( value_type ch ){
-					t_instance->replace( t_index , ch );
+				utf8_codepoint_reference& operator=( value_type cp ){
+					t_instance->replace( t_index , cp );
 					return *this;
 				}
 		};
@@ -160,8 +161,8 @@ class utf8_string
 				}
 				
 				//! Assignment operator
-				utf8_codepoint_raw_reference& operator=( value_type ch ){
-					t_instance->raw_replace( t_raw_index , t_instance->get_index_bytes( t_raw_index ) , utf8_string( 1 , ch ) );
+				utf8_codepoint_raw_reference& operator=( value_type cp ){
+					t_instance->raw_replace( t_raw_index , t_instance->get_index_bytes( t_raw_index ) , utf8_string( cp ) );
 					return *this;
 				}
 		};
@@ -293,7 +294,7 @@ class utf8_string
 					return *this;
 				}
 				
-				//! Returns the value of the codepoint behind the iterator
+				//! Returns the value of the code point behind the iterator
 				utf8_codepoint_raw_reference<false> operator*() const { return get_reference(); }
 		};
 		
@@ -387,7 +388,7 @@ class utf8_string
 					return *this;
 				}
 				
-				//! Returns the value of the codepoint behind the iterator
+				//! Returns the value of the code point behind the iterator
 				utf8_codepoint_raw_reference<false> operator*() const { return get_reference(); }
 				
 				//! Get the underlying iterator instance
@@ -459,7 +460,7 @@ class utf8_string
 			}
 		};
 		
-		typedef size_type indicator_type;
+		typedef size_type indicator_type; // Don't change this, because else the buffer will not be a multiple of sizeof(size_type)
 	
 	public:
 		
@@ -475,10 +476,10 @@ class utf8_string
 		static inline constexpr size_type get_max_sso_data_len(){ return sizeof(SSO::data); }
 		
 		//! Set the main buffer size (also disables SSO)
-		inline void set_buffer_size( size_type buffer_size )
+		inline void set_non_sso_buffer_size( size_type buffer_size )
 		{
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(buffer_size) - 1 ){
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 ){
 				t_non_sso.buffer_size = buffer_size;
 				t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
 			}
@@ -493,16 +494,36 @@ class utf8_string
 				t_non_sso.buffer_size = ( buffer_size << 1 ) | size_type(0x1);
 		}
 		
+		//! Get buffer size, if SSO is disabled
+		inline size_type get_non_sso_buffer_size() const {
+			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 )
+				return t_non_sso.buffer_size;
+			else if( detail::is_little_endian::value ){
+				detail::last_byte<size_type> lb;
+				lb.number = t_non_sso.buffer_size;
+				lb.lbyte >>= 1;
+				return lb.number;
+			}
+			else
+				return t_non_sso.buffer_size >> 1;
+		}
+		
 		//! Check, if sso is inactive (this operation doesn't require a negation and is faster)
 		inline bool sso_inactive() const { return t_sso.data_len & 0x1; }
 		
 		//! Check, if the lut is active using the lut base ptr
 		static inline bool lut_active( const char* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
 		
+		//! Rounds the supplied value to a multiple of sizeof(size_type)
+		static inline size_type round_up_to_align( size_type val ){
+			return ( val + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 );
+		}
+		
 		//! Determine the needed buffer size (excluding the trailling LUT indicator)
-		static inline size_type determine_main_buffer_size( size_type data_len , size_type lut_len , unsigned char lut_width ){
+		static inline size_type determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
 			// Make the buffer size_type-aligned (don't forget, we need a terminating '\0', distinct from the lut indicator)
-			return ( ( data_len + 1 + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 ) ) + lut_width * lut_len;
+			return round_up_to_align( data_len + 1 + lut_width * lut_len );
 		}
 		//! Same as above but this time including the LUT indicator
 		static inline size_type determine_total_buffer_size( size_type main_buffer_size ){
@@ -530,7 +551,7 @@ class utf8_string
 		
 		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
 		//! Returns the number of bytes of the destination data type
-		static inline unsigned char get_lut_width( size_type buffer_size ){
+		static inline width_type get_lut_width( size_type buffer_size ){
 			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
 				return ( sizeof(size_type) * 8 + 7 - detail::clz( buffer_size ) ) / 8;
 			#else
@@ -546,7 +567,7 @@ class utf8_string
 		}
 		
 		//! Get the nth index within a multibyte index table
-		static inline size_type get_lut( const char* iter , unsigned char lut_width ){
+		static inline size_type get_lut( const char* iter , width_type lut_width ){
 			switch( lut_width ){
 			case sizeof(std::uint8_t):	return *(const std::uint8_t*)iter;
 			case sizeof(std::uint16_t):	return *(const std::uint16_t*)iter;
@@ -554,7 +575,7 @@ class utf8_string
 			}
 			return *(const std::uint64_t*)iter;
 		}
-		static inline void set_lut( char* iter , unsigned char lut_width , size_type value ){
+		static inline void set_lut( char* iter , width_type lut_width , size_type value ){
 			switch( lut_width ){
 			case sizeof(std::uint8_t):	*(std::uint8_t*)iter = value; break;
 			case sizeof(std::uint16_t):	*(std::uint16_t*)iter = value; break;
@@ -570,16 +591,7 @@ class utf8_string
 		
 		//! Get buffer size (excluding the trailing LUT indicator)
 		inline size_type get_buffer_size() const {
-			if( sso_inactive() ){
-				if( detail::is_little_endian::value ){
-					detail::last_byte<size_type> lb;
-					lb.number = t_non_sso.buffer_size;
-					lb.lbyte >>= 1;
-					return lb.number;
-				}
-				return t_non_sso.buffer_size >> 1;
-			}
-			return get_max_sso_data_len();
+			return sso_inactive() ? get_non_sso_buffer_size() : get_max_sso_data_len();
 		}
 		
 		//! Get the lut base pointer (pointer to the LUT indicator)
@@ -624,18 +636,18 @@ class utf8_string
 		std::string cpp_str_bom() const ;
 		
 		/**
-		 * Returns the number of bytes to expect behind this one (including this one) that belong to this utf8 char
+		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 code point
 		 */
-		static unsigned char get_num_bytes_of_utf8_char( char first_byte , size_type data_left = utf8_string::npos ) // Data left is the number of bytes left in the buffer INCLUDING this one
+		static width_type get_codepoint_bytes( char first_byte , size_type data_left ) // Data left is the number of bytes left in the buffer INCLUDING this one
 		#if defined(_TINY_UTF8_H_HAS_CLZ_)
 		{
 			if( first_byte ){
 				// Before counting the leading one's we need to shift the byte into the most significant part of the integer
-				unsigned int codepoint_bytes = detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
+				size_type codepoint_bytes = detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
 				
 				// The test below would actually be ( codepoint_bytes <= data_left && codepoint_bytes ),
 				// but codepoint_bytes is unsigned and thus wraps around zero, which makes the following faster:
-				if( (codepoint_bytes-1) < data_left )
+				if( size_type( codepoint_bytes - 1 ) < size_type(data_left) )
 					return codepoint_bytes;
 			}
 			return 1;
@@ -645,93 +657,93 @@ class utf8_string
 		#endif
 		
 		/**
-		 * Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
+		 * Returns the number of code units (bytes) a code point will translate to in utf8
 		 */
-		static unsigned char get_num_bytes_of_utf8_char_before( const char* data , const char* data_start );
-		
-		/**
-		 * Returns the number of bytes to expect behind this one that belong to this utf8 char
-		 */
-		static inline unsigned char get_num_bytes_of_utf8_codepoint( value_type codepoint )
+		static inline width_type get_codepoint_bytes( value_type cp )
 		{
 			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
-				if( !codepoint )
+				if( !cp )
 					return 1;
-				static const unsigned char lut[32] = {
+				static const width_type lut[32] = {
 					1 , 1 , 1 , 1 , 1 , 1 , 1 , 2 , 2 , 2 , 2 , 3 , 3 , 3 , 3 , 3
 					, 4 , 4 , 4 , 4 , 4 , 5 , 5 , 5 , 5 , 5 , 6 , 6 , 6 , 6 , 6 , 7
 				};
-				return lut[ 31 - detail::clz( codepoint ) ];
+				return lut[ 31 - detail::clz( cp ) ];
 			#else
-				if( codepoint <= 0x7F )
+				if( cp <= 0x7F )
 					return 1;
-				else if( codepoint <= 0x7FF )
+				else if( cp <= 0x7FF )
 					return 2;
-				else if( codepoint <= 0xFFFF )
+				else if( cp <= 0xFFFF )
 					return 3;
-				else if( codepoint <= 0x1FFFFF )
+				else if( cp <= 0x1FFFFF )
 					return 4;
-				else if( codepoint <= 0x3FFFFFF )
+				else if( cp <= 0x3FFFFFF )
 					return 5;
-				else if( codepoint <= 0x7FFFFFFF )
+				else if( cp <= 0x7FFFFFFF )
 					return 6;
 				return 1;
 			#endif
 		}
 		
 		/**
-		 * Get the byte index of the last codepoint
+		 * Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
+		 */
+		static width_type get_num_bytes_of_utf8_char_before( const char* data , const char* data_start );
+		
+		/**
+		 * Get the byte index of the last code point
 		 */
 		inline size_type back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		/**
-		 * Get the byte index of the index behind the last codepoint
+		 * Get the byte index of the index behind the last code point
 		 */
 		inline size_type end_index() const { return size(); }
 		
 		/**
-		 * Decodes a given input of rle utf8 data to a unicode codepoint, given the number of bytes it's made of
+		 * Decodes a given input of rle utf8 data to a unicode code point, given the number of bytes it's made of
 		 */
-		static value_type decode_utf8( const char* data , unsigned char num_bytes ){
-			value_type codepoint = (unsigned char)*data;
+		static value_type decode_utf8( const char* data , width_type num_bytes ){
+			value_type cp = (unsigned char)*data;
 			if( num_bytes > 1 ){
-				codepoint &= 0x7F >> num_bytes; // Mask out the header bits
+				cp &= 0x7F >> num_bytes; // Mask out the header bits
 				for( int i = 1 ; i < num_bytes ; i++ )
-					codepoint = ( codepoint << 6 ) | ( (unsigned char)data[i] & 0x3F );
+					cp = ( cp << 6 ) | ( (unsigned char)data[i] & 0x3F );
 			}
-			return codepoint;
+			return cp;
 		}
 		
 		/**
 		 * Decodes a given input of rle utf8 data to a
-		 * unicode codepoint and returns the number of bytes it used
+		 * unicode code point and returns the number of bytes it used
 		 */
-		static inline unsigned char decode_utf8_and_len( const char* data , value_type& dest , unsigned int data_left ){ // See 'get_num_bytes_of_utf8_char' for 'data_left'
-			unsigned char num_bytes = utf8_string::get_num_bytes_of_utf8_char( *data , data_left );
+		static inline width_type decode_utf8_and_len( const char* data , value_type& dest , unsigned int data_left ){ // See 'get_codepoint_bytes' for 'data_left'
+			width_type num_bytes = utf8_string::get_codepoint_bytes( *data , data_left );
 			dest = decode_utf8( data , num_bytes );
 			return num_bytes;
 		}
 		
 		/**
-		 * Encodes a given codepoint to a character buffer of at least 7 bytes
+		 * Encodes a given code point to a character buffer of at least 7 bytes
 		 * and returns the number of bytes it used
 		 */
-		static unsigned char encode_utf8( value_type codepoint , char* dest );
+		static width_type encode_utf8( value_type cp , char* dest );
 		
 		
 		/**
 		 * Counts the number of codepoints
 		 * that are built up of the supplied amout of bytes
 		 */
-		size_type get_num_resulting_codepoints( size_type byte_start , size_type byte_count ) const ;
+		size_type get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
 		
 		/**
 		 * Counts the number of bytes
 		 * required to hold the supplied amount of codepoints starting at the supplied byte index (or 0 for the '_from_start' version)
 		 */
-		size_type get_num_resulting_bytes( size_type byte_start , size_type codepoint_count ) const ;
-		size_type get_num_resulting_bytes_from_start( size_type codepoint_count ) const ;
+		size_type get_num_bytes( size_type byte_start , size_type codepoint_count ) const ;
+		size_type get_num_bytes_from_start( size_type codepoint_count ) const ;
 		
-		//! Constructs a utf8_string from a character literal of unknown length
+		//! Constructs an utf8_string from a character literal of unknown length
 		utf8_string( const char* str , size_type len , void* ); // the (void*) is a dummy to call this function
 		
 	public:
@@ -744,7 +756,7 @@ class utf8_string
 		utf8_string() : t_sso( 0 ) {}
 		
 		/**
-		 * Contructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
+		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
 		 * 
 		 * @note	Creates an Instance of type utf8_string that holds the given utf8 sequence
 		 * @param	str		The UTF-8 sequence to fill the utf8_string with
@@ -758,7 +770,7 @@ class utf8_string
 			utf8_string( str , len , (void*)nullptr )
 		{}
 		/**
-		 * Contructor taking an utf8 char literal
+		 * Constructor taking an utf8 char literal
 		 * 
 		 * @note	Creates an Instance of type utf8_string that holds the given utf8 sequence
 		 * @param	str		The UTF-8 literal to fill the utf8_string with
@@ -775,7 +787,7 @@ class utf8_string
 		
 		
 		/**
-		 * Contructor taking an std::string
+		 * Constructor taking an std::string
 		 * 
 		 * @note	Creates an Instance of type utf8_string that holds the given data sequence
 		 * @param	str		The byte data, that will be interpreted as UTF-8
@@ -786,23 +798,33 @@ class utf8_string
 		
 		
 		/**
-		 * Contructor that fills itself with a certain amount of codepoints
+		 * Constructor that fills itself with a certain amount of codepoints
 		 * 
 		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' codepoints
 		 * @param	n		The number of codepoints generated
-		 * @param	ch		The codepoint that the whole buffer will be set to
+		 * @param	cp		The code point that the whole buffer will be set to
 		 */
-		utf8_string( size_type n , value_type ch );
+		utf8_string( size_type n , value_type cp );
 		/**
-		 * Contructor that fills itself with a certain amount of characters
+		 * Constructor that fills itself with the supplied codepoint
+		 * 
+		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' codepoints
+		 * @param	n		The number of codepoints generated
+		 * @param	cp		The code point that the whole buffer will be set to
+		 */
+		utf8_string( value_type cp ) :
+			t_sso( 1 )
+		{
+			t_sso.data[ encode_utf8( cp , t_sso.data ) ] = 0;
+		}
+		/**
+		 * Constructor that fills itself with a certain amount of characters
 		 * 
 		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' characters
 		 * @param	n		The number of characters generated
-		 * @param	ch		The characters that the whole buffer will be set to
+		 * @param	cp		The characters that the whole buffer will be set to
 		 */
-		utf8_string( size_type n , char ch ) :
-			utf8_string( n , (value_type)ch )
-		{}
+		utf8_string( size_type n , char cp );
 		
 		
 		/**
@@ -836,11 +858,11 @@ class utf8_string
 		
 		
 		/**
-		 * Contructor taking a wide codepoint literal that will be copied to construct this utf8_string
+		 * Constructor taking a wide code point literal that will be copied to construct this utf8_string
 		 * 
 		 * @note	Creates an Instance of type utf8_string that holds the given codepoints
 		 *			The data itself will be first converted to UTF-8
-		 * @param	str		The codepoint sequence to fill the utf8_string with
+		 * @param	str		The code point sequence to fill the utf8_string with
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		utf8_string( const value_type* str , size_type len = utf8_string::npos );
@@ -912,6 +934,7 @@ class utf8_string
 			if( sso_inactive() )
 				delete[] t_non_sso.data;
 			t_sso.set_data_len( 0 );
+			t_sso.data[0] = 0;
 		}
 		
 		
@@ -932,16 +955,16 @@ class utf8_string
 		
 		
 		/**
-		 * Returns the codepoint at the supplied index
+		 * Returns the code point at the supplied index
 		 * 
-		 * @param	n	The codepoint index of the codepoint to receive
-		 * @return	The Codepoint at position 'n'
+		 * @param	n	The code point index of the code point to receive
+		 * @return	The code point at position 'n'
 		 */
 		value_type at( size_type n ) const {
-			return raw_at( get_num_resulting_bytes_from_start( n ) );
+			return raw_at( get_num_bytes_from_start( n ) );
 		}
 		value_type at( size_type n , std::nothrow_t ) const {
-			return raw_at( get_num_resulting_bytes_from_start( n ) , std::nothrow );
+			return raw_at( get_num_bytes_from_start( n ) , std::nothrow );
 		}
 		utf8_codepoint_reference<true> at( size_type n ){
 			return utf8_codepoint_reference<true>( n , this );
@@ -950,12 +973,12 @@ class utf8_string
 			return utf8_codepoint_reference<false>( n , this );
 		}
 		/**
-		 * Returns the codepoint at the supplied byte position
+		 * Returns the code point at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast.
-		 * @param	byte_index	The byte position of the codepoint to receive
-		 * @return	The codepoint at the supplied position
+		 * @param	byte_index	The byte position of the code point to receive
+		 * @return	The code point at the supplied position
 		 */
 		utf8_codepoint_raw_reference<true> raw_at( size_type byte_index ){
 			return utf8_codepoint_raw_reference<true>( byte_index , this );
@@ -968,28 +991,28 @@ class utf8_string
 			if( byte_index >= size )
 				throw std::out_of_range( "utf8_string::(raw_)at" );
 			const char* pos = get_buffer() + byte_index;
-			return *pos ? decode_utf8( pos , utf8_string::get_num_bytes_of_utf8_char( *pos , size - byte_index ) ) : 0;
+			return *pos ? decode_utf8( pos , utf8_string::get_codepoint_bytes( *pos , size - byte_index ) ) : 0;
 		}
 		value_type raw_at( size_type byte_index , std::nothrow_t ) const {
 			const char* pos = get_buffer() + byte_index;
-			return *pos ? decode_utf8( pos , utf8_string::get_num_bytes_of_utf8_char( *pos , size() - byte_index ) ) : 0;
+			return *pos ? decode_utf8( pos , utf8_string::get_codepoint_bytes( *pos , size() - byte_index ) ) : 0;
 		}
 		
 		
 		/**
-		 * Returns an iterator pointing to the supplied codepoint index
+		 * Returns an iterator pointing to the supplied code point index
 		 * 
-		 * @param	n	The index of the codepoint to get the iterator to
-		 * @return	An iterator pointing to the specified codepoint index
+		 * @param	n	The index of the code point to get the iterator to
+		 * @return	An iterator pointing to the specified code point index
 		 */
-		iterator get( size_type n ){ return iterator( get_num_resulting_bytes_from_start( n ) , this ); }
-		const_iterator get( size_type n ) const { return const_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
+		iterator get( size_type n ){ return iterator( get_num_bytes_from_start( n ) , this ); }
+		const_iterator get( size_type n ) const { return const_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
-		 * Returns an iterator pointing to the codepoint at the supplied byte position
+		 * Returns an iterator pointing to the code point at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the codepoint to get the iterator to
+		 * @param	n	The byte position of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
 		iterator raw_get( size_type n ){ return iterator( n , this ); }
@@ -997,19 +1020,19 @@ class utf8_string
 		
 		
 		/**
-		 * Returns a reverse iterator pointing to the supplied codepoint index
+		 * Returns a reverse iterator pointing to the supplied code point index
 		 * 
-		 * @param	n	The index of the codepoint to get the reverse iterator to
-		 * @return	A reverse iterator pointing to the specified codepoint index
+		 * @param	n	The index of the code point to get the reverse iterator to
+		 * @return	A reverse iterator pointing to the specified code point index
 		 */
-		reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
-		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_resulting_bytes_from_start( n ) , this ); }
+		reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
-		 * Returns a reverse iterator pointing to the codepoint at the supplied byte position
+		 * Returns a reverse iterator pointing to the code point at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the codepoint to get the reverse iterator to
+		 * @param	n	The byte position of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
 		reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , this ); }
@@ -1017,20 +1040,20 @@ class utf8_string
 		
 		
 		/**
-		 * Returns a reference to the codepoint at the supplied index
+		 * Returns a reference to the code point at the supplied index
 		 * 
-		 * @param	n	The codepoint index of the codepoint to receive
-		 * @return	A reference wrapper to the codepoint at position 'n'
+		 * @param	n	The code point index of the code point to receive
+		 * @return	A reference wrapper to the code point at position 'n'
 		 */
 		utf8_codepoint_reference<false> operator[]( size_type n ){ return utf8_codepoint_reference<false>( n , this ); }
 		value_type operator[]( size_type n ) const { return at( n , std::nothrow ); }
 		/**
-		 * Returns a reference to the codepoint at the supplied byte position
+		 * Returns a reference to the code point at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the codepoint to receive
-		 * @return	A reference wrapper to the codepoint at byte position 'n'
+		 * @param	n	The byte position of the code point to receive
+		 * @return	A reference wrapper to the code point at byte position 'n'
 		 */
 		utf8_codepoint_raw_reference<false> operator()( size_type n ){ return utf8_codepoint_raw_reference<false>( n , this ); }
 		value_type operator()( size_type n ) const { return raw_at( n , std::nothrow ); }
@@ -1137,7 +1160,7 @@ class utf8_string
 		/**
 		 * Get an iterator to the end of the utf8_string
 		 * 
-		 * @return	An iterator class pointing to the end of this utf8_string, that is pointing behind the last codepoint
+		 * @return	An iterator class pointing to the end of this utf8_string, that is pointing behind the last code point
 		 */
 		iterator end(){ return iterator( end_index() , this ); }
 		const_iterator end() const { return const_iterator( end_index() , this ); }
@@ -1147,7 +1170,7 @@ class utf8_string
 		 * Get a reverse iterator to the end of this utf8_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
-		 *			that is exactly to the last codepoint
+		 *			that is exactly to the last code point
 		 */
 		reverse_iterator rbegin(){ return reverse_iterator( back_index() , this ); }
 		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , this ); }
@@ -1155,7 +1178,7 @@ class utf8_string
 		 * Get a reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
-		 *			that is pointing before the first codepoint
+		 *			that is pointing before the first code point
 		 */
 		reverse_iterator rend(){ return reverse_iterator( -1 , this ); }
 		const_reverse_iterator rend() const { return const_reverse_iterator( -1 , this ); }
@@ -1172,7 +1195,7 @@ class utf8_string
 		 * Get an iterator to the end of the utf8_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this utf8_string, pointing to
-		 *			the end of this utf8_string, that is pointing behind the last codepoint
+		 *			the end of this utf8_string, that is pointing behind the last code point
 		 */
 		const_iterator cend() const { return const_iterator( end_index() , this ); }
 		
@@ -1181,40 +1204,40 @@ class utf8_string
 		 * Get a const reverse iterator to the end of this utf8_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
-		 *			the end of this utf8_string, that is exactly to the last codepoint
+		 *			the end of this utf8_string, that is exactly to the last code point
 		 */
 		const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a const reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
-		 *			the end of this utf8_string, that is pointing before the first codepoint
+		 *			the end of this utf8_string, that is pointing before the first code point
 		 */
 		const_reverse_iterator crend() const { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
-		 * Returns a reference to the first codepoint in the utf8_string
+		 * Returns a reference to the first code point in the utf8_string
 		 * 
-		 * @return	A reference wrapper to the first codepoint in the utf8_string
+		 * @return	A reference wrapper to the first code point in the utf8_string
 		 */
 		utf8_codepoint_raw_reference<false> front(){ return utf8_codepoint_raw_reference<false>( 0 , this ); }
 		value_type front() const { return empty() ? 0 : raw_at( 0 ); }
 		/**
-		 * Returns a reference to the last codepoint in the utf8_string
+		 * Returns a reference to the last code point in the utf8_string
 		 * 
-		 * @return	A reference wrapper to the last codepoint in the utf8_string
+		 * @return	A reference wrapper to the last code point in the utf8_string
 		 */
 		utf8_codepoint_raw_reference<false> back(){ return utf8_codepoint_raw_reference<false>( back_index() , this ); }
 		value_type back() const { return raw_at( back_index() , std::nothrow ); }
 		
 		
 		/**
-		 * Replace a codepoint of this utf8_string by a number of codepoints
+		 * Replace a code point of this utf8_string by a number of codepoints
 		 * 
 		 * @param	index	The codpoint index to be replaced
-		 * @param	repl	The wide character that will be used to replace the codepoint
-		 * @param	n		The number of codepoint that will be inserted
+		 * @param	repl	The wide character that will be used to replace the code point
+		 * @param	n		The number of code point that will be inserted
 		 *					instead of the one residing at position 'index'
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
@@ -1227,29 +1250,35 @@ class utf8_string
 		 * @param	index	The codpoint index at which the replacement is being started
 		 * @param	len		The number of codepoints that are being replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints
-		 * @param	n		The number of codepoint that will replace the old ones
+		 * @param	n		The number of code point that will replace the old ones
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		utf8_string& replace( size_type index , size_type len , value_type repl , size_type n = 1 ){
+		utf8_string& replace( size_type index , size_type len , value_type repl , size_type n ){
 			return replace( index , len , utf8_string( n , repl ) );
+		}
+		utf8_string& replace( size_type index , size_type len , value_type repl ){
+			return replace( index , len , utf8_string( repl ) );
 		}
 		/**
 		 * Replace a range of codepoints by a number of codepoints
 		 * 
-		 * @param	first	An iterator pointing to the first codepoint to be replaced
-		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
+		 * @param	first	An iterator pointing to the first code point to be replaced
+		 * @param	last	An iterator pointing to the code point behind the last code point to be replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints in the range
-		 * @param	n		The number of codepoint that will replace the old ones
+		 * @param	n		The number of code point that will replace the old ones
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
-		utf8_string& replace( iterator first , iterator last , value_type repl , size_type n = 1 ){
+		utf8_string& replace( iterator first , iterator last , value_type repl , size_type n ){
 			return raw_replace( first.t_raw_index , last.t_raw_index - first.t_raw_index , utf8_string( n , repl ) );
+		}
+		utf8_string& replace( iterator first , iterator last , value_type repl ){
+			return raw_replace( first.t_raw_index , last.t_raw_index - first.t_raw_index , utf8_string( repl ) );
 		}
 		/**
 		 * Replace a range of codepoints with the contents of the supplied utf8_string
 		 * 
-		 * @param	first	An iterator pointing to the first codepoint to be replaced
-		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
+		 * @param	first	An iterator pointing to the first code point to be replaced
+		 * @param	last	An iterator pointing to the code point behind the last code point to be replaced
 		 * @param	repl	The utf8_string to replace all codepoints in the range
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
@@ -1265,10 +1294,10 @@ class utf8_string
 		 * @return	A reference to this utf8_string, which now has the replaced part in it
 		 */
 		utf8_string& replace( size_type index , size_type count , const utf8_string& repl ){
-			size_type start_byte = get_num_resulting_bytes_from_start( index );
+			size_type start_byte = get_num_bytes_from_start( index );
 			return raw_replace(
 				start_byte
-				, count == utf8_string::npos ? utf8_string::npos : get_num_resulting_bytes( start_byte , count )
+				, count == utf8_string::npos ? utf8_string::npos : get_num_bytes( start_byte , count )
 				, repl
 			);
 		}
@@ -1276,7 +1305,7 @@ class utf8_string
 		 * Replace a number of bytes of this utf8_string with the contents of the supplied utf8_string
 		 * 
 		 * @note	As this function is raw, that is not having to compute byte indices,
-		 *			it is much faster than the codepoint-base replace function
+		 *			it is much faster than the code point-base replace function
 		 * @param	start_byte	The byte position at which the replacement is being started
 		 * @param	byte_count	The number of bytes that are being replaced
 		 * @param	repl		The utf8_string to replace all bytes inside the range
@@ -1310,23 +1339,23 @@ class utf8_string
 		
 		
 		/**
-		 * Appends the supplied codepoint to the end of this utf8_string
+		 * Appends the supplied code point to the end of this utf8_string
 		 * 
-		 * @param	ch	The codepoint to be appended
-		 * @return	A reference to this utf8_string, which now has the supplied codepoint appended
+		 * @param	cp	The code point to be appended
+		 * @return	A reference to this utf8_string, which now has the supplied code point appended
 		 */
-		utf8_string& push_back( value_type ch ){
-			return raw_replace( size() , 0 , utf8_string( 1 , ch ) );
+		utf8_string& push_back( value_type cp ){
+			return raw_replace( size() , 0 , utf8_string( 1 , cp ) );
 		}
 		
 		/**
-		 * Prepends the supplied codepoint to this utf8_string
+		 * Prepends the supplied code point to this utf8_string
 		 * 
-		 * @param	ch	The codepoint to be prepended
-		 * @return	A reference to this utf8_string, which now has the supplied codepoint prepended
+		 * @param	cp	The code point to be prepended
+		 * @return	A reference to this utf8_string, which now has the supplied code point prepended
 		 */
-		utf8_string& push_front( value_type ch ){
-			return raw_replace( 0 , 0 , utf8_string( 1 , ch ) );
+		utf8_string& push_front( value_type cp ){
+			return raw_replace( 0 , 0 , utf8_string( 1 , cp ) );
 		}
 		
 		
@@ -1344,19 +1373,19 @@ class utf8_string
 		
 		
 		/**
-		 * Inserts a given codepoint into this utf8_string at the supplied codepoint index
+		 * Inserts a given code point into this utf8_string at the supplied code point index
 		 * 
-		 * @param	pos		The codepoint index to insert at
-		 * @param	ch		The codepoint to be inserted
-		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
+		 * @param	pos		The code point index to insert at
+		 * @param	cp		The code point to be inserted
+		 * @return	A reference to this utf8_string, with the supplied code point inserted
 		 */
-		utf8_string& insert( size_type pos , value_type ch ){
-			return replace( pos , 0 , utf8_string( 1 , ch ) );
+		utf8_string& insert( size_type pos , value_type cp ){
+			return replace( pos , 0 , utf8_string( 1 , cp ) );
 		}
 		/**
-		 * Inserts a given utf8_string into this utf8_string at the supplied codepoint index
+		 * Inserts a given utf8_string into this utf8_string at the supplied code point index
 		 * 
-		 * @param	pos		The codepoint index to insert at
+		 * @param	pos		The code point index to insert at
 		 * @param	str		The utf8_string to be inserted
 		 * @return	A reference to this utf8_string, with the supplied utf8_string inserted
 		 */
@@ -1364,21 +1393,21 @@ class utf8_string
 			return replace( pos , 0 , str );
 		}
 		/**
-		 * Inserts a given codepoint into this utf8_string at the supplied iterator position
+		 * Inserts a given code point into this utf8_string at the supplied iterator position
 		 * 
 		 * @param	it	The iterator position to insert at
-		 * @param	ch	The codepoint to be inserted
-		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
+		 * @param	cp	The code point to be inserted
+		 * @return	A reference to this utf8_string, with the supplied code point inserted
 		 */
-		utf8_string& insert( iterator it , value_type ch ){
-			return raw_replace( it.t_raw_index , 0 , utf8_string( 1 , ch ) );
+		utf8_string& insert( iterator it , value_type cp ){
+			return raw_replace( it.t_raw_index , 0 , utf8_string( 1 , cp ) );
 		}
 		/**
 		 * Inserts a given utf8_string into this utf8_string at the supplied iterator position
 		 * 
 		 * @param	it	The iterator position to insert at
-		 * @param	ch	The utf8_string to be inserted
-		 * @return	A reference to this utf8_string, with the supplied codepoint inserted
+		 * @param	cp	The utf8_string to be inserted
+		 * @return	A reference to this utf8_string, with the supplied code point inserted
 		 */
 		utf8_string& insert( iterator it , const utf8_string& str ){
 			return raw_replace( it.t_raw_index , 0 , str );
@@ -1398,33 +1427,34 @@ class utf8_string
 		
 		
 		/**
-		 * Erases the codepoint at the supplied iterator position
+		 * Erases the code point at the supplied iterator position
 		 * 
 		 * @param	pos		The iterator pointing to the position being erased
-		 * @return	A reference to this utf8_string, which now has the codepoint erased
+		 * @return	A reference to this utf8_string, which now has the code point erased
 		 */
 		utf8_string& erase( iterator pos ){
-			return raw_replace( pos.t_raw_index , get_index_bytes( pos.t_raw_index ) , utf8_string() );
+			return raw_erase( pos.t_raw_index , get_index_bytes( pos.t_raw_index ) );
 		}
 		/**
 		 * Erases the codepoints inside the supplied range
 		 * 
-		 * @param	first	An iterator pointing to the first codepoint to be erased
-		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be erased
+		 * @param	first	An iterator pointing to the first code point to be erased
+		 * @param	last	An iterator pointing to the code point behind the last code point to be erased
 		 * @return	A reference to this utf8_string, which now has the codepoints erased
 		 */
 		utf8_string& erase( iterator first , iterator last ){
-			return raw_replace( first.t_raw_index , last.t_raw_index - first.t_raw_index , utf8_string() );
+			return raw_erase( first.t_raw_index , last.t_raw_index - first.t_raw_index );
 		}
 		/**
 		 * Erases a portion of this string
 		 * 
-		 * @param	pos		The codepoint index to start eraseing from
+		 * @param	pos		The code point index to start eraseing from
 		 * @param	len		The number of codepoints to be erased from this utf8_string
 		 * @return	A reference to this utf8_string, with the supplied portion erased
 		 */
 		utf8_string& erase( size_type pos , size_type len = 1 ){
-			return replace( pos , len , utf8_string() );
+			size_type start_byte = get_num_bytes_from_start( pos );
+			return raw_erase( start_byte , get_num_bytes( start_byte , len ) );
 		}
 		/**
 		 * Erases a byte range of this string
@@ -1435,37 +1465,35 @@ class utf8_string
 		 * @param	len		The number of bytes to be erased from the utf8_string
 		 * @return	A reference to this utf8_string, with the supplied bytes erased
 		 */
-		utf8_string& raw_erase( size_type pos , size_type len ){
-			return raw_replace( pos , len , utf8_string() );
-		}
+		utf8_string& raw_erase( size_type pos , size_type len );
 		
 		
 		/**
 		 * Returns a portion of the utf8_string
 		 * 
-		 * @param	first	An iterator pointing to the first codepoint to be included in the substring
-		 * @param	last	An iterator pointing to the codepoint behind the last codepoint in the substring
+		 * @param	first	An iterator pointing to the first code point to be included in the substring
+		 * @param	last	An iterator pointing to the code point behind the last code point in the substring
 		 * @return	The utf8_string holding the specified range
 		 */
 		utf8_string substr( iterator first , iterator last ) const {
 			size_type byte_count = last.t_raw_index - first.t_raw_index;
-			return raw_substr( first.t_raw_index , byte_count , get_num_resulting_codepoints( first.t_raw_index , byte_count ) );
+			return raw_substr( first.t_raw_index , byte_count , get_num_codepoints( first.t_raw_index , byte_count ) );
 		}
 		/**
 		 * Returns a portion of the utf8_string
 		 * 
-		 * @param	pos		The codepoint index that should mark the start of the substring
+		 * @param	pos		The code point index that should mark the start of the substring
 		 * @param	len		The number codepoints to be included within the substring
 		 * @return	The utf8_string holding the specified codepoints
 		 */
 		utf8_string substr( size_type pos , size_type len = utf8_string::npos ) const
 		{
-			size_type byte_start = get_num_resulting_bytes_from_start( pos );
+			size_type byte_start = get_num_bytes_from_start( pos );
 			
 			if( len == utf8_string::npos )
 				return raw_substr( byte_start , utf8_string::npos );
 			
-			size_type byte_count = get_num_resulting_bytes( byte_start , len );
+			size_type byte_count = get_num_bytes( byte_start , len );
 			
 			return raw_substr( byte_start , byte_count , len );
 		}
@@ -1485,72 +1513,72 @@ class utf8_string
 		utf8_string raw_substr( size_type start_byte , size_type byte_count = utf8_string::npos ) const {
 			if( byte_count == utf8_string::npos )
 				byte_count = size() - start_byte;
-			return raw_substr( start_byte , byte_count , get_num_resulting_codepoints( start_byte , byte_count ) );
+			return raw_substr( start_byte , byte_count , get_num_codepoints( start_byte , byte_count ) );
 		}
 		
 		
 		/**
-		 * Finds a specific codepoint inside the utf8_string starting at the supplied codepoint index
+		 * Finds a specific code point inside the utf8_string starting at the supplied code point index
 		 * 
-		 * @param	ch				The codepoint to look for
-		 * @param	start_codepoint	The index of the first codepoint to start looking from
-		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
+		 * @param	cp				The code point to look for
+		 * @param	start_codepoint	The index of the first code point to start looking from
+		 * @return	The code point index where and if the code point was found or utf8_string::npos
 		 */
-		size_type find( value_type ch , size_type start_codepoint = 0 ) const {
+		size_type find( value_type cp , size_type start_codepoint = 0 ) const {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return utf8_string::npos;
 			for( const_iterator it = get(start_codepoint) , end = cend() ; it != end ; ++it )
-				if( *it == ch )
+				if( *it == cp )
 					return it - begin();
 			return utf8_string::npos;
 		}
 		/**
-		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
+		 * Finds a specific pattern within the utf8_string starting at the supplied code point index
 		 * 
-		 * @param	ch				The codepoint to look for
-		 * @param	start_codepoint	The index of the first codepoint to start looking from
-		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
+		 * @param	cp				The code point to look for
+		 * @param	start_codepoint	The index of the first code point to start looking from
+		 * @return	The code point index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const utf8_string& pattern , size_type start_codepoint = 0 ) const {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return utf8_string::npos;
-			size_type actual_start = get_num_resulting_bytes_from_start( start_codepoint );
+			size_type actual_start = get_num_bytes_from_start( start_codepoint );
 			const char* buffer = get_buffer();
 			const char* result = std::strstr( buffer + actual_start , pattern.c_str() );
 			if( !result )
 				return utf8_string::npos;
-			return start_codepoint + get_num_resulting_codepoints( actual_start , result - ( buffer + actual_start ) );
+			return start_codepoint + get_num_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
-		 * Finds a specific pattern within the utf8_string starting at the supplied codepoint index
+		 * Finds a specific pattern within the utf8_string starting at the supplied code point index
 		 * 
-		 * @param	ch				The codepoint to look for
-		 * @param	start_codepoint	The index of the first codepoint to start looking from
-		 * @return	The codepoint index where and if the pattern was found or utf8_string::npos
+		 * @param	cp				The code point to look for
+		 * @param	start_codepoint	The index of the first code point to start looking from
+		 * @return	The code point index where and if the pattern was found or utf8_string::npos
 		 */
 		size_type find( const char* pattern , size_type start_codepoint = 0 ) const {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return utf8_string::npos;
-			size_type actual_start = get_num_resulting_bytes_from_start( start_codepoint );
+			size_type actual_start = get_num_bytes_from_start( start_codepoint );
 			const char* buffer = get_buffer();
 			const char* result = std::strstr( buffer + actual_start , pattern );
 			if( !result )
 				return utf8_string::npos;
-			return start_codepoint + get_num_resulting_codepoints( actual_start , result - ( buffer + actual_start ) );
+			return start_codepoint + get_num_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
-		 * Finds a specific codepoint inside the utf8_string starting at the supplied byte position
+		 * Finds a specific code point inside the utf8_string starting at the supplied byte position
 		 * 
-		 * @param	ch			The codepoint to look for
-		 * @param	start_byte	The byte position of the first codepoint to start looking from
-		 * @return	The byte position where and if the codepoint was found or utf8_string::npos
+		 * @param	cp			The code point to look for
+		 * @param	start_byte	The byte position of the first code point to start looking from
+		 * @return	The byte position where and if the code point was found or utf8_string::npos
 		 */
-		size_type raw_find( value_type ch , size_type start_byte = 0 ) const {
+		size_type raw_find( value_type cp , size_type start_byte = 0 ) const {
 			size_type my_size = size();
 			if( start_byte >= my_size )
 				return utf8_string::npos;
 			for( const_iterator it = raw_get(start_byte) , end = raw_get(my_size) ; it != end ; ++it )
-				if( *it == ch )
+				if( *it == cp )
 					return it - begin();
 			return utf8_string::npos;
 		}
@@ -1558,7 +1586,7 @@ class utf8_string
 		 * Finds a specific pattern within the utf8_string starting at the supplied byte position
 		 * 
 		 * @param	needle		The pattern to look for
-		 * @param	start_byte	The byte position of the first codepoint to start looking from
+		 * @param	start_byte	The byte position of the first code point to start looking from
 		 * @return	The byte position where and if the pattern was found or utf8_string::npos
 		 */
 		size_type raw_find( const utf8_string& pattern , size_type start_byte = 0 ) const {
@@ -1574,7 +1602,7 @@ class utf8_string
 		 * Finds a specific pattern within the utf8_string starting at the supplied byte position
 		 * 
 		 * @param	needle		The pattern to look for
-		 * @param	start_byte	The byte position of the first codepoint to start looking from
+		 * @param	start_byte	The byte position of the first code point to start looking from
 		 * @return	The byte position where and if the pattern was found or utf8_string::npos
 		 */
 		size_type raw_find( const char* pattern , size_type start_byte = 0 ) const {
@@ -1588,23 +1616,23 @@ class utf8_string
 		}
 		
 		/**
-		 * Finds the last occourence of a specific codepoint inside the
-		 * utf8_string starting backwards at the supplied codepoint index
+		 * Finds the last occourence of a specific code point inside the
+		 * utf8_string starting backwards at the supplied code point index
 		 * 
-		 * @param	ch				The codepoint to look for
-		 * @param	start_codepoint	The index of the first codepoint to start looking from (backwards)
-		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
+		 * @param	cp				The code point to look for
+		 * @param	start_codepoint	The index of the first code point to start looking from (backwards)
+		 * @return	The code point index where and if the code point was found or utf8_string::npos
 		 */
-		size_type rfind( value_type ch , size_type start_codepoint = utf8_string::npos ) const ;
+		size_type rfind( value_type cp , size_type start_codepoint = utf8_string::npos ) const ;
 		/**
-		 * Finds the last occourence of a specific codepoint inside the
+		 * Finds the last occourence of a specific code point inside the
 		 * utf8_string starting backwards at the supplied byte index
 		 * 
-		 * @param	ch				The codepoint to look for
-		 * @param	start_codepoint	The byte index of the first codepoint to start looking from (backwards)
-		 * @return	The codepoint index where and if the codepoint was found or utf8_string::npos
+		 * @param	cp				The code point to look for
+		 * @param	start_codepoint	The byte index of the first code point to start looking from (backwards)
+		 * @return	The code point index where and if the code point was found or utf8_string::npos
 		 */
-		size_type raw_rfind( value_type ch , size_type start_byte = utf8_string::npos ) const ;
+		size_type raw_rfind( value_type cp , size_type start_byte = utf8_string::npos ) const ;
 		
 		//! Find characters in string
 		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const ;
@@ -1619,10 +1647,10 @@ class utf8_string
 		size_type raw_find_last_not_of( const value_type* str , size_type start_byte = utf8_string::npos ) const ;
 		
 		
-		//! Removes the last codepoint in the utf8_string
+		//! Removes the last code point in the utf8_string
 		utf8_string& pop_back(){
 			size_type pos = back_index();
-			return raw_replace( pos , get_index_bytes( pos ) , utf8_string() );
+			return raw_erase( pos , get_index_bytes( pos ) );
 		}
 		
 		/**
@@ -1702,22 +1730,22 @@ class utf8_string
 		bool operator<=( const utf8_string& str ) const { return str.compare( *this ) <= 0; }
 		
 		
-		//! Get the number of bytes of codepoint in utf8_string
-		unsigned char get_index_bytes( size_type byte_index ) const {
-			return get_num_bytes_of_utf8_char( get_buffer()[byte_index] , size() - byte_index );
+		//! Get the number of bytes of code point in utf8_string
+		width_type get_index_bytes( size_type byte_index ) const {
+			return get_codepoint_bytes( get_buffer()[byte_index] , size() - byte_index );
 		}
-		unsigned char get_codepoint_bytes( size_type codepoint_index ) const {
-			return get_index_bytes( get_num_resulting_bytes_from_start( codepoint_index ) );
+		width_type get_codepoint_bytes( size_type codepoint_index ) const {
+			return get_index_bytes( get_num_bytes_from_start( codepoint_index ) );
 		}
 		
 		
-		//! Get the number of bytes before a codepoint, that build up a new codepoint
-		unsigned char get_index_pre_bytes( size_type byte_index ) const {
+		//! Get the number of bytes before a code point, that build up a new code point
+		width_type get_index_pre_bytes( size_type byte_index ) const {
 			const char* buffer = get_buffer();
 			return get_num_bytes_of_utf8_char_before( buffer + byte_index , buffer );
 		}
-		unsigned char get_codepoint_pre_bytes( size_type codepoint_index ) const {
-			return get_index_pre_bytes( get_num_resulting_bytes_from_start( codepoint_index ) );
+		width_type get_codepoint_pre_bytes( size_type codepoint_index ) const {
+			return get_index_pre_bytes( get_num_bytes_from_start( codepoint_index ) );
 		}
 		
 		
