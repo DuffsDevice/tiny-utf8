@@ -105,6 +105,9 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	utf8_string()
 {
+	if( !len )
+		return;
+	
 	size_type		num_multibytes = 0;
 	size_type		data_len = 0;
 	size_type		string_len = 0;
@@ -196,97 +199,100 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	buffer[data_len] = '\0';
 }
 
-// utf8_string::utf8_string( const value_type* str , size_type len ) :
-	// utf8_string()
-// {
-	// if( !str || !str[0] || !len )
-		// return;
+utf8_string::utf8_string( const value_type* str , size_type len ) :
+	utf8_string()
+{
+	if( !len )
+		return;
 	
-	// size_type		num_multibytes = 0;
-	// size_type		data_len = 0;
-	// size_type		string_len = 0;
+	size_type		num_multibytes = 0;
+	size_type		data_len = 0;
+	size_type		string_len = 0;
 	
-	// // Count bytes, mutlibytes and string length
-	// while( string_len < len && ( str[data_len] || len == utf8_string::npos ) )
-	// {
-		// // Read number of bytes of current code point
-		// width_type codepoint_bytes = get_codepoint_bytes( str[string_len] );
+	// Count bytes, mutlibytes and string length
+	while( string_len < len && ( str[string_len] || len != utf8_string::npos ) )
+	{
+		// Read number of bytes of current code point
+		width_type bytes = get_codepoint_bytes( str[string_len] );
 		
-		// data_len		+= bytes;			// Increase number of bytes
-		// string_len		+= 1;			// Increase number of code points
-		// num_multibytes	+= bytes > 1 ;	// Increase number of occoured multibytes?
-	// }
+		data_len		+= bytes;		// Increase number of bytes
+		string_len		+= 1;			// Increase number of code points
+		num_multibytes	+= bytes > 1 ;	// Increase number of occoured multibytes?
+	}
 	
-	// // Iterate through wide char literal
-	// for( size_type i = 0; i < string_len ; i++ )
-	// {
-		// // Encode wide char to utf8
-		// width_type codepoint_bytes = encode_utf8( str[i] , cur_writer );
-		// // Push position of character to 'indices'
-		// if( codepoint_bytes > 1 && indices )
-			// utf8_string::set_nth_index( indices , indices_datatype_bytes , cur_multibyte_index++ , cur_writer - orig_writer );
+	char*	buffer;
+	
+	// Need heap memory?
+	if( data_len > get_max_sso_data_len() )
+	{
+		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
+		{
+			// Assume a lut width of 1 for the buffer size and check the actually needed lut width
+			width_type lut_width	= get_lut_width( determine_main_buffer_size( data_len , num_multibytes , 1 ) );
+			
+			// Determine the buffer size (excluding the lut indicator)
+			size_type buffer_size	= determine_main_buffer_size( data_len , num_multibytes , lut_width );
+			buffer					= t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ]; // The LUT indicator is 
+			
+			//! Fill LUT
+			char* lut_iter		= utf8_string::get_lut_base_ptr( buffer , buffer_size );
+			char* buffer_iter	= buffer;
+			utf8_string::set_lut_indiciator( lut_iter , true , num_multibytes ); // Set the LUT indicator
+			
+			// Iterate through wide char literal
+			for( size_type i = 0 ; i < string_len ; i++ )
+			{
+				// Encode wide char to utf8
+				width_type codepoint_bytes = encode_utf8( str[i] , buffer_iter );
+				
+				// Push position of character to 'indices'
+				if( codepoint_bytes > 1 )
+					utf8_string::set_lut( lut_iter -= lut_width , lut_width , buffer_iter - buffer );
+				
+				// Step forward with copying to internal utf8 buffer
+				buffer_iter += codepoint_bytes;
+			}
+			*buffer_iter = '\0'; // Set trailing '\0'
+			
+			// Set Attributes
+			set_non_sso_buffer_size( buffer_size );
+			t_non_sso.data_len = data_len;
+			t_non_sso.string_len = string_len;
+			
+			return; // We have already done everything!
+		}
 		
-		// // Step forward with copying to internal utf8 buffer
-		// cur_writer += codepoint_bytes;
-	// }
-	
-	// // Add trailling \0 char to utf8 buffer
-	// *cur_writer = 0;
-	
-	
-	
-	
-	
-	// char*	buffer;
-	
-	// // Need heap memory?
-	// if( data_len > get_max_sso_data_len() )
-	// {
-		// size_type buffer_size;
-		// if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
-		// {
-			// // Assume a lut width of 1 for the buffer size and check the actually needed lut width
-			// width_type lut_width = get_lut_width( determine_main_buffer_size( data_len , num_multibytes , 1 ) );
-			
-			// // Determine the buffer size (excluding the lut indicator)
-			// buffer_size	= determine_main_buffer_size( data_len , num_multibytes , lut_width );
-			// buffer		= t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ]; // The LUT indicator is 
-			
-			// //! Fill LUT
-			// char*	lut_iter = utf8_string::get_lut_base_ptr( buffer , buffer_size );
-			// utf8_string::set_lut( lut_iter , lut_width , utf8_string::construct_lut_indicator( num_multibytes ) ); // Set the LUT indicator
-			
-			// for( size_type index = 0 ; index < data_len ; ){
-				// width_type bytes = get_codepoint_bytes( str , index , buffer_len );
-				// if( bytes > 1 )
-					// utf8_string::set_lut( lut_iter -= lut_width , lut_width , index );
-				// index += bytes;
-			// }
-			
-			// return;
-		// }
-		// else{
-			// buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
-			// width_type lut_width = get_lut_width( buffer_size )
-			// buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
-		// }
+		size_type buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
+		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
 		
-		// // Set Attributes
-		// set_non_sso_buffer_size( buffer_size );
-		// t_non_sso.data_len = data_len;
-		// t_non_sso.string_len = string_len;
-	// }
-	// else{
-		// buffer = t_sso.data;
+		// Set up LUT
+		char*	lut_iter = utf8_string::get_lut_base_ptr( buffer , buffer_size );
+		utf8_string::set_lut_indiciator( lut_iter , num_multibytes == 0 , 0 ); // Set the LUT indicator
 		
-		// // Set Attrbutes
-		// t_sso.set_data_len( data_len );
-	// }
+		// Set Attributes
+		set_non_sso_buffer_size( buffer_size );
+		t_non_sso.data_len = data_len;
+		t_non_sso.string_len = string_len;
+	}
+	else{
+		buffer = t_sso.data;
+		
+		// Set Attrbutes
+		t_sso.set_data_len( data_len );
+		
+		// Set up LUT: Not necessary, since the LUT is automatically inactive,
+		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
+	}
 	
-	// //! Fill the buffer
-	// std::memcpy( buffer , str , data_len );
-	// buffer[data_len] = '\0';
-// }
+	char* buffer_iter = buffer;
+	
+	// Iterate through wide char literal
+	for( size_type i = 0 ; i < string_len ; i++ )
+		// Encode wide char to utf8 and step forward the number of bytes it took
+		buffer_iter += encode_utf8( str[i] , buffer_iter );
+	
+	*buffer_iter = '\0'; // Set trailing '\0'
+}
 
 
 
@@ -519,9 +525,15 @@ utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type codepoin
 
 utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type codepoint_count ) const 
 {
-	const char*	buffer		= get_buffer();
-	size_type	data_len	= size();
-	size_type	buffer_size = get_buffer_size();
+	const char*	buffer				= get_buffer();
+	size_type	data_len			= size();
+	size_type	buffer_size			= get_buffer_size();
+	size_type	potential_end_index	= index + codepoint_count;
+	
+	if( potential_end_index > data_len || potential_end_index < index )
+		// 'potential_end_index < index' is needed because of potential integer overflow in sum
+		return data_len - index;
+	
 	const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	size_type orig_index	= index;
 	
@@ -798,7 +810,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	
 	// Count code points and multibytes of this string
 	char*		old_buffer;
-	char*		old_lut_base_ptr;
+	char*		old_lut_base_ptr; // Ignore uninitialized warning, see [3]
 	size_type	old_buffer_size;
 	size_type	old_string_len;
 	bool		old_lut_active;
@@ -877,7 +889,10 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	
 	// Can we reuse the old buffer?
 	if( new_buffer_size <= old_buffer_size )
-	{	
+	{
+		// [3] At this point, 'old_sso_inactive' MUST be true, because else,
+		// the resulting string would have sso active (which is handled way above)
+		
 		// Need to fill the lut? (see [2])
 		if( new_lut_width )
 		{
@@ -1170,9 +1185,6 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	bool		old_lut_active = utf8_string::lut_active( old_lut_base_ptr );
 	size_type	replaced_cps = 0;
 	
-	// Move BUFFER AFTER the erased part forward
-	std::memmove( old_buffer + index , old_buffer + end_index , old_data_len - end_index + 1 ); // +1 for the trailing '\0'
-	
 	// Adjust data length
 	t_non_sso.data_len -= len;
 	
@@ -1227,6 +1239,9 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 			++replaced_cps;
 		}
 	}
+	
+	// Move BUFFER AFTER the erased part forward
+	std::memmove( old_buffer + index , old_buffer + end_index , old_data_len - end_index + 1 ); // +1 for the trailing '\0'
 	
 	// Adjust string length
 	t_non_sso.string_len -= replaced_cps;
