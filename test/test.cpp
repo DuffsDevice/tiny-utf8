@@ -29,7 +29,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
 		cout << "7th codepoint: " << str[6] << endl;
@@ -46,10 +45,9 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
-		cout << "7th codepoint: " << str[6] << endl;
+		cout << "1st codepoint: " << str[0] << endl;
 		cout << endl;
 	}
 	
@@ -63,7 +61,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "9nd codepoint: " << (char)str[8] << endl;
 		cout << endl;
@@ -81,7 +78,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		
 		utf8_string tmp = utf8_string( U"♫ World" );
@@ -92,7 +88,6 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		
 		cout << endl << endl;
@@ -106,7 +101,6 @@ int main()
 		cout << "String: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		
 		cout << "Iterative output: ";
 		
@@ -167,7 +161,6 @@ int main()
 		cout << "Replaced the space with '~ 🤝 ~': " << str << endl ;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "Length: " << str.length() << endl;
-		cout << "NumMultibytes: " << str.get_num_multibytes() << endl;
 		cout << "Random access output: ";
 		
 		for( int i = 0 ; i < str.length() ; i++ )
@@ -240,7 +233,9 @@ int main()
 		
 		cout << endl;
 		
-		utf8_string corrected{str.wide_literal().get()};
+		std::unique_ptr<char32_t[]> ptr{ new char32_t[str.length()+1] };
+		str.to_wide_literal( ptr.get() );
+		utf8_string corrected{ ptr.get() , str.length() };
 		
 		cout << "Converted to UTF-8: " << corrected << endl;
 		

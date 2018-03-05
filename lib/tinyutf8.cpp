@@ -365,18 +365,20 @@ void utf8_string::shrink_to_fit()
 		return;
 	
 	size_type	data_len = size();
+	
+	if( !data_len )
+		return;
+	
 	size_type	buffer_size = get_buffer_size();
 	char*		buffer = get_buffer();
 	char*		lut_base_ptr = utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	size_type	required_buffer_size;
-	size_type	lut_len = 0;
-	size_type	required_lut_width;
 	
 	if( lut_active( lut_base_ptr ) )
 	{
-		lut_len					= get_lut_len( lut_base_ptr );
-		required_lut_width		= get_lut_width( determine_main_buffer_size( data_len , lut_len , 1 ) );
-		required_buffer_size	= determine_main_buffer_size( data_len , lut_len , required_lut_width );
+		size_type lut_len				= get_lut_len( lut_base_ptr );
+		size_type required_lut_width	= get_lut_width( determine_main_buffer_size( data_len , lut_len , 1 ) );
+		required_buffer_size			= determine_main_buffer_size( data_len , lut_len , required_lut_width );
 		
 		//! Determine the threshold above which it's profitable to reallocate (at least 10 bytes and at least a quarter of the memory)
 		if( buffer_size < std::max<size_type>( required_buffer_size + 10 , required_buffer_size >> 2 ) )
@@ -411,11 +413,35 @@ void utf8_string::shrink_to_fit()
 			return;
 		
 		t_non_sso.data = new char[ determine_total_buffer_size( required_buffer_size ) ]; // Allocate new buffer
-		std::memcpy( t_non_sso.data , buffer , data_len + 1 ); // Copy data
 	}
 	
-	delete[] buffer; // Delete old buffer
+	// Copy BUFFER
+	std::memcpy( t_non_sso.data , buffer , data_len + 1 );
 	set_non_sso_buffer_size( required_buffer_size ); // Set new buffer size
+	
+	// Delete old buffer
+	delete[] buffer;
+}
+
+utf8_string::size_type utf8_string::non_sso_capacity() const
+{
+	size_type	data_len		= t_non_sso.data_len;
+	size_type	buffer_size		= get_non_sso_buffer_size();
+	
+	// If empty, assume an average number of bytes per code point of '1' (and an empty lut)
+	if( !data_len )
+		return buffer_size - 1;
+	
+	const char*	buffer			= t_non_sso.data;
+	size_type	string_len		= t_non_sso.string_len;
+	const char*	lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	
+	// If the lut is active, add the number of additional bytes to the current data length
+	if( utf8_string::lut_active( lut_base_ptr ) )
+		data_len += utf8_string::get_lut_width( buffer_size ) * utf8_string::get_lut_len( lut_base_ptr );
+	
+	// Return the buffer size (excluding the potential trailing '\0') divided by the average number of bytes per code point
+	return ( buffer_size - 1 ) * string_len / data_len;
 }
 
 
