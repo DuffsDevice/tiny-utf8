@@ -509,6 +509,9 @@ class utf8_string
 				return t_non_sso.buffer_size >> 1;
 		}
 		
+		//! Return a good guess of how many codepoints the currently allocated buffer can hold
+		size_type non_sso_capacity() const ;
+		
 		//! Check, if sso is inactive (this operation doesn't require a negation and is faster)
 		inline bool sso_inactive() const { return t_sso.data_len & 0x1; }
 		
@@ -946,7 +949,7 @@ class utf8_string
 		 * @return	The number of bytes currently allocated
 		 */
 		size_type capacity() const {
-			return get_buffer_size();
+			return sso_inactive() ? non_sso_capacity() : get_max_sso_data_len();
 		}
 		
 		
@@ -1117,7 +1120,7 @@ class utf8_string
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ascii characters (<128) inside
 		 */
-		bool requires_unicode() const { return length() == size(); }
+		bool requires_unicode() const { return length() != size(); }
 		
 		
 		
