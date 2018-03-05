@@ -632,81 +632,143 @@ utf8_string::width_type utf8_string::encode_utf8( value_type cp , char* dest )
 
 
 
-// utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , size_type num_substr_codepoints ) const
-// {
-	// // Compute end index
-	// size_type	end_index = std::min<size_type>( index + byte_count , size() );
+utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , size_type num_substr_codepoints ) const
+{
+	// Bound checks...
+	size_type data_len = size();
+	if( index > data_len )
+		throw std::out_of_range( "utf8_string::(raw_)substr" );
+	size_type		end_index = index + byte_count;
+	if( end_index > data_len || end_index < index ){ // 'end_index < index' is needed because of potential integer overflow in sum
+		end_index = data_len;
+		byte_count = end_index - index;
+	}
 	
-	// // Boundary check
-	// if( end_index <= index )
-		// return utf8_string();
+	// If the substring is not a substring
+	if( byte_count == data_len )
+		return *this;
 	
-	// // Compute actual byte_count (with boundaries)
-	// byte_count = end_index - index;
-	
-	// // Create result instance
-	// utf8_string	result;
-	
-	// // If the new string is a small string
-	// if( is_small_string( byte_count + 1 ) )
-	// {
-		// char* dest_buffer = result.new_buffer( byte_count + 1 , 0 ).first;
-	
-		// // Partly copy
-		// std::memcpy( dest_buffer , get_buffer() + index , byte_count );
-		// dest_buffer[byte_count] = 0;
+	// If the new string is a small string
+	if( byte_count <= utf8_string::get_max_sso_data_len() )
+	{
+		utf8_string	result;
+		if( byte_count < utf8_string::get_max_sso_data_len() )
+			result.t_sso.set_data_len( byte_count ); // Set length
 		
-		// return result;
-	// }
+		// Copy data
+		std::memcpy( result.t_sso.data , get_buffer() + index , byte_count );
+		result.t_sso.data[byte_count] = '\0';
+		
+		return std::move(result);
+	}
 	
-	// // BELOW HERE ALL ATTRIBUTES ARE VALID //
+	// At this point, sso must be inactive, because a substring can only be smaller than this string
 	
-	// if( _indices_len > 0 )
-	// {
-		// // Look for start of indices
-		// size_type		index_multibyte_table = 0;
-		// const char*		my_indices = get_indices();
-		// width_type	my_indices_datatype_bytes = get_index_datatype_bytes( _buffer_len );
-		
-		// while( index_multibyte_table < _indices_len ){
-			// if( utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , index_multibyte_table ) >= index )
-				// break;
-			// index_multibyte_table++;
-		// }
-		
-		// size_type		start_of_multibytes_in_range = index_multibyte_table;
-		
-		// // Look for the end
-		// while( index_multibyte_table < _indices_len )
-		// {
-			// if( utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , index_multibyte_table ) >= end_index )
-				// break;
-			// index_multibyte_table++;
-		// }
-		
-		// // Compute number of indices 
-		// size_type		new_indices_len = index_multibyte_table - start_of_multibytes_in_range;
-		
-		// // Create new buffer
-		// std::pair<char*,char*> dest_buffer = result.new_buffer( byte_count + 1 , new_indices_len );
-		
-		// // Partly copy character data
-		// std::memcpy( dest_buffer.first , get_buffer() + index , byte_count );
-		// dest_buffer.first[byte_count] = '\0';
-		
-		// // Partly copy indices
-		// if( char* indices = dest_buffer.second ){
-			// width_type	indices_datatype_bytes = get_index_datatype_bytes( byte_count + 1 );
-			// for( size_type i = 0 ; i < new_indices_len ; i++ )
-				// utf8_string::set_nth_index( indices , indices_datatype_bytes , i , utf8_string::get_nth_index( my_indices , my_indices_datatype_bytes , start_of_multibytes_in_range + i ) - index );
-		// }
-	// }
+	size_type mb_index;
+	size_type substr_cps;
+	size_type substr_mbs		= 0;
+	size_type buffer_size		= get_non_sso_buffer_size();
+	const char* buffer			= t_non_sso.data;
+	const char* lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	bool lut_active				= utf8_string::lut_active( lut_base_ptr );
+	width_type lut_width;
 	
-	// // Set string length
-	// result._string_len = num_substr_codepoints;
+	// Count the number of SUBSTRING Multibytes and codepoints
+	if( lut_active )
+	{
+		lut_width	= utf8_string::get_lut_width( buffer_size );
+		mb_index	= 0;
+		const char* lut_begin	= lut_base_ptr - lut_width * utf8_string::get_lut_len( lut_base_ptr );
+		const char* lut_iter	= lut_base_ptr;
+		for( lut_iter -= lut_width; lut_iter >= lut_begin ; lut_iter -= lut_width ){
+			if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
+				break;
+			mb_index++;
+		}
+		substr_cps = byte_count; // Add at least as many bytes as code points
+		for( ; lut_iter >= lut_begin ; lut_iter -= lut_width ){ // Iterate over relevant multibyte indices
+			size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
+			if( multibyte_index >= end_index )
+				break;
+			substr_cps -= utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ); // Actually '- 1', but see[4]
+			++substr_mbs;
+		}
+		substr_cps += substr_mbs; // [4]: We subtracted all bytes of the relevant multibytes. We therefore need to re-add substr_mbs code points.
+	}
+	else
+	{
+		substr_cps		= 0;
+		size_type iter	= index;
+		while( iter < end_index ){ // Count REPLACED multibytes and code points
+			width_type bytes = get_codepoint_bytes( buffer[iter] , data_len - iter );
+			substr_mbs += bytes > 1; iter += bytes; ++substr_cps;
+		}
+	}
 	
-	// return result;
-// }
+	size_type	substr_buffer_size;
+	width_type	substr_lut_width;
+	
+	// Indices Table worth the memory loss?
+	if( size_type( substr_mbs - 1 ) < size_type( substr_cps / 2 ) ){ // Note: substr_mbs is intended to underflow at '0'
+		// Assume a lut width of 1 for the buffer size and check the actually needed lut width
+		substr_lut_width	= get_lut_width( determine_main_buffer_size( byte_count , substr_mbs , 1 ) );
+		substr_buffer_size	= determine_main_buffer_size( byte_count , substr_mbs , substr_lut_width );
+	}
+	else{
+		substr_lut_width	= 0;
+		substr_buffer_size	= determine_main_buffer_size( byte_count , 0 , 1 );
+	}
+	
+	char* substr_buffer			= new char[ determine_total_buffer_size( substr_buffer_size ) ];
+	char* substr_lut_base_ptr	= utf8_string::get_lut_base_ptr( substr_buffer , substr_buffer_size );
+	
+	// Copy requested BUFFER part
+	std::memcpy( substr_buffer , buffer + index , byte_count );
+	substr_buffer[byte_count] = '\0'; // Add trailing '\0'
+	
+	if( substr_lut_width )
+	{
+		// Set new lut size and mode
+		utf8_string::set_lut_indiciator( substr_lut_base_ptr , true , substr_mbs );
+		
+		// Reuse old indices?
+		if( lut_active )
+		{
+			// Can we do a plain copy of indices?
+			if( index == 0 && substr_lut_width == lut_width )
+				std::memcpy(
+					substr_lut_base_ptr - substr_mbs * lut_width
+					, lut_base_ptr - ( mb_index + substr_mbs ) * lut_width
+					, substr_mbs * lut_width
+				);
+			else
+				for( const char* lut_iter = lut_base_ptr - mb_index * lut_width; substr_mbs-- > 0 ; )
+					utf8_string::set_lut(
+						substr_lut_base_ptr -= substr_lut_width
+						, substr_lut_width
+						, utf8_string::get_lut( lut_iter -= lut_width , lut_width ) - index
+					);
+		}
+		else // Fill the lut by iterating over the substrings data
+			for( size_type	substr_iter = 0 ; substr_iter < byte_count ; ){
+				width_type bytes = get_codepoint_bytes( substr_buffer[substr_iter] , byte_count - substr_iter );
+				if( bytes > 1 )
+					utf8_string::set_lut( substr_lut_base_ptr -= substr_lut_width , substr_lut_width , substr_iter );
+				substr_iter += bytes;
+			}
+	}
+	else // Set substring lut mode
+		utf8_string::set_lut_indiciator( substr_lut_base_ptr , substr_mbs == 0 , 0 );
+	
+	// Prepare result
+	utf8_string result;
+	result.t_non_sso.data = substr_buffer;
+	result.t_non_sso.data_len = byte_count;
+	result.t_non_sso.string_len = substr_cps;
+	result.set_non_sso_buffer_size( substr_buffer_size );
+	
+	return std::move(result);
+}
 
 
 utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len , const utf8_string& repl )
