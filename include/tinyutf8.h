@@ -839,9 +839,10 @@ class utf8_string
 			std::memcpy( this , &str , sizeof(utf8_string) );
 			
 			// Create a new buffer, if sso is not active
-			if( sso_inactive() ){
-				t_non_sso.data = new char[ t_non_sso.buffer_size ];
-				std::memcpy( t_non_sso.data , str.t_non_sso.data , t_non_sso.buffer_size );
+			if( str.sso_inactive() ){
+				size_type buffer_size = utf8_string::get_non_sso_buffer_size();
+				t_non_sso.data = new char[ buffer_size ];
+				std::memcpy( t_non_sso.data , str.t_non_sso.data , buffer_size );
 			}
 		}
 		/**
@@ -889,9 +890,10 @@ class utf8_string
 			if( &str != this ){
 				clear(); // Clear old data
 				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
-				if( sso_inactive() ){ // Create a new buffer, if sso is not active
-					t_non_sso.data = new char[ t_non_sso.buffer_size ];
-					std::memcpy( t_non_sso.data , str.t_non_sso.data , t_non_sso.buffer_size );
+				if( str.sso_inactive() ){ // Create a new buffer, if sso is not active
+					size_type buffer_size = utf8_string::get_non_sso_buffer_size();
+					t_non_sso.data = new char[ buffer_size ];
+					std::memcpy( t_non_sso.data , str.t_non_sso.data , buffer_size );
 				}
 			}
 			return *this;
