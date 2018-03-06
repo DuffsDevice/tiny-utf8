@@ -167,7 +167,7 @@ utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 			// Set Attributes
 			t_non_sso.buffer_size = buffer_size;
 			t_non_sso.data_len = data_len;
-			set_non_sso_string_len( string_len );
+			set_non_sso_string_len( string_len ); // This also disables SSO
 			
 			return; // We have already done everything!
 		}
@@ -485,52 +485,62 @@ std::string utf8_string::cpp_str_bom() const
 
 utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_type byte_count ) const 
 {
-	const char*	buffer = get_buffer();
-	size_type	data_len = size();
-	size_type	buffer_size = get_buffer_size();
-	const char*	lut_iter = utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	const char*	buffer;
+	size_type	data_len;
 	
-	// Procedure: Reduce the byte count by the number of data bytes within multibytes
-	
-	// Is the lut active?
-	if( utf8_string::lut_active( lut_iter ) )
+	if( sso_inactive() )
 	{
-		size_type lut_len = utf8_string::get_lut_len( lut_iter );
+		buffer					= t_non_sso.data;
+		data_len				= t_non_sso.data_len;
+		size_type buffer_size	= t_non_sso.buffer_size;
+		const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 		
-		if( !lut_len )
+		// Is the LUT active?
+		if( utf8_string::lut_active( lut_iter ) )
+		{
+			size_type lut_len = utf8_string::get_lut_len( lut_iter );
+			
+			if( !lut_len )
+				return byte_count;
+			
+			width_type		lut_width	= utf8_string::get_lut_width( buffer_size );
+			const char*		lut_begin	= lut_iter - lut_len * lut_width;
+			size_type		end_index	= index + byte_count;
+			
+			// Iterate to the start of the relevant part of the multibyte table
+			while( lut_iter > lut_begin ){
+				lut_iter -= lut_width; // Move cursor to the next lut entry
+				if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
+					break;
+			}
+			
+			// Iterate over relevant multibyte indices
+			while( lut_iter > lut_begin ){
+				size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
+				if( multibyte_index >= end_index )
+					break;
+				byte_count -= utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+				lut_iter -= lut_width; // Move cursor to the next lut entry
+			}
+			
+			// Now byte_count is the number of code points
 			return byte_count;
-		
-		width_type		lut_width	= utf8_string::get_lut_width( buffer_size );
-		const char*		lut_begin	= lut_iter - lut_len * lut_width;
-		size_type		end_index	= index + byte_count;
-		
-		// Iterate to the start of the relevant part of the multibyte table
-		while( lut_iter > lut_begin ){
-			lut_iter -= lut_width; // Move cursor to the next lut entry
-			if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
-				break;
-		}
-		
-		// Iterate over relevant multibyte indices
-		while( lut_iter > lut_begin ){
-			size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
-			if( multibyte_index >= end_index )
-				break;
-			byte_count -= utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
-			lut_iter -= lut_width; // Move cursor to the next lut entry
 		}
 	}
-	else
-	{
-		const char*	buffer_iter = buffer + index;
-		const char*	buffer_end = buffer + data_len;
-		
-		// Iterate the data byte by byte...
-		while( buffer_iter < buffer_end ){
-			width_type bytes = utf8_string::get_codepoint_bytes( *buffer_iter , buffer_end - buffer_iter );
-			buffer_iter += bytes;
-			byte_count -= bytes - 1;
-		}
+	else{
+		buffer = t_sso.data;
+		data_len = get_sso_data_len();
+	}
+	
+	// Procedure: Reduce the byte count by the number of data bytes within multibytes
+	const char*	buffer_iter = buffer + index;
+	const char*	buffer_end = buffer + data_len;
+	
+	// Iterate the data byte by byte...
+	while( buffer_iter < buffer_end ){
+		width_type bytes = utf8_string::get_codepoint_bytes( *buffer_iter , buffer_end - buffer_iter );
+		buffer_iter += bytes;
+		byte_count -= bytes - 1;
 	}
 	
 	// Now byte_count is the number of code points
@@ -539,84 +549,111 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 
 utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type cp_count ) const
 {
-	const char*	buffer		= get_buffer();
-	size_type	data_len	= size();
-	size_type	buffer_size = get_buffer_size();
-	const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
+	const char*	buffer;
+	size_type	data_len;
 	
-	// Is the lut active?
-	if( utf8_string::lut_active( lut_iter ) )
+	if( sso_inactive() )
 	{
-		// Reduce the byte count by the number of data bytes within multibytes
-		width_type lut_width = utf8_string::get_lut_width( buffer_size );
+		buffer					= t_non_sso.data;
+		data_len				= t_non_sso.data_len;
+		size_type buffer_size	= t_non_sso.buffer_size;
+		const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 		
-		// Iterate over relevant multibyte indices
-		for( size_type lut_len = utf8_string::get_lut_len( lut_iter ) ; lut_len-- > 0 ; )
+		// Is the lut active?
+		if( utf8_string::lut_active( lut_iter ) )
 		{
-			size_type multibyte_index = utf8_string::get_lut( lut_iter -= lut_width , lut_width );
-			if( multibyte_index >= cp_count )
-				break;
-			cp_count += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+			// Reduce the byte count by the number of data bytes within multibytes
+			width_type lut_width = utf8_string::get_lut_width( buffer_size );
+			
+			// Iterate over relevant multibyte indices
+			for( size_type lut_len = utf8_string::get_lut_len( lut_iter ) ; lut_len-- > 0 ; )
+			{
+				size_type multibyte_index = utf8_string::get_lut( lut_iter -= lut_width , lut_width );
+				if( multibyte_index >= cp_count )
+					break;
+				cp_count += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+			}
+			
+			return cp_count;
 		}
 	}
 	else{
-		size_type num_bytes = 0;
-		while( cp_count-- > 0 && num_bytes <= data_len )
-			num_bytes += get_codepoint_bytes( buffer[num_bytes] , data_len - num_bytes );
-		return num_bytes;
+		buffer = t_sso.data;
+		data_len = get_sso_data_len();
 	}
 	
-	return cp_count;
+	size_type num_bytes = 0;
+	while( cp_count-- > 0 && num_bytes <= data_len )
+		num_bytes += get_codepoint_bytes( buffer[num_bytes] , data_len - num_bytes );
+	
+	return num_bytes;
 }
 
 utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type cp_count ) const 
 {
-	const char*	buffer				= get_buffer();
-	size_type	data_len			= size();
-	size_type	buffer_size			= get_buffer_size();
-	size_type	potential_end_index	= index + cp_count;
-	
-	if( potential_end_index > data_len || potential_end_index < index )
-		// 'potential_end_index < index' is needed because of potential integer overflow in sum
-		return data_len - index;
-	
-	const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
-	size_type orig_index	= index;
+	size_type	potential_end_index = index + cp_count;
+	const char*	buffer;
+	size_type	data_len;
 	
 	// Procedure: Reduce the byte count by the number of utf8 data bytes
-	
-	// Is the lut active?
-	if( utf8_string::lut_active( lut_iter ) )
+	if( sso_inactive() )
 	{
-		size_type lut_len = utf8_string::get_lut_len( lut_iter );
+		buffer					= t_non_sso.data;
+		data_len				= t_non_sso.data_len;
+		size_type buffer_size	= t_non_sso.buffer_size;
+		const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 		
-		if( !lut_len )
-			return cp_count;
+		// 'potential_end_index < index' is needed because of potential integer overflow in sum
+		if( potential_end_index > data_len || potential_end_index < index )
+			return data_len - index;
 		
-		// Reduce the byte count by the number of data bytes within multibytes
-		width_type		lut_width = utf8_string::get_lut_width( buffer_size );
-		const char*		lut_begin = lut_iter - lut_len * lut_width;
-		
-		// Iterate to the start of the relevant part of the multibyte table
-		for( lut_iter -= lut_width /* Move to first entry */ ; lut_iter >= lut_begin ; lut_iter -= lut_width )
-			if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
-				break;
-		
-		// Add at least as many bytes as code points
-		index += cp_count;
-		
-		// Iterate over relevant multibyte indices
-		while( lut_iter >= lut_begin ){
-			size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
-			if( multibyte_index >= index )
-				break;
-			index += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
-			lut_iter -= lut_width; // Move cursor to the next lut entry
+		// Is the lut active?
+		if( utf8_string::lut_active( lut_iter ) )
+		{
+			size_type orig_index = index;
+			size_type lut_len = utf8_string::get_lut_len( lut_iter );
+			
+			if( !lut_len )
+				return cp_count;
+			
+			// Reduce the byte count by the number of data bytes within multibytes
+			width_type		lut_width = utf8_string::get_lut_width( buffer_size );
+			const char*		lut_begin = lut_iter - lut_len * lut_width;
+			
+			// Iterate to the start of the relevant part of the multibyte table
+			for( lut_iter -= lut_width /* Move to first entry */ ; lut_iter >= lut_begin ; lut_iter -= lut_width )
+				if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
+					break;
+			
+			// Add at least as many bytes as code points
+			index += cp_count;
+			
+			// Iterate over relevant multibyte indices
+			while( lut_iter >= lut_begin ){
+				size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
+				if( multibyte_index >= index )
+					break;
+				index += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+				lut_iter -= lut_width; // Move cursor to the next lut entry
+			}
+			
+			return index - orig_index;
 		}
 	}
-	else
-		while( cp_count-- > 0 && index <= data_len )
-			index += get_codepoint_bytes( buffer[index] , data_len - index );
+	else{
+		buffer = t_sso.data;
+		data_len = get_sso_data_len();
+		
+		// 'potential_end_index < index' is needed because of potential integer overflow in sum
+		if( potential_end_index > data_len || potential_end_index < index )
+			return data_len - index;
+	}
+	
+	size_type orig_index = index;
+	
+	// Procedure: Reduce the byte count by the number of utf8 data bytes
+	while( cp_count-- > 0 && index <= data_len )
+		index += get_codepoint_bytes( buffer[index] , data_len - index );
 	
 	return index - orig_index;
 }

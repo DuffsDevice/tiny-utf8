@@ -86,15 +86,6 @@ namespace detail
 			char	lbyte;
 		};
 	};
-	
-	template<typename T>
-	union first_byte{
-		T			number;
-		struct{
-			char	fbyte;
-			char	bytes[sizeof(T)-1];
-		};
-	};
 }
 
 class utf8_string
@@ -520,17 +511,7 @@ class utf8_string
 		
 		//! Construct the lut mode indicator
 		static inline void					set_lut_indiciator( char* lut_base_ptr , bool active , size_type lut_len = 0 ){
-			if( !active )
-				*(unsigned char*)lut_base_ptr &= ~(unsigned char)0x1;
-			else if( !detail::is_little_endian::value ){
-				detail::first_byte<indicator_type> lb;
-				lb.number = lut_len;
-				lb.fbyte <<= 1;
-				lb.fbyte |= (unsigned char)0x1;
-				*(indicator_type*)lut_base_ptr = lb.number;
-			}
-			else
-				*(indicator_type*)lut_base_ptr = ( lut_len << 1 ) | indicator_type(0x1);
+			*(indicator_type*)lut_base_ptr = active ? ( lut_len << 1 ) | 0x1 : 0;
 		}
 		
 		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
@@ -570,12 +551,7 @@ class utf8_string
 		
 		//! Get the LUT size (given the lut is active!)
 		static inline size_type				get_lut_len( const char* lut_base_ptr ){
-			if( detail::is_little_endian::value )
-				return *(indicator_type*)lut_base_ptr >> 1;
-			detail::first_byte<indicator_type> fb;
-			fb.number = *(indicator_type*)lut_base_ptr;
-			fb.fbyte >>= 1;
-			return fb.number;
+			return *(indicator_type*)lut_base_ptr >> 1;
 		}
 		
 		/**
