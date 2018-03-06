@@ -43,7 +43,7 @@
 #include <string> // for std::string
 #include <limits> // for numeric_limits
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
-#include <cstdint> // for uint8_t, uint16_t, uint32_t
+#include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <stdexcept> // for std::out_of_range
 #ifdef _MSC_VER
 #include <intrin.h> // for __lzcnt
@@ -52,6 +52,9 @@
 
 namespace detail
 {
+	// Used for tag dispatching in constructor
+	struct empty{};
+	
 	//! Count leading zeros utility
 	#if defined(__GNUC__)
 	#define _TINY_UTF8_H_HAS_CLZ_ true
@@ -69,8 +72,8 @@ namespace detail
 	#endif
 	
 	class is_little_endian{
-		constexpr static uint32_t u4 = 1;
-		constexpr static uint8_t  u1  = (const uint8_t &) u4;
+		constexpr static uint32_t	u4 = 1;
+		constexpr static uint8_t	u1 = (const uint8_t &) u4;
 	public:
 		constexpr static bool value = u1;
 	};
@@ -102,8 +105,38 @@ class utf8_string
 		typedef std::ptrdiff_t				difference_type;
 		typedef char32_t					value_type;
 		typedef value_type					const_reference;
-		typedef unsigned char				width_type; // Data type capable of holding the number of code units in a code point
+		typedef std::uint_fast8_t			width_type; // Data type capable of holding the number of code units in a code point
 		constexpr const static size_type	npos = -1;
+		
+	private: //! Layout specifications
+		
+		/*
+		 * To determine, which layout is active, read either t_sso.data_len, or the last byte of t_non_sso.buffer_size:
+		 * LSB == 0  =>  SSO
+		 * LSB == 1  =>  NON-SSO
+		 */
+		
+		// Layout used, if sso is inactive
+		struct NON_SSO
+		{
+			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <lut_indicator::rle> ]
+			size_type		data_len; // In bytes, excluding the trailing '\0'
+			size_type		string_len;
+			size_type		buffer_size; // Indicates the size of '::data' minus 'lut_width'; Shadows data_len on the last byte
+		};
+		
+		// Layout used, if sso is active
+		struct SSO
+		{
+			char			data[sizeof(NON_SSO)-1];
+			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
+			SSO( unsigned char data_len ) :
+				data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+			{}
+		};
+		
+		// Typedef for the lut indicator. Note: Don't change this, because else the buffer will not be a multiple of sizeof(size_type)
+		typedef size_type					indicator_type;
 		
 	private:
 		
@@ -430,193 +463,23 @@ class utf8_string
 				}
 		};
 		
-	private: //! Layout specifications
+	private: //! Attributes
 		
-		/*
-		 * To determine, which layout is active, read either t_sso.data_len, or the last byte of t_non_sso.buffer_size:
-		 * LSB == 0  =>  SSO
-		 * LSB == 1  =>  NON-SSO
-		 */
-		
-		// Layout used, if sso is inactive
-		struct NON_SSO
-		{
-			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <lut_indicator::rle> ]
-			size_type		data_len; // In bytes, excluding the trailing '\0'
-			size_type		string_len;
-			size_type		buffer_size; // Indicates the size of '::data' minus 'lut_width'; Shadows data_len on the last byte
-		};
-		
-		// Layout used, if sso is active
-		struct SSO
-		{
-			char			data[sizeof(NON_SSO)-1];
-			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
-			SSO( unsigned char data_len ) :
-				data_len( ( sizeof(SSO::data) - data_len ) << 1 )
-			{}
-			void set_data_len( unsigned char data_len = 0 ){
-				this->data_len = ( sizeof(SSO::data) - data_len ) << 1;
-			}
-		};
-		
-		typedef size_type indicator_type; // Don't change this, because else the buffer will not be a multiple of sizeof(size_type)
-	
-	public:
-		
-		//! Attributes
 		union{
 			SSO		t_sso;
 			NON_SSO	t_non_sso;
 		};
 		
-	public:
+	public: //! Static helper methods
 		
 		//! Get the maximum number of bytes (excluding the trailing '\0') that can be stored within a utf8_string object
-		static inline constexpr size_type get_max_sso_data_len(){ return sizeof(SSO::data); }
+		static constexpr inline size_type	get_sso_capacity(){ return sizeof(SSO::data); }
 		
-		//! Set the main buffer size (also disables SSO)
-		inline void set_non_sso_buffer_size( size_type buffer_size )
-		{
-			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 ){
-				t_non_sso.buffer_size = buffer_size;
-				t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
-			}
-			else if( detail::is_little_endian::value ){
-				detail::last_byte<size_type> lb;
-				lb.number = buffer_size;
-				lb.lbyte <<= 1;
-				lb.lbyte |= 0x1;
-				t_non_sso.buffer_size = lb.number;
-			}
-			else
-				t_non_sso.buffer_size = ( buffer_size << 1 ) | size_type(0x1);
-		}
-		
-		//! Get buffer size, if SSO is disabled
-		inline size_type get_non_sso_buffer_size() const {
-			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 )
-				return t_non_sso.buffer_size;
-			else if( detail::is_little_endian::value ){
-				detail::last_byte<size_type> lb;
-				lb.number = t_non_sso.buffer_size;
-				lb.lbyte >>= 1;
-				return lb.number;
-			}
-			else
-				return t_non_sso.buffer_size >> 1;
-		}
-		
-		//! Return a good guess of how many codepoints the currently allocated buffer can hold
-		size_type non_sso_capacity() const ;
-		
-		//! Check, if sso is inactive (this operation doesn't require a negation and is faster)
-		inline bool sso_inactive() const { return t_sso.data_len & 0x1; }
-		
-		//! Check, if the lut is active using the lut base ptr
-		static inline bool lut_active( const char* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
-		
-		//! Rounds the supplied value to a multiple of sizeof(size_type)
-		static inline size_type round_up_to_align( size_type val ){
-			return ( val + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 );
-		}
-		
-		//! Determine the needed buffer size (excluding the trailling LUT indicator)
-		static inline size_type determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
-			// Make the buffer size_type-aligned (don't forget, we need a terminating '\0', distinct from the lut indicator)
-			return round_up_to_align( data_len + 1 + lut_width * lut_len );
-		}
-		//! Same as above but this time including the LUT indicator
-		static inline size_type determine_total_buffer_size( size_type main_buffer_size ){
-			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
-		}
-		
-		//! Get the LUT base pointer
-		static inline char* get_lut_base_ptr( char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
-		static inline const char* get_lut_base_ptr( const char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
-		
-		//! Construct the lut mode indicator
-		static inline void set_lut_indiciator( char* lut_base_ptr , bool active , size_type lut_len = 0 ){
-			if( !active )
-				*(unsigned char*)lut_base_ptr &= ~(unsigned char)0x1;
-			else if( !detail::is_little_endian::value ){
-				detail::first_byte<indicator_type> lb;
-				lb.number = lut_len;
-				lb.fbyte <<= 1;
-				lb.fbyte |= (unsigned char)0x1;
-				*(indicator_type*)lut_base_ptr = lb.number;
-			}
-			else
-				*(indicator_type*)lut_base_ptr = ( lut_len << 1 ) | indicator_type(0x1);
-		}
-		
-		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
-		//! Returns the number of bytes of the destination data type
-		static inline width_type get_lut_width( size_type buffer_size ){
-			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
-				return ( sizeof(size_type) * 8 + 7 - detail::clz( buffer_size ) ) / 8;
-			#else
-				return buffer_size <= std::numeric_limits<std::uint8_t>::max()
-					? sizeof(std::uint8_t)
-					: buffer_size <= std::numeric_limits<std::uint16_t>::max()
-						? sizeof(std::uint16_t)
-						: buffer_size <= std::numeric_limits<std::uint32_t>::max()
-							? sizeof(std::uint32_t)
-							: sizeof(std::uint64_t)
-				;
-			#endif
-		}
-		
-		//! Get the nth index within a multibyte index table
-		static inline size_type get_lut( const char* iter , width_type lut_width ){
-			switch( lut_width ){
-			case sizeof(std::uint8_t):	return *(const std::uint8_t*)iter;
-			case sizeof(std::uint16_t):	return *(const std::uint16_t*)iter;
-			case sizeof(std::uint32_t):	return *(const std::uint32_t*)iter;
-			}
-			return *(const std::uint64_t*)iter;
-		}
-		static inline void set_lut( char* iter , width_type lut_width , size_type value ){
-			switch( lut_width ){
-			case sizeof(std::uint8_t):	*(std::uint8_t*)iter = value; break;
-			case sizeof(std::uint16_t):	*(std::uint16_t*)iter = value; break;
-			case sizeof(std::uint32_t):	*(std::uint32_t*)iter = value; break;
-			case sizeof(std::uint64_t):	*(std::uint64_t*)iter = value; break;
-			}
-		}
-		
-		
-		//! Get buffer
-		const char* get_buffer() const { return sso_inactive() ? t_non_sso.data : t_sso.data; }
-		char* get_buffer(){ return sso_inactive() ? t_non_sso.data : t_sso.data; }
-		
-		//! Get buffer size (excluding the trailing LUT indicator)
-		inline size_type get_buffer_size() const {
-			return sso_inactive() ? get_non_sso_buffer_size() : get_max_sso_data_len();
-		}
-		
-		//! Get the lut base pointer (pointer to the LUT indicator)
-		inline const char* get_lut_base_ptr() const { return get_buffer() + get_buffer_size(); }
-		inline char* get_lut_base_ptr(){ return get_buffer() + get_buffer_size(); }
-		
-		//! Get the LUT size (given the lut is active!)
-		static inline size_type get_lut_len( const char* lut_base_ptr ){
-			if( detail::is_little_endian::value )
-				return *(indicator_type*)lut_base_ptr >> 1;
-			detail::first_byte<indicator_type> fb;
-			fb.number = *(indicator_type*)lut_base_ptr;
-			fb.fbyte >>= 1;
-			return fb.number;
-		}
-		
-		
-		// Helpers for the constructors
+		//! Helpers for the constructors
 		template<size_type L>
-		using enable_if_small_string = typename std::enable_if<L<=get_max_sso_data_len(),int*>::type;
+		using enable_if_small_string = typename std::enable_if<L<=get_sso_capacity(),int*>::type;
 		template<size_type L>
-		using enable_if_not_small_string = typename std::enable_if<get_max_sso_data_len()<L,int*>::type;
+		using enable_if_not_small_string = typename std::enable_if<get_sso_capacity()<L,int*>::type;
 		// Template to enable overloads, if the supplied type T is a character array without known bounds
 		template<typename T, typename CharType>
 		using enable_if_ptr = typename std::enable_if<
@@ -633,15 +496,93 @@ class utf8_string
 			, int*
 		>::type;
 		
-		/**
-		 * Returns an std::string with the UTF-8 BOM prepended
-		 */
-		std::string cpp_str_bom() const ;
+		//! Check, if the lut is active using the lut base ptr
+		static inline bool					lut_active( const char* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
+		
+		//! Rounds the supplied value to a multiple of sizeof(size_type)
+		static inline size_type				round_up_to_align( size_type val ){
+			return ( val + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 );
+		}
+		
+		//! Determine the needed buffer size (excluding the trailling LUT indicator)
+		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
+			// Make the buffer size_type-aligned (don't forget, we need a terminating '\0', distinct from the lut indicator)
+			return round_up_to_align( data_len + 1 + lut_width * lut_len );
+		}
+		//! Same as above but this time including the LUT indicator
+		static inline size_type				determine_total_buffer_size( size_type main_buffer_size ){
+			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
+		}
+		
+		//! Get the LUT base pointer from buffer and buffer size
+		static inline char*					get_lut_base_ptr( char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
+		static inline const char*			get_lut_base_ptr( const char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
+		
+		//! Construct the lut mode indicator
+		static inline void					set_lut_indiciator( char* lut_base_ptr , bool active , size_type lut_len = 0 ){
+			if( !active )
+				*(unsigned char*)lut_base_ptr &= ~(unsigned char)0x1;
+			else if( !detail::is_little_endian::value ){
+				detail::first_byte<indicator_type> lb;
+				lb.number = lut_len;
+				lb.fbyte <<= 1;
+				lb.fbyte |= (unsigned char)0x1;
+				*(indicator_type*)lut_base_ptr = lb.number;
+			}
+			else
+				*(indicator_type*)lut_base_ptr = ( lut_len << 1 ) | indicator_type(0x1);
+		}
+		
+		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
+		//! Returns the number of bytes of the destination data type
+		static inline width_type			get_lut_width( size_type buffer_size ){
+			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
+				return ( sizeof(size_type) * 8 + 7 - detail::clz( buffer_size ) ) / 8;
+			#else
+				return buffer_size <= std::numeric_limits<std::uint8_t>::max()
+					? sizeof(std::uint8_t)
+					: buffer_size <= std::numeric_limits<std::uint16_t>::max()
+						? sizeof(std::uint16_t)
+						: buffer_size <= std::numeric_limits<std::uint32_t>::max()
+							? sizeof(std::uint32_t)
+							: sizeof(std::uint64_t)
+				;
+			#endif
+		}
+		
+		//! Get the nth index within a multibyte index table
+		static inline size_type				get_lut( const char* iter , width_type lut_width ){
+			switch( lut_width ){
+			case sizeof(std::uint8_t):	return *(const std::uint8_t*)iter;
+			case sizeof(std::uint16_t):	return *(const std::uint16_t*)iter;
+			case sizeof(std::uint32_t):	return *(const std::uint32_t*)iter;
+			}
+			return *(const std::uint64_t*)iter;
+		}
+		static inline void					set_lut( char* iter , width_type lut_width , size_type value ){
+			switch( lut_width ){
+			case sizeof(std::uint8_t):	*(std::uint8_t*)iter = value; break;
+			case sizeof(std::uint16_t):	*(std::uint16_t*)iter = value; break;
+			case sizeof(std::uint32_t):	*(std::uint32_t*)iter = value; break;
+			case sizeof(std::uint64_t):	*(std::uint64_t*)iter = value; break;
+			}
+		}
+		
+		//! Get the LUT size (given the lut is active!)
+		static inline size_type				get_lut_len( const char* lut_base_ptr ){
+			if( detail::is_little_endian::value )
+				return *(indicator_type*)lut_base_ptr >> 1;
+			detail::first_byte<indicator_type> fb;
+			fb.number = *(indicator_type*)lut_base_ptr;
+			fb.fbyte >>= 1;
+			return fb.number;
+		}
 		
 		/**
 		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 code point
 		 */
-		static width_type get_codepoint_bytes( char first_byte , size_type data_left ) // Data left is the number of bytes left in the buffer INCLUDING this one
+		static inline width_type			get_codepoint_bytes( char first_byte , size_type data_left )
+		// Data left is the number of bytes left in the buffer INCLUDING this one
 		#if defined(_TINY_UTF8_H_HAS_CLZ_)
 		{
 			if( first_byte ){
@@ -662,7 +603,7 @@ class utf8_string
 		/**
 		 * Returns the number of code units (bytes) a code point will translate to in utf8
 		 */
-		static inline width_type get_codepoint_bytes( value_type cp )
+		static inline width_type			get_codepoint_bytes( value_type cp )
 		{
 			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
 				if( !cp )
@@ -689,28 +630,15 @@ class utf8_string
 			#endif
 		}
 		
-		/**
-		 * Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
-		 */
-		static width_type get_num_bytes_of_utf8_char_before( const char* data , const char* data_start );
+		//! Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
+		static width_type					get_num_bytes_of_utf8_char_before( const char* data_start , size_type index );
 		
-		/**
-		 * Get the byte index of the last code point
-		 */
-		inline size_type back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
-		/**
-		 * Get the byte index of the index behind the last code point
-		 */
-		inline size_type end_index() const { return size(); }
-		
-		/**
-		 * Decodes a given input of rle utf8 data to a unicode code point, given the number of bytes it's made of
-		 */
-		static value_type decode_utf8( const char* data , width_type num_bytes ){
+		//! Decodes a given input of rle utf8 data to a unicode code point, given the number of bytes it's made of
+		static inline value_type			decode_utf8( const char* data , width_type num_bytes ){
 			value_type cp = (unsigned char)*data;
 			if( num_bytes > 1 ){
 				cp &= 0x7F >> num_bytes; // Mask out the header bits
-				for( int i = 1 ; i < num_bytes ; i++ )
+				for( width_type i = 1 ; i < num_bytes ; i++ )
 					cp = ( cp << 6 ) | ( (unsigned char)data[i] & 0x3F );
 			}
 			return cp;
@@ -720,7 +648,8 @@ class utf8_string
 		 * Decodes a given input of rle utf8 data to a
 		 * unicode code point and returns the number of bytes it used
 		 */
-		static inline width_type decode_utf8_and_len( const char* data , value_type& dest , unsigned int data_left ){ // See 'get_codepoint_bytes' for 'data_left'
+		static inline width_type			decode_utf8_and_len( const char* data , value_type& dest , size_type data_left ){
+			// See 'get_codepoint_bytes' for 'data_left'
 			width_type num_bytes = utf8_string::get_codepoint_bytes( *data , data_left );
 			dest = decode_utf8( data , num_bytes );
 			return num_bytes;
@@ -730,24 +659,110 @@ class utf8_string
 		 * Encodes a given code point to a character buffer of at least 7 bytes
 		 * and returns the number of bytes it used
 		 */
-		static width_type encode_utf8( value_type cp , char* dest );
+		inline static width_type			encode_utf8( value_type cp , char* dest ){
+			width_type width = get_codepoint_bytes( cp );
+			switch( width ){
+				case 7: dest[width-6] = 0x80 | ((cp >> 30) & 0x3F);
+				case 6: dest[width-5] = 0x80 | ((cp >> 24) & 0x3F);
+				case 5: dest[width-4] = 0x80 | ((cp >> 18) & 0x3F);
+				case 4: dest[width-3] = 0x80 | ((cp >> 12) & 0x3F);
+				case 3: dest[width-2] = 0x80 | ((cp >>  6) & 0x3F);
+				case 2: dest[width-1] = 0x80 | ((cp >>  0) & 0x3F);
+					dest[0] = ( std::uint_least16_t(0xFF00uL) >> width ) | ( cp >> ( 6 * width - 6 ) );
+					break;
+				case 1: dest[0]	= char(cp);
+			}
+			return width;
+		}
 		
+	private: //! Non-static helper methods
+		
+		//! Set the main buffer size (also disables SSO)
+		inline void			set_non_sso_buffer_size( size_type buffer_size )
+		{
+			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 ){
+				t_non_sso.buffer_size = buffer_size;
+				t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
+			}
+			else if( detail::is_little_endian::value ){
+				detail::last_byte<size_type> lb;
+				lb.number = buffer_size;
+				lb.lbyte <<= 1;
+				lb.lbyte |= 0x1;
+				t_non_sso.buffer_size = lb.number;
+			}
+			else
+				t_non_sso.buffer_size = ( buffer_size << 1 ) | size_type(0x1);
+		}
+		
+		//! Get buffer size, if SSO is disabled
+		inline size_type	get_non_sso_buffer_size() const {
+			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 )
+				return t_non_sso.buffer_size;
+			else if( detail::is_little_endian::value ){
+				detail::last_byte<size_type> lb;
+				lb.number = t_non_sso.buffer_size;
+				lb.lbyte >>= 1;
+				return lb.number;
+			}
+			else
+				return t_non_sso.buffer_size >> 1;
+		}
+		
+		//! Set the data length (also enables SSO)
+		inline void			set_sso_data_len( unsigned char data_len = 0 ){
+			t_sso.data_len = ( sizeof(SSO::data) - data_len ) << 1;
+		}
+		
+		//! Get the data length (when SSO is active)
+		inline size_type	get_sso_data_len() const { return get_sso_capacity() - ( t_sso.data_len >> 1 ); }
+		
+		//! Return a good guess of how many codepoints the currently allocated buffer can hold
+		size_type			get_non_sso_capacity() const ;
+		
+		//! Check, if sso is inactive (this operation doesn't require a negation and is faster)
+		inline bool			sso_inactive() const { return t_sso.data_len & 0x1; }
+		
+		// Helper for requires_unicode_sso that generates masks of the form 10000000 10000000...
+		template<typename T>
+		static constexpr T get_hsb_mask( width_type bytes = sizeof(T) ){ return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_hsb_mask<T>( bytes - 1 ) : T(0); }
+		
+		//! Check, whether the string contains code points > 127
+		bool				requires_unicode_sso() const ;
+		
+		//! Get buffer
+		inline const char*	get_buffer() const { return sso_inactive() ? t_non_sso.data : t_sso.data; }
+		inline char*		get_buffer(){ return sso_inactive() ? t_non_sso.data : t_sso.data; }
+		
+		//! Get buffer size (excluding the trailing LUT indicator)
+		inline size_type	get_buffer_size() const {
+			return sso_inactive() ? get_non_sso_buffer_size() : get_sso_capacity();
+		}
+		
+		
+		//! Returns an std::string with the UTF-8 BOM prepended
+		std::string			cpp_str_bom() const ;
+		
+		//! Get the byte index of the last code point
+		inline size_type	back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		
 		/**
 		 * Counts the number of codepoints
 		 * that are built up of the supplied amout of bytes
 		 */
-		size_type get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
+		size_type			get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
 		
 		/**
 		 * Counts the number of bytes
 		 * required to hold the supplied amount of codepoints starting at the supplied byte index (or 0 for the '_from_start' version)
 		 */
-		size_type get_num_bytes( size_type byte_start , size_type codepoint_count ) const ;
-		size_type get_num_bytes_from_start( size_type codepoint_count ) const ;
+		size_type			get_num_bytes( size_type byte_start , size_type cp_count ) const ;
+		size_type			get_num_bytes_from_start( size_type cp_count ) const ;
 		
 		//! Constructs an utf8_string from a character literal of unknown length
-		utf8_string( const char* str , size_type len , void* ); // the (void*) is a dummy to call this function
+		utf8_string( const char* str , size_type len , detail::empty ); // the (void*) is a dummy to call this function
 		
 	public:
 		
@@ -756,7 +771,7 @@ class utf8_string
 		 * 
 		 * @note Creates an Instance of type utf8_string that is empty
 		 */
-		utf8_string() : t_sso( 0 ) {}
+		inline utf8_string() : t_sso( 0 ) {}
 		
 		/**
 		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
@@ -766,11 +781,11 @@ class utf8_string
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		template<typename T>
-		utf8_string( T&& str , enable_if_ptr<T,char> = nullptr ) :
-			utf8_string( str , utf8_string::npos , (void*)nullptr )
+		inline utf8_string( T&& str , enable_if_ptr<T,char> = nullptr ) :
+			utf8_string( str , utf8_string::npos , detail::empty() )
 		{}
-		utf8_string( const char* str , size_type len ) :
-			utf8_string( str , len , (void*)nullptr )
+		inline utf8_string( const char* str , size_type len ) :
+			utf8_string( str , len , detail::empty() )
 		{}
 		/**
 		 * Constructor taking an utf8 char literal
@@ -779,13 +794,13 @@ class utf8_string
 		 * @param	str		The UTF-8 literal to fill the utf8_string with
 		 */
 		template<size_type LITLEN>
-		utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ){
+		inline utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ){
 			std::memcpy( t_sso.data , str , LITLEN );
-			t_sso.set_data_len( LITLEN - ( str[LITLEN-1] ? 0 : 1 ) );
+			set_sso_data_len( LITLEN - ( str[LITLEN-1] ? 0 : 1 ) );
 		}
 		template<size_type LITLEN>
-		utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = nullptr ) :
-			utf8_string( str , utf8_string::npos , (void*)nullptr ) // Call the one that works on arbitrary character arrays
+		inline utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = nullptr ) :
+			utf8_string( str , utf8_string::npos , detail::empty() ) // Call the one that works on arbitrary character arrays
 		{}
 		
 		
@@ -795,8 +810,8 @@ class utf8_string
 		 * @note	Creates an Instance of type utf8_string that holds the given data sequence
 		 * @param	str		The byte data, that will be interpreted as UTF-8
 		 */
-		utf8_string( std::string str ) :
-			utf8_string( str.c_str() )
+		inline utf8_string( std::string str ) :
+			utf8_string( str.c_str() , str.length() , detail::empty() )
 		{}
 		
 		
@@ -815,9 +830,7 @@ class utf8_string
 		 * @param	n		The number of codepoints generated
 		 * @param	cp		The code point that the whole buffer will be set to
 		 */
-		utf8_string( value_type cp ) :
-			t_sso( 1 )
-		{
+		inline utf8_string( value_type cp ) : t_sso( 1 ) {
 			t_sso.data[ encode_utf8( cp , t_sso.data ) ] = 0;
 		}
 		/**
@@ -855,9 +868,9 @@ class utf8_string
 		 * 			The supplied utf8_string is invalid afterwards and may not be used anymore
 		 * @param	str		The utf8_string to move from
 		 */
-		utf8_string( utf8_string&& str ){
+		inline utf8_string( utf8_string&& str ){
 			std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
-			str.t_sso.set_data_len(0); // Reset old string
+			str.set_sso_data_len(0); // Reset old string
 		}
 		
 		
@@ -877,7 +890,7 @@ class utf8_string
 		 * 
 		 * @note	Destructs a utf8_string at the end of its lifetime releasing all held memory
 		 */
-		~utf8_string(){
+		inline ~utf8_string(){
 			clear();
 		}
 		
@@ -909,11 +922,11 @@ class utf8_string
 		 * @param	str		The utf8_string to move from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		utf8_string& operator=( utf8_string&& str ){
+		inline utf8_string& operator=( utf8_string&& str ){
 			if( &str != this ){
 				clear(); // Reset old data
 				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
-				str.t_sso.set_data_len(0); // Reset old string
+				str.set_sso_data_len(0); // Reset old string
 			}
 			return *this;
 		}
@@ -925,8 +938,13 @@ class utf8_string
 		 * @note	Swaps all data with the supplied utf8_string
 		 * @param	str		The utf8_string to swap contents with
 		 */
-		void swap( utf8_string& str ){
-			std::swap( *this , str );
+		inline void swap( utf8_string& str ){
+			if( &str != this ){
+				utf8_string tmp;
+				std::memcpy( &tmp , &str , sizeof(utf8_string) );
+				std::memcpy( &str , this , sizeof(utf8_string) );
+				std::memcpy( this , &tmp , sizeof(utf8_string) );
+			}
 		}
 		
 		
@@ -935,10 +953,10 @@ class utf8_string
 		 * 
 		 * @note	Resets the data to an empty string ("")
 		 */
-		void clear(){
+		inline void clear(){
 			if( sso_inactive() )
 				delete[] t_non_sso.data;
-			t_sso.set_data_len( 0 );
+			set_sso_data_len( 0 );
 			t_sso.data[0] = 0;
 		}
 		
@@ -948,8 +966,8 @@ class utf8_string
 		 * 
 		 * @return	The number of bytes currently allocated
 		 */
-		size_type capacity() const {
-			return sso_inactive() ? non_sso_capacity() : get_max_sso_data_len();
+		inline size_type capacity() const {
+			return sso_inactive() ? get_non_sso_capacity() : get_sso_capacity();
 		}
 		
 		
@@ -965,16 +983,16 @@ class utf8_string
 		 * @param	n	The code point index of the code point to receive
 		 * @return	The code point at position 'n'
 		 */
-		value_type at( size_type n ) const {
+		inline value_type at( size_type n ) const {
 			return raw_at( get_num_bytes_from_start( n ) );
 		}
-		value_type at( size_type n , std::nothrow_t ) const {
+		inline value_type at( size_type n , std::nothrow_t ) const {
 			return raw_at( get_num_bytes_from_start( n ) , std::nothrow );
 		}
-		utf8_codepoint_reference<true> at( size_type n ){
+		inline utf8_codepoint_reference<true> at( size_type n ){
 			return utf8_codepoint_reference<true>( n , this );
 		}
-		utf8_codepoint_reference<false> at( size_type n , std::nothrow_t ){
+		inline utf8_codepoint_reference<false> at( size_type n , std::nothrow_t ){
 			return utf8_codepoint_reference<false>( n , this );
 		}
 		/**
@@ -985,10 +1003,10 @@ class utf8_string
 		 * @param	byte_index	The byte position of the code point to receive
 		 * @return	The code point at the supplied position
 		 */
-		utf8_codepoint_raw_reference<true> raw_at( size_type byte_index ){
+		inline utf8_codepoint_raw_reference<true> raw_at( size_type byte_index ){
 			return utf8_codepoint_raw_reference<true>( byte_index , this );
 		}
-		utf8_codepoint_raw_reference<false> raw_at( size_type byte_index , std::nothrow_t ){
+		inline utf8_codepoint_raw_reference<false> raw_at( size_type byte_index , std::nothrow_t ){
 			return utf8_codepoint_raw_reference<false>( byte_index , this );
 		}
 		value_type raw_at( size_type byte_index ) const {
@@ -1010,8 +1028,8 @@ class utf8_string
 		 * @param	n	The index of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified code point index
 		 */
-		iterator get( size_type n ){ return iterator( get_num_bytes_from_start( n ) , this ); }
-		const_iterator get( size_type n ) const { return const_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline iterator get( size_type n ){ return iterator( get_num_bytes_from_start( n ) , this ); }
+		inline const_iterator get( size_type n ) const { return const_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns an iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1020,8 +1038,8 @@ class utf8_string
 		 * @param	n	The byte position of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
-		iterator raw_get( size_type n ){ return iterator( n , this ); }
-		const_iterator raw_get( size_type n ) const { return const_iterator( n , this ); }
+		inline iterator raw_get( size_type n ){ return iterator( n , this ); }
+		inline const_iterator raw_get( size_type n ) const { return const_iterator( n , this ); }
 		
 		
 		/**
@@ -1030,8 +1048,8 @@ class utf8_string
 		 * @param	n	The index of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified code point index
 		 */
-		reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
-		const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns a reverse iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1040,8 +1058,8 @@ class utf8_string
 		 * @param	n	The byte position of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
-		reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , this ); }
-		const_reverse_iterator raw_rget( size_type n ) const { return const_reverse_iterator( n , this ); }
+		inline reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , this ); }
+		inline const_reverse_iterator raw_rget( size_type n ) const { return const_reverse_iterator( n , this ); }
 		
 		
 		/**
@@ -1050,8 +1068,8 @@ class utf8_string
 		 * @param	n	The code point index of the code point to receive
 		 * @return	A reference wrapper to the code point at position 'n'
 		 */
-		utf8_codepoint_reference<false> operator[]( size_type n ){ return utf8_codepoint_reference<false>( n , this ); }
-		value_type operator[]( size_type n ) const { return at( n , std::nothrow ); }
+		inline utf8_codepoint_reference<false> operator[]( size_type n ){ return utf8_codepoint_reference<false>( n , this ); }
+		inline value_type operator[]( size_type n ) const { return at( n , std::nothrow ); }
 		/**
 		 * Returns a reference to the code point at the supplied byte position
 		 * 
@@ -1060,8 +1078,8 @@ class utf8_string
 		 * @param	n	The byte position of the code point to receive
 		 * @return	A reference wrapper to the code point at byte position 'n'
 		 */
-		utf8_codepoint_raw_reference<false> operator()( size_type n ){ return utf8_codepoint_raw_reference<false>( n , this ); }
-		value_type operator()( size_type n ) const { return raw_at( n , std::nothrow ); }
+		inline utf8_codepoint_raw_reference<false> operator()( size_type n ){ return utf8_codepoint_raw_reference<false>( n , this ); }
+		inline value_type operator()( size_type n ) const { return raw_at( n , std::nothrow ); }
 		
 		
 		/**
@@ -1070,9 +1088,9 @@ class utf8_string
 		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, trailled by a '\0'
 		 */
-		const char* c_str() const { return get_buffer(); }
-		const char* data() const { return get_buffer(); }
-		char* data(){ return get_buffer(); }
+		inline const char* c_str() const { return get_buffer(); }
+		inline const char* data() const { return get_buffer(); }
+		inline char* data(){ return get_buffer(); }
 		
 		
 		/**
@@ -1081,7 +1099,7 @@ class utf8_string
 		 * @note	Returns the UTF-8 formatted content of this utf8_string
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
-		std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() ); }
+		inline std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() ); }
 		
 		
 		/**
@@ -1091,7 +1109,7 @@ class utf8_string
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		size_type length() const { return sso_inactive() ? t_non_sso.string_len : cend() - cbegin(); }
+		inline size_type length() const { return sso_inactive() ? t_non_sso.string_len : cend() - cbegin(); }
 		
 		
 		/**
@@ -1101,7 +1119,7 @@ class utf8_string
 		 *			That is, without counting the trailling '\0'
 		 * @return	Number of bytes (not codepoints!)
 		 */
-		size_type size() const { return sso_inactive() ? t_non_sso.data_len : get_max_sso_data_len() - ( t_sso.data_len >> 1 ); }
+		inline size_type size() const { return sso_inactive() ? t_non_sso.data_len : get_sso_data_len(); }
 		
 		
 		/**
@@ -1110,7 +1128,7 @@ class utf8_string
 		 * @note	Returns True, if this utf8_string is empty, that also is comparing true with ""
 		 * @return	True, if this utf8_string is empty, false if its length is >0
 		 */
-		bool empty() const { return !size(); }
+		inline bool empty() const { return sso_inactive() ? !t_non_sso.data_len : t_sso.data_len == (get_sso_capacity() << 1); }
 		
 		
 		/**
@@ -1120,8 +1138,9 @@ class utf8_string
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ascii characters (<128) inside
 		 */
-		bool requires_unicode() const { return length() != size(); }
-		
+		inline bool requires_unicode() const {
+			return sso_inactive() ? t_non_sso.data_len != t_non_sso.string_len : requires_unicode_sso();
+		}
 		
 		
 		/**
@@ -1129,17 +1148,7 @@ class utf8_string
 		 * @return	True, if the utf8 data is stored within the utf8_string object itself
 		 *			false, otherwise
 		 */
-		bool sso_active() const { return sso_inactive() == false; }
-		
-		
-		
-		/**
-		 * Get the maximum number of bytes that can be stored within the utf8_string object itself
-		 * @return	The maximum number of bytes
-		 */
-		static constexpr size_type max_sso_bytes(){
-			return get_max_sso_data_len();
-		}
+		inline bool sso_active() const { return sso_inactive() == false; }
 		
 		
 		/**
@@ -1160,15 +1169,15 @@ class utf8_string
 		 * 
 		 * @return	An iterator class pointing to the beginning of this utf8_string
 		 */
-		iterator begin(){ return iterator( 0 , this ); }
-		const_iterator begin() const { return const_iterator( 0 , this ); }
+		inline iterator begin(){ return iterator( 0 , this ); }
+		inline const_iterator begin() const { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the utf8_string
 		 * 
 		 * @return	An iterator class pointing to the end of this utf8_string, that is pointing behind the last code point
 		 */
-		iterator end(){ return iterator( end_index() , this ); }
-		const_iterator end() const { return const_iterator( end_index() , this ); }
+		inline iterator end(){ return iterator( size() , this ); }
+		inline const_iterator end() const { return const_iterator( size() , this ); }
 		
 		
 		/**
@@ -1177,16 +1186,16 @@ class utf8_string
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is exactly to the last code point
 		 */
-		reverse_iterator rbegin(){ return reverse_iterator( back_index() , this ); }
-		const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , this ); }
+		inline reverse_iterator rbegin(){ return reverse_iterator( back_index() , this ); }
+		inline const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this utf8_string,
 		 *			that is pointing before the first code point
 		 */
-		reverse_iterator rend(){ return reverse_iterator( -1 , this ); }
-		const_reverse_iterator rend() const { return const_reverse_iterator( -1 , this ); }
+		inline reverse_iterator rend(){ return reverse_iterator( -1 , this ); }
+		inline const_reverse_iterator rend() const { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -1195,14 +1204,14 @@ class utf8_string
 		 * @return	A const iterator class pointing to the beginning of this utf8_string,
 		 * 			which cannot alter things inside this utf8_string
 		 */
-		const_iterator cbegin() const { return const_iterator( 0 , this ); }
+		inline const_iterator cbegin() const { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the utf8_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is pointing behind the last code point
 		 */
-		const_iterator cend() const { return const_iterator( end_index() , this ); }
+		inline const_iterator cend() const { return const_iterator( size() , this ); }
 		
 		
 		/**
@@ -1211,14 +1220,14 @@ class utf8_string
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is exactly to the last code point
 		 */
-		const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , this ); }
+		inline const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a const reverse iterator to the beginning of this utf8_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this utf8_string, pointing to
 		 *			the end of this utf8_string, that is pointing before the first code point
 		 */
-		const_reverse_iterator crend() const { return const_reverse_iterator( -1 , this ); }
+		inline const_reverse_iterator crend() const { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -1226,15 +1235,20 @@ class utf8_string
 		 * 
 		 * @return	A reference wrapper to the first code point in the utf8_string
 		 */
-		utf8_codepoint_raw_reference<false> front(){ return utf8_codepoint_raw_reference<false>( 0 , this ); }
-		value_type front() const { return empty() ? 0 : raw_at( 0 ); }
+		inline utf8_codepoint_raw_reference<false> front(){ return utf8_codepoint_raw_reference<false>( 0 , this ); }
+		inline value_type front() const { return raw_at( 0 , std::nothrow ); }
 		/**
 		 * Returns a reference to the last code point in the utf8_string
 		 * 
 		 * @return	A reference wrapper to the last code point in the utf8_string
 		 */
 		utf8_codepoint_raw_reference<false> back(){ return utf8_codepoint_raw_reference<false>( back_index() , this ); }
-		value_type back() const { return raw_at( back_index() , std::nothrow ); }
+		value_type back() const {
+			size_type	sz = size();
+			const char*	buffer = get_buffer();
+			width_type	bytes = get_num_bytes_of_utf8_char_before( buffer , sz );
+			return decode_utf8( buffer + sz - bytes , bytes );
+		}
 		
 		
 		/**
@@ -1747,7 +1761,7 @@ class utf8_string
 		//! Get the number of bytes before a code point, that build up a new code point
 		width_type get_index_pre_bytes( size_type byte_index ) const {
 			const char* buffer = get_buffer();
-			return get_num_bytes_of_utf8_char_before( buffer + byte_index , buffer );
+			return get_num_bytes_of_utf8_char_before( buffer , byte_index );
 		}
 		width_type get_codepoint_pre_bytes( size_type codepoint_index ) const {
 			return get_index_pre_bytes( get_num_bytes_from_start( codepoint_index ) );

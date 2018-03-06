@@ -36,7 +36,7 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 	char*		buffer;
 	
 	// Need to allocate a buffer?
-	if( data_len > get_max_sso_data_len() )
+	if( data_len > utf8_string::get_sso_capacity() )
 	{
 		size_type buffer_size = determine_main_buffer_size( data_len , num_bytes_per_cp == 1 , 0 );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
@@ -51,12 +51,12 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 		buffer = t_sso.data;
 		
 		// Set Attributes
-		t_sso.set_data_len( data_len );
+		set_sso_data_len( data_len );
 	}
 	
 	// Fill the buffer
 	if( num_bytes_per_cp > 1 ){
-		encode_utf8( cp , buffer );
+		utf8_string::encode_utf8( cp , buffer );
 		for( char* buffer_iter = buffer ; --count > 0 ; )
 			std::memcpy( buffer_iter += num_bytes_per_cp , buffer , num_bytes_per_cp );
 	}
@@ -78,7 +78,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 	char*		buffer;
 	
 	// Need to allocate a buffer?
-	if( count > get_max_sso_data_len() )
+	if( count > utf8_string::get_sso_capacity() )
 	{
 		size_type buffer_size = determine_main_buffer_size( count , true , 0 );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
@@ -91,7 +91,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 	}
 	else{
 		buffer = t_sso.data;
-		t_sso.set_data_len( count );
+		set_sso_data_len( count );
 	}
 	
 	// Fill the buffer
@@ -102,7 +102,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 }
 
 
-utf8_string::utf8_string( const char* str , size_type len , void* ) :
+utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 	utf8_string()
 {
 	if( !len )
@@ -125,7 +125,7 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 	char*	buffer;
 	
 	// Need heap memory?
-	if( data_len > get_max_sso_data_len() )
+	if( data_len > utf8_string::get_sso_capacity() )
 	{
 		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
 		{
@@ -188,7 +188,7 @@ utf8_string::utf8_string( const char* str , size_type len , void* ) :
 		buffer = t_sso.data;
 		
 		// Set Attrbutes
-		t_sso.set_data_len( data_len );
+		set_sso_data_len( data_len );
 		
 		// Set up LUT: Not necessary, since the LUT is automatically inactive,
 		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
@@ -223,7 +223,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	char*	buffer;
 	
 	// Need heap memory?
-	if( data_len > get_max_sso_data_len() )
+	if( data_len > utf8_string::get_sso_capacity() )
 	{
 		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
 		{
@@ -243,7 +243,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 			for( size_type i = 0 ; i < string_len ; i++ )
 			{
 				// Encode wide char to utf8
-				width_type codepoint_bytes = encode_utf8( str[i] , buffer_iter );
+				width_type codepoint_bytes = utf8_string::encode_utf8( str[i] , buffer_iter );
 				
 				// Push position of character to 'indices'
 				if( codepoint_bytes > 1 )
@@ -278,7 +278,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 		buffer = t_sso.data;
 		
 		// Set Attrbutes
-		t_sso.set_data_len( data_len );
+		set_sso_data_len( data_len );
 		
 		// Set up LUT: Not necessary, since the LUT is automatically inactive,
 		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
@@ -289,35 +289,36 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	// Iterate through wide char literal
 	for( size_type i = 0 ; i < string_len ; i++ )
 		// Encode wide char to utf8 and step forward the number of bytes it took
-		buffer_iter += encode_utf8( str[i] , buffer_iter );
+		buffer_iter += utf8_string::encode_utf8( str[i] , buffer_iter );
 	
 	*buffer_iter = '\0'; // Set trailing '\0'
 }
 
 
 
-utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const char* data , const char* data_start )
+utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const char* data_start , size_type index )
 {
+	data_start += index;
 	// Only Check the possibilities, that could appear
-	switch( data - data_start )
+	switch( index )
 	{
 		default:
-			if( ((unsigned char)data[-7] & 0xFE ) == 0xFC )  // 11111110  seven bytes
+			if( ((unsigned char)data_start[-7] & 0xFE ) == 0xFC )	// 11111110 seven bytes
 				return 7;
 		case 6:
-			if( ((unsigned char)data[-6] & 0xFE ) == 0xFC )  // 1111110X  six bytes
+			if( ((unsigned char)data_start[-6] & 0xFE ) == 0xFC )	// 1111110X six bytes
 				return 6;
 		case 5:
-			if( ((unsigned char)data[-5] & 0xFC ) == 0xF8 )  // 111110XX  five bytes
+			if( ((unsigned char)data_start[-5] & 0xFC ) == 0xF8 )	// 111110XX five bytes
 				return 5;
 		case 4:
-			if( ((unsigned char)data[-4] & 0xF8 ) == 0xF0 )  // 11110XXX  four bytes
+			if( ((unsigned char)data_start[-4] & 0xF8 ) == 0xF0 )	// 11110XXX four bytes
 				return 4;
 		case 3:
-			if( ((unsigned char)data[-3] & 0xF0 ) == 0xE0 )  // 1110XXXX  three bytes
+			if( ((unsigned char)data_start[-3] & 0xF0 ) == 0xE0 )	// 1110XXXX three bytes
 				return 3;
 		case 2:
-			if( ((unsigned char)data[-2] & 0xE0 ) == 0xC0 )  // 110XXXXX  two bytes
+			if( ((unsigned char)data_start[-2] & 0xE0 ) == 0xC0 )	// 110XXXXX two bytes
 				return 2;
 		case 1:
 		case 0:
@@ -333,22 +334,22 @@ utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size
 	switch( data_left )
 	{
 		default:
-			if( (first_byte & 0xFF) == 0xFE )  // 11111110  seven bytes
+			if( (first_byte & 0xFF) == 0xFE )	// 11111110 seven bytes
 				return 7;
 		case 6:
-			if( (first_byte & 0xFE) == 0xFC )  // 1111110X  six bytes
+			if( (first_byte & 0xFE) == 0xFC )	// 1111110X six bytes
 				return 6;
 		case 5:
-			if( (first_byte & 0xFC) == 0xF8 )  // 111110XX  five bytes
+			if( (first_byte & 0xFC) == 0xF8 )	// 111110XX five bytes
 				return 5;
 		case 4:
-			if( (first_byte & 0xF8) == 0xF0 )  // 11110XXX  four bytes
+			if( (first_byte & 0xF8) == 0xF0 )	// 11110XXX four bytes
 				return 4;
 		case 3:
-			if( (first_byte & 0xF0) == 0xE0 )  // 1110XXXX  three bytes
+			if( (first_byte & 0xF0) == 0xE0 )	// 1110XXXX three bytes
 				return 3;
 		case 2:
-			if( (first_byte & 0xE0) == 0xC0 )  // 110XXXXX  two bytes
+			if( (first_byte & 0xE0) == 0xC0 )	// 110XXXXX two bytes
 				return 2;
 		case 1:
 		case 0:
@@ -423,7 +424,7 @@ void utf8_string::shrink_to_fit()
 	delete[] buffer;
 }
 
-utf8_string::size_type utf8_string::non_sso_capacity() const
+utf8_string::size_type utf8_string::get_non_sso_capacity() const
 {
 	size_type	data_len		= t_non_sso.data_len;
 	size_type	buffer_size		= get_non_sso_buffer_size();
@@ -445,6 +446,25 @@ utf8_string::size_type utf8_string::non_sso_capacity() const
 }
 
 
+bool utf8_string::requires_unicode_sso() const
+{
+	constexpr size_type mask = get_hsb_mask<size_type>();
+	size_type			data_len = get_sso_data_len();
+	size_type			i = 0;
+	
+	// Search sizeof(size_type) bytes at once
+	for( ; i < data_len / sizeof(size_type) ; i++ )
+		if( ((size_type*)t_sso.data)[i] & mask )
+			return true;
+	
+	// Search byte-wise
+	i *= sizeof(size_type);
+	for( ; i < data_len ; i++ )
+		if( t_sso.data[i] & 0x80 )
+			return true;
+	
+	return false;
+}
 
 std::string utf8_string::cpp_str_bom() const
 {
@@ -517,7 +537,7 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 	return byte_count;
 }
 
-utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type codepoint_count ) const
+utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type cp_count ) const
 {
 	const char*	buffer		= get_buffer();
 	size_type	data_len	= size();
@@ -534,27 +554,27 @@ utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type codepoin
 		for( size_type lut_len = utf8_string::get_lut_len( lut_iter ) ; lut_len-- > 0 ; )
 		{
 			size_type multibyte_index = utf8_string::get_lut( lut_iter -= lut_width , lut_width );
-			if( multibyte_index >= codepoint_count )
+			if( multibyte_index >= cp_count )
 				break;
-			codepoint_count += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
+			cp_count += utf8_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ) - 1; // Subtract only the utf8 data bytes
 		}
 	}
 	else{
 		size_type num_bytes = 0;
-		while( codepoint_count-- > 0 && num_bytes <= data_len )
+		while( cp_count-- > 0 && num_bytes <= data_len )
 			num_bytes += get_codepoint_bytes( buffer[num_bytes] , data_len - num_bytes );
 		return num_bytes;
 	}
 	
-	return codepoint_count;
+	return cp_count;
 }
 
-utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type codepoint_count ) const 
+utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type cp_count ) const 
 {
 	const char*	buffer				= get_buffer();
 	size_type	data_len			= size();
 	size_type	buffer_size			= get_buffer_size();
-	size_type	potential_end_index	= index + codepoint_count;
+	size_type	potential_end_index	= index + cp_count;
 	
 	if( potential_end_index > data_len || potential_end_index < index )
 		// 'potential_end_index < index' is needed because of potential integer overflow in sum
@@ -571,7 +591,7 @@ utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type c
 		size_type lut_len = utf8_string::get_lut_len( lut_iter );
 		
 		if( !lut_len )
-			return codepoint_count;
+			return cp_count;
 		
 		// Reduce the byte count by the number of data bytes within multibytes
 		width_type		lut_width = utf8_string::get_lut_width( buffer_size );
@@ -583,7 +603,7 @@ utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type c
 				break;
 		
 		// Add at least as many bytes as code points
-		index += codepoint_count;
+		index += cp_count;
 		
 		// Iterate over relevant multibyte indices
 		while( lut_iter >= lut_begin ){
@@ -595,65 +615,10 @@ utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type c
 		}
 	}
 	else
-		while( codepoint_count-- > 0 && index <= data_len )
+		while( cp_count-- > 0 && index <= data_len )
 			index += get_codepoint_bytes( buffer[index] , data_len - index );
 	
 	return index - orig_index;
-}
-
-
-
-
-utf8_string::width_type utf8_string::encode_utf8( value_type cp , char* dest )
-{
-	width_type num_bytes = get_codepoint_bytes( cp );
-	
-	switch( num_bytes )
-	{
-		case 7: // 11111110 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
-			dest[0] = char( 0xFE );
-			dest[1] = char( 0x80 | ((cp >> 30) & 0x3F) );
-			dest[2] = char( 0x80 | ((cp >> 24) & 0x3F) );
-			dest[3] = char( 0x80 | ((cp >> 18) & 0x3F) );
-			dest[4] = char( 0x80 | ((cp >> 12) & 0x3F) );
-			dest[5] = char( 0x80 | ((cp >> 6) & 0x3F) );
-			dest[6] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 6: // 1111110X 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
-			dest[0] = char( 0xFC | (cp >> 30) );
-			dest[1] = char( 0x80 | ((cp >> 24) & 0x3F) );
-			dest[2] = char( 0x80 | ((cp >> 18) & 0x3F) );
-			dest[3] = char( 0x80 | ((cp >> 12) & 0x3F) );
-			dest[4] = char( 0x80 | ((cp >> 6) & 0x3F) );
-			dest[5] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 5: // 111110XX 10XXXXXX 10XXXXXX 10XXXXXX 10XXXXXX
-			dest[0] = char( 0xF8 | (cp >> 24) );
-			dest[1] = char( 0x80 | ((cp >> 18) & 0x3F) );
-			dest[2] = char( 0x80 | ((cp >> 12) & 0x3F) );
-			dest[3] = char( 0x80 | ((cp >> 6) & 0x3F) );
-			dest[4] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 4: // 11110XXX 10XXXXXX 10XXXXXX 10XXXXXX
-			dest[0] = char( 0xF0 | (cp >> 18) );
-			dest[1] = char( 0x80 | ((cp >> 12) & 0x3F) );
-			dest[2] = char( 0x80 | ((cp >> 6) & 0x3F) );
-			dest[3] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 3: // 1110XXXX 10XXXXXX 10XXXXXX
-			dest[0] = char( 0xE0 | (cp >> 12) );
-			dest[1] = char( 0x80 | ((cp >> 6) & 0x3F) );
-			dest[2] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 2: // 110XXXXX 10XXXXXX
-			dest[0] = char( 0xC0 | (cp >> 6) );
-			dest[1] = char( 0x80 | (cp & 0x3F) );
-			break;
-		case 1: // 0XXXXXXX
-			dest[0] = char(cp);
-	}
-	
-	return num_bytes;
 }
 
 
@@ -675,11 +640,11 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 		return *this;
 	
 	// If the new string is a small string
-	if( byte_count <= utf8_string::get_max_sso_data_len() )
+	if( byte_count <= utf8_string::get_sso_capacity() )
 	{
 		utf8_string	result;
-		if( byte_count < utf8_string::get_max_sso_data_len() )
-			result.t_sso.set_data_len( byte_count ); // Set length
+		if( byte_count < utf8_string::get_sso_capacity() )
+			result.set_sso_data_len( byte_count ); // Set length
 		
 		// Copy data
 		std::memcpy( result.t_sso.data , get_buffer() + index , byte_count );
@@ -824,7 +789,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	
 	// Will be sso string?
 	bool old_sso_inactive = sso_inactive();
-	if( new_data_len <= utf8_string::get_max_sso_data_len() )
+	if( new_data_len <= utf8_string::get_sso_capacity() )
 	{
 		// Was the buffer on the heap and has to be moved now?
 		if( old_sso_inactive )
@@ -849,7 +814,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		
 		// Finish the new string object
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		t_sso.set_data_len( new_data_len );
+		set_sso_data_len( new_data_len );
 		
 		return *this;
 	}
@@ -888,7 +853,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		repl_lut_active		= false;
 		repl_string_len		= 0;
 		repl_buffer			= repl.t_sso.data;
-		repl_buffer_size	= get_max_sso_data_len();
+		repl_buffer_size	= utf8_string::get_sso_capacity();
 		repl_lut_len		= 0;
 		for( size_type iter = 0 ; iter < repl_data_len ; ){
 			width_type bytes = get_codepoint_bytes( repl_buffer[iter] , repl_data_len - iter );
@@ -935,7 +900,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	else
 	{
 		old_buffer		= t_sso.data;
-		old_buffer_size	= get_max_sso_data_len();
+		old_buffer_size	= utf8_string::get_sso_capacity();
 		old_string_len	= 0;
 		old_lut_len		= 0;
 		size_type iter	= 0;
@@ -1236,7 +1201,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	
 	// Will be sso string?
 	bool old_sso_inactive = sso_inactive();
-	if( new_data_len <= utf8_string::get_max_sso_data_len() )
+	if( new_data_len <= utf8_string::get_sso_capacity() )
 	{
 		// Was the buffer on the heap and has to be moved now?
 		if( old_sso_inactive )
@@ -1258,7 +1223,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 		
 		// Finish the new string object
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		t_sso.set_data_len( new_data_len );
+		set_sso_data_len( new_data_len );
 		
 		return *this;
 	}

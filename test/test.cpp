@@ -30,7 +30,6 @@ int main()
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
-		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
 		cout << "7th codepoint: " << str[6] << endl;
 		cout << endl;
 	}
@@ -46,7 +45,6 @@ int main()
 		cout << "Size (bytes): " << str.size() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
-		cout << "MaxSmallStringBytes: " << str.max_sso_bytes() << endl;
 		cout << "1st codepoint: " << str[0] << endl;
 		cout << endl;
 	}
