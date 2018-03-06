@@ -43,9 +43,9 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 		
 		// Set Attributes
 		set_lut_indiciator( buffer + buffer_size , num_bytes_per_cp == 1 , 0 ); // Set lut indicator
-		set_non_sso_buffer_size( buffer_size ); // This also disables SSO
+		t_non_sso.buffer_size = buffer_size;
 		t_non_sso.data_len = data_len;
-		t_non_sso.string_len = count;
+		set_non_sso_string_len( count ); // This also disables SSO
 	}
 	else{
 		buffer = t_sso.data;
@@ -85,9 +85,9 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 		
 		// Set Attributes
 		set_lut_indiciator( buffer + buffer_size , true , 0 ); // Set lut indicator
-		set_non_sso_buffer_size( buffer_size ); // This also disables SSO
+		t_non_sso.buffer_size = buffer_size;
 		t_non_sso.data_len = count;
-		t_non_sso.string_len = count;
+		set_non_sso_string_len( count ); // This also disables SSO
 	}
 	else{
 		buffer = t_sso.data;
@@ -165,9 +165,9 @@ utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 			*buffer_iter = '\0'; // Set trailing '\0'
 			
 			// Set Attributes
-			set_non_sso_buffer_size( buffer_size );
+			t_non_sso.buffer_size = buffer_size;
 			t_non_sso.data_len = data_len;
-			t_non_sso.string_len = string_len;
+			set_non_sso_string_len( string_len );
 			
 			return; // We have already done everything!
 		}
@@ -180,9 +180,9 @@ utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 		utf8_string::set_lut_indiciator( lut_iter , num_multibytes == 0 , 0 ); // Set the LUT indicator
 		
 		// Set Attributes
-		set_non_sso_buffer_size( buffer_size );
+		t_non_sso.buffer_size = buffer_size;
 		t_non_sso.data_len = data_len;
-		t_non_sso.string_len = string_len;
+		set_non_sso_string_len( string_len );
 	}
 	else{
 		buffer = t_sso.data;
@@ -255,9 +255,9 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 			*buffer_iter = '\0'; // Set trailing '\0'
 			
 			// Set Attributes
-			set_non_sso_buffer_size( buffer_size );
+			t_non_sso.buffer_size = buffer_size;
 			t_non_sso.data_len = data_len;
-			t_non_sso.string_len = string_len;
+			set_non_sso_string_len( string_len );
 			
 			return; // We have already done everything!
 		}
@@ -270,9 +270,9 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 		utf8_string::set_lut_indiciator( lut_iter , num_multibytes == 0 , 0 ); // Set the LUT indicator
 		
 		// Set Attributes
-		set_non_sso_buffer_size( buffer_size );
+		t_non_sso.buffer_size = buffer_size;
 		t_non_sso.data_len = data_len;
-		t_non_sso.string_len = string_len;
+		set_non_sso_string_len( string_len );
 	}
 	else{
 		buffer = t_sso.data;
@@ -418,7 +418,7 @@ void utf8_string::shrink_to_fit()
 	
 	// Copy BUFFER
 	std::memcpy( t_non_sso.data , buffer , data_len + 1 );
-	set_non_sso_buffer_size( required_buffer_size ); // Set new buffer size
+	t_non_sso.buffer_size = required_buffer_size; // Set new buffer size
 	
 	// Delete old buffer
 	delete[] buffer;
@@ -427,14 +427,14 @@ void utf8_string::shrink_to_fit()
 utf8_string::size_type utf8_string::get_non_sso_capacity() const
 {
 	size_type	data_len		= t_non_sso.data_len;
-	size_type	buffer_size		= get_non_sso_buffer_size();
+	size_type	buffer_size		= t_non_sso.buffer_size;
 	
 	// If empty, assume an average number of bytes per code point of '1' (and an empty lut)
 	if( !data_len )
 		return buffer_size - 1;
 	
 	const char*	buffer			= t_non_sso.data;
-	size_type	string_len		= t_non_sso.string_len;
+	size_type	string_len		= get_non_sso_string_len();
 	const char*	lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	
 	// If the lut is active, add the number of additional bytes to the current data length
@@ -658,7 +658,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 	size_type mb_index;
 	size_type substr_cps;
 	size_type substr_mbs		= 0;
-	size_type buffer_size		= get_non_sso_buffer_size();
+	size_type buffer_size		= t_non_sso.buffer_size;
 	const char* buffer			= t_non_sso.data;
 	const char* lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	bool lut_active				= utf8_string::lut_active( lut_base_ptr );
@@ -755,8 +755,8 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 	utf8_string result;
 	result.t_non_sso.data = substr_buffer;
 	result.t_non_sso.data_len = byte_count;
-	result.t_non_sso.string_len = substr_cps;
-	result.set_non_sso_buffer_size( substr_buffer_size );
+	result.t_non_sso.buffer_size = substr_buffer_size;
+	result.set_non_sso_string_len( substr_cps );
 	
 	return std::move(result);
 }
@@ -831,9 +831,9 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	size_type	repl_lut_len;
 	if( repl.sso_inactive() )
 	{
-		repl_buffer_size	= repl.get_non_sso_buffer_size();
+		repl_buffer_size	= repl.t_non_sso.buffer_size;
 		repl_buffer			= repl.t_non_sso.data;
-		repl_string_len		= repl.t_non_sso.string_len;
+		repl_string_len		= repl.get_non_sso_string_len();
 		
 		// Compute the number of multibytes
 		repl_lut_base_ptr = utf8_string::get_lut_base_ptr( repl_buffer , repl_buffer_size );
@@ -873,9 +873,9 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	size_type	old_lut_len;
 	if( old_sso_inactive )
 	{
-		old_buffer_size	= get_non_sso_buffer_size();
+		old_buffer_size	= t_non_sso.buffer_size;
 		old_buffer		= t_non_sso.data;
-		old_string_len	= t_non_sso.string_len;
+		old_string_len	= get_non_sso_string_len();
 		size_type iter	= 0;
 		while( iter < index ){ // Count multibytes and code points BEFORE replacement
 			width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
@@ -1165,11 +1165,11 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		// Set new Attributes
 		t_non_sso.data		= new_buffer;
 		t_non_sso.data_len	= new_data_len;
-		set_non_sso_buffer_size( new_buffer_size );
+		t_non_sso.buffer_size = new_buffer_size;
 	}
 	
 	// Adjust string length
-	t_non_sso.string_len = new_string_len;
+	set_non_sso_string_len( new_string_len );
 	
 	return *this;
 }
@@ -1191,7 +1191,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	}
 	
 	// Compute the updated metrics
-	size_type		new_data_len	= old_data_len - len;
+	size_type		new_data_len = old_data_len - len;
 	
 	// Will be empty?
 	if( !new_data_len ){
@@ -1233,7 +1233,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	
 	// Count code points and multibytes of this string
 	char*		old_buffer = t_non_sso.data;
-	size_type	old_buffer_size = get_non_sso_buffer_size();
+	size_type	old_buffer_size = t_non_sso.buffer_size;
 	char*		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
 	bool		old_lut_active = utf8_string::lut_active( old_lut_base_ptr );
 	size_type	replaced_cps = 0;
@@ -1297,7 +1297,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	std::memmove( old_buffer + index , old_buffer + end_index , old_data_len - end_index + 1 ); // +1 for the trailing '\0'
 	
 	// Adjust string length
-	t_non_sso.string_len -= replaced_cps;
+	set_non_sso_string_len( get_non_sso_string_len() - replaced_cps );
 	
 	return *this;
 }

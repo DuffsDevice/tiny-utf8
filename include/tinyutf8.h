@@ -119,10 +119,10 @@ class utf8_string
 		// Layout used, if sso is inactive
 		struct NON_SSO
 		{
-			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <lut_indicator::rle> ]
+			char*			data; // Points to [ <data::char>... | '0'::char | <index::rle>... | <lut_indicator::size_type> ]
 			size_type		data_len; // In bytes, excluding the trailing '\0'
-			size_type		string_len;
-			size_type		buffer_size; // Indicates the size of '::data' minus 'lut_width'; Shadows data_len on the last byte
+			size_type		buffer_size; // Indicates the size of '::data' minus 'lut_width'
+			size_type		string_len; // Shadows data_len on the last byte
 		};
 		
 		// Layout used, if sso is active
@@ -678,37 +678,37 @@ class utf8_string
 	private: //! Non-static helper methods
 		
 		//! Set the main buffer size (also disables SSO)
-		inline void			set_non_sso_buffer_size( size_type buffer_size )
+		inline void			set_non_sso_string_len( size_type string_len )
 		{
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 ){
-				t_non_sso.buffer_size = buffer_size;
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 ){
+				t_non_sso.string_len = string_len;
 				t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
 			}
 			else if( detail::is_little_endian::value ){
 				detail::last_byte<size_type> lb;
-				lb.number = buffer_size;
+				lb.number = string_len;
 				lb.lbyte <<= 1;
 				lb.lbyte |= 0x1;
-				t_non_sso.buffer_size = lb.number;
+				t_non_sso.string_len = lb.number;
 			}
 			else
-				t_non_sso.buffer_size = ( buffer_size << 1 ) | size_type(0x1);
+				t_non_sso.string_len = ( string_len << 1 ) | size_type(0x1);
 		}
 		
 		//! Get buffer size, if SSO is disabled
-		inline size_type	get_non_sso_buffer_size() const {
+		inline size_type	get_non_sso_string_len() const {
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-			if( offsetof(SSO, data_len) > offsetof(NON_SSO, buffer_size) + sizeof(NON_SSO::buffer_size) - 1 )
-				return t_non_sso.buffer_size;
+			if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 )
+				return t_non_sso.string_len;
 			else if( detail::is_little_endian::value ){
 				detail::last_byte<size_type> lb;
-				lb.number = t_non_sso.buffer_size;
+				lb.number = t_non_sso.string_len;
 				lb.lbyte >>= 1;
 				return lb.number;
 			}
 			else
-				return t_non_sso.buffer_size >> 1;
+				return t_non_sso.string_len >> 1;
 		}
 		
 		//! Set the data length (also enables SSO)
@@ -738,7 +738,7 @@ class utf8_string
 		
 		//! Get buffer size (excluding the trailing LUT indicator)
 		inline size_type	get_buffer_size() const {
-			return sso_inactive() ? get_non_sso_buffer_size() : get_sso_capacity();
+			return sso_inactive() ? t_non_sso.buffer_size : get_sso_capacity();
 		}
 		
 		
@@ -856,9 +856,8 @@ class utf8_string
 			
 			// Create a new buffer, if sso is not active
 			if( str.sso_inactive() ){
-				size_type buffer_size = utf8_string::get_non_sso_buffer_size();
-				t_non_sso.data = new char[ buffer_size ];
-				std::memcpy( t_non_sso.data , str.t_non_sso.data , buffer_size );
+				t_non_sso.data = new char[ t_non_sso.buffer_size ];
+				std::memcpy( t_non_sso.data , str.t_non_sso.data , t_non_sso.buffer_size );
 			}
 		}
 		/**
@@ -907,9 +906,8 @@ class utf8_string
 				clear(); // Clear old data
 				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
 				if( str.sso_inactive() ){ // Create a new buffer, if sso is not active
-					size_type buffer_size = utf8_string::get_non_sso_buffer_size();
-					t_non_sso.data = new char[ buffer_size ];
-					std::memcpy( t_non_sso.data , str.t_non_sso.data , buffer_size );
+					t_non_sso.data = new char[ t_non_sso.buffer_size ];
+					std::memcpy( t_non_sso.data , str.t_non_sso.data , t_non_sso.buffer_size );
 				}
 			}
 			return *this;
@@ -1109,7 +1107,7 @@ class utf8_string
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		inline size_type length() const { return sso_inactive() ? t_non_sso.string_len : cend() - cbegin(); }
+		inline size_type length() const { return sso_inactive() ? get_non_sso_string_len() : cend() - cbegin(); }
 		
 		
 		/**
@@ -1139,7 +1137,7 @@ class utf8_string
 		 *			false, if there are only ascii characters (<128) inside
 		 */
 		inline bool requires_unicode() const {
-			return sso_inactive() ? t_non_sso.data_len != t_non_sso.string_len : requires_unicode_sso();
+			return sso_inactive() ? t_non_sso.data_len != get_non_sso_string_len() : requires_unicode_sso();
 		}
 		
 		
