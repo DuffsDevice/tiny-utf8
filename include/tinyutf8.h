@@ -279,10 +279,10 @@ class utf8_string
 					increment();
 					return *this;
 				}
-				iterator& operator++( int ){ // postfix iter++
+				iterator operator++( int ){ // postfix iter++
 					iterator tmp{ t_raw_index , t_instance };
 					increment();
-					return *this;
+					return tmp;
 				}
 				
 				//! Decrease the iterator by one
@@ -290,10 +290,10 @@ class utf8_string
 					decrement();
 					return *this;
 				}
-				iterator& operator--( int ){ // postfix iter--
+				iterator operator--( int ){ // postfix iter--
 					iterator tmp{ t_raw_index , t_instance };
 					decrement();
-					return *this;
+					return tmp;
 				}
 				
 				//! Increase the Iterator n times
@@ -373,10 +373,10 @@ class utf8_string
 					decrement();
 					return *this;
 				}
-				reverse_iterator& operator++( int ){ // postfix iter++
+				reverse_iterator operator++( int ){ // postfix iter++
 					reverse_iterator tmp{ t_raw_index , t_instance };
 					decrement();
-					return *this;
+					return tmp;
 				}
 				
 				//! Decrease the Iterator by one
@@ -384,10 +384,10 @@ class utf8_string
 					increment();
 					return *this;
 				}
-				reverse_iterator& operator--( int ){ // postfix iter--
+				reverse_iterator operator--( int ){ // postfix iter--
 					reverse_iterator tmp{ t_raw_index , t_instance };
 					increment();
-					return *this;
+					return tmp;
 				}
 				
 				//! Increase the Iterator n times
@@ -495,16 +495,6 @@ class utf8_string
 			return ( val + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 );
 		}
 		
-		//! Determine the needed buffer size (excluding the trailling LUT indicator)
-		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
-			// Make the buffer size_type-aligned (don't forget, we need a terminating '\0', distinct from the lut indicator)
-			return round_up_to_align( data_len + 1 + lut_width * lut_len );
-		}
-		//! Same as above but this time including the LUT indicator
-		static inline size_type				determine_total_buffer_size( size_type main_buffer_size ){
-			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
-		}
-		
 		//! Get the LUT base pointer from buffer and buffer size
 		static inline char*					get_lut_base_ptr( char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
 		static inline const char*			get_lut_base_ptr( const char* buffer , size_type buffer_size ){ return buffer + buffer_size; }
@@ -513,22 +503,43 @@ class utf8_string
 		static inline void					set_lut_indiciator( char* lut_base_ptr , bool active , size_type lut_len = 0 ){
 			*(indicator_type*)lut_base_ptr = active ? ( lut_len << 1 ) | 0x1 : 0;
 		}
+		//! Copy lut indicator
+		static inline void					copy_lut_indicator( char* dest , const char* source ){
+			*(indicator_type*)dest = *(indicator_type*)source;
+		}
 		
 		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
 		//! Returns the number of bytes of the destination data type
 		static inline width_type			get_lut_width( size_type buffer_size ){
-			#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
-				return ( sizeof(size_type) * 8 + 7 - detail::clz( buffer_size ) ) / 8;
-			#else
-				return buffer_size <= std::numeric_limits<std::uint8_t>::max()
-					? sizeof(std::uint8_t)
-					: buffer_size <= std::numeric_limits<std::uint16_t>::max()
-						? sizeof(std::uint16_t)
-						: buffer_size <= std::numeric_limits<std::uint32_t>::max()
-							? sizeof(std::uint32_t)
-							: sizeof(std::uint64_t)
-				;
-			#endif
+			return buffer_size <= std::numeric_limits<std::uint8_t>::max()
+				? sizeof(std::uint8_t)
+				: buffer_size <= std::numeric_limits<std::uint16_t>::max()
+					? sizeof(std::uint16_t)
+					: buffer_size <= std::numeric_limits<std::uint32_t>::max()
+						? sizeof(std::uint32_t)
+						: sizeof(std::uint64_t)
+			;
+		}
+		
+		//! Determine the needed buffer size and the needed lut width (excluding the trailling LUT indicator)
+		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ){
+			size_type width_guess	= get_lut_width( ++data_len ); // Don't forget, we need a terminating '\0', distinct from the lut indicator
+			data_len += lut_len * width_guess; // Add the estimated number of bytes from the lut
+			data_len += lut_len * ( ( *lut_width = get_lut_width( data_len ) ) - width_guess ); // Adjust the added bytes from the lut
+			return round_up_to_align( data_len ); // Make the buffer size_type-aligned
+		}
+		//! Determine the needed buffer size if the lut width is known (excluding the trailling LUT indicator)
+		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
+			return round_up_to_align( data_len + 1 + lut_len * lut_width ); // Compute the size_type-aligned buffer size
+		}
+		//! Determine the needed buffer size if the lut is empty (excluding the trailling LUT indicator)
+		static inline size_type				determine_main_buffer_size( size_type data_len ){
+			// Make the buffer size_type-aligned
+			return round_up_to_align( data_len + 1 );
+		}
+		//! Same as above but this time including the LUT indicator
+		static inline size_type				determine_total_buffer_size( size_type main_buffer_size ){
+			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
 		}
 		
 		//! Get the nth index within a multibyte index table
@@ -632,22 +643,30 @@ class utf8_string
 		}
 		
 		/**
+		 * Encodes a given code point (expected to use 'cp_bytes') to a character
+		 * buffer capable of holding that many bytes.
+		 */
+		inline static void					encode_utf8( value_type cp , char* dest , width_type cp_bytes ){
+			switch( cp_bytes ){
+				case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F);
+				case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F);
+				case 5: dest[cp_bytes-4] = 0x80 | ((cp >> 18) & 0x3F);
+				case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F);
+				case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F);
+				case 2: dest[cp_bytes-1] = 0x80 | ((cp >>  0) & 0x3F);
+					dest[0] = ( std::uint_least16_t(0xFF00uL) >> cp_bytes ) | ( cp >> ( 6 * cp_bytes - 6 ) );
+					break;
+				case 1: dest[0]	= char(cp);
+			}
+		}
+		
+		/**
 		 * Encodes a given code point to a character buffer of at least 7 bytes
 		 * and returns the number of bytes it used
 		 */
 		inline static width_type			encode_utf8( value_type cp , char* dest ){
 			width_type width = get_codepoint_bytes( cp );
-			switch( width ){
-				case 7: dest[width-6] = 0x80 | ((cp >> 30) & 0x3F);
-				case 6: dest[width-5] = 0x80 | ((cp >> 24) & 0x3F);
-				case 5: dest[width-4] = 0x80 | ((cp >> 18) & 0x3F);
-				case 4: dest[width-3] = 0x80 | ((cp >> 12) & 0x3F);
-				case 3: dest[width-2] = 0x80 | ((cp >>  6) & 0x3F);
-				case 2: dest[width-1] = 0x80 | ((cp >>  0) & 0x3F);
-					dest[0] = ( std::uint_least16_t(0xFF00uL) >> width ) | ( cp >> ( 6 * width - 6 ) );
-					break;
-				case 1: dest[0]	= char(cp);
-			}
+			utf8_string::encode_utf8( cp , dest , width );
 			return width;
 		}
 		
@@ -792,7 +811,7 @@ class utf8_string
 		
 		
 		/**
-		 * Constructor that fills itself with a certain amount of codepoints
+		 * Constructor that fills the string with a certain amount of codepoints
 		 * 
 		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' codepoints
 		 * @param	n		The number of codepoints generated
@@ -800,7 +819,7 @@ class utf8_string
 		 */
 		utf8_string( size_type n , value_type cp );
 		/**
-		 * Constructor that fills itself with the supplied codepoint
+		 * Constructor that fills the string with the supplied codepoint
 		 * 
 		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' codepoints
 		 * @param	n		The number of codepoints generated
@@ -810,7 +829,7 @@ class utf8_string
 			t_sso.data[ encode_utf8( cp , t_sso.data ) ] = 0;
 		}
 		/**
-		 * Constructor that fills itself with a certain amount of characters
+		 * Constructor that fills the string with a certain amount of characters
 		 * 
 		 * @note	Creates an Instance of type utf8_string that gets filled with 'n' characters
 		 * @param	n		The number of characters generated
@@ -820,7 +839,32 @@ class utf8_string
 		
 		
 		/**
-		 * Copy Constructor that copies the supplied utf8_string to construct itself
+		 * Constructs the string with a portion of the supplied string
+		 * 
+		 * @param	str		The string that the constructed string shall be a substring of
+		 * @param	pos		The code point position indicating the start of the string to be used for construction
+		 * @param	cp		The number of code points to be taken from 'str'
+		 */
+		utf8_string( const utf8_string& str , size_type pos , size_type count = utf8_string::npos ) :
+			utf8_string( str.substr( pos , count ) )
+		{}
+		
+		
+		/**
+		 * Constructs the string from the range of code points supplied. The resulting string will equal [first,last)
+		 * 
+		 * @note	The Range is expected to contain code points (rather than code units, i.e. bytes)
+		 * @param	first	The start of the range to construct from
+		 * @param	last	The end of the range
+		 */
+		template<typename InputIt>
+		utf8_string( InputIt first , InputIt last ) : t_sso( 0 ) {
+			while( first != last ) push_back( *first++ );
+		}
+		
+		
+		/**
+		 * Copy Constructor that copies the supplied utf8_string to construct the string
 		 * 
 		 * @note	Creates an Instance of type utf8_string that has the exact same data as 'str'
 		 * @param	str		The utf8_string to copy from
@@ -877,17 +921,7 @@ class utf8_string
 		 * @param	str		The utf8_string to copy from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		utf8_string& operator=( const utf8_string& str ){
-			if( &str != this ){
-				clear(); // Clear old data
-				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
-				if( str.sso_inactive() ){ // Create a new buffer, if sso is not active
-					t_non_sso.data = new char[ t_non_sso.buffer_size ];
-					std::memcpy( t_non_sso.data , str.t_non_sso.data , t_non_sso.buffer_size );
-				}
-			}
-			return *this;
-		}
+		utf8_string& operator=( const utf8_string& str );
 		/**
 		 * Move Assignment operator that moves all data out of the supplied and into this utf8_string
 		 * 

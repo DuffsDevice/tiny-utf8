@@ -38,7 +38,8 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 	// Need to allocate a buffer?
 	if( data_len > utf8_string::get_sso_capacity() )
 	{
-		size_type buffer_size = determine_main_buffer_size( data_len , num_bytes_per_cp == 1 , 0 );
+		// Determine the buffer size
+		size_type buffer_size	= determine_main_buffer_size( data_len );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
 		
 		// Set Attributes
@@ -56,7 +57,7 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 	
 	// Fill the buffer
 	if( num_bytes_per_cp > 1 ){
-		utf8_string::encode_utf8( cp , buffer );
+		utf8_string::encode_utf8( cp , buffer , num_bytes_per_cp );
 		for( char* buffer_iter = buffer ; --count > 0 ; )
 			std::memcpy( buffer_iter += num_bytes_per_cp , buffer , num_bytes_per_cp );
 	}
@@ -80,7 +81,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 	// Need to allocate a buffer?
 	if( count > utf8_string::get_sso_capacity() )
 	{
-		size_type buffer_size = determine_main_buffer_size( count , true , 0 );
+		size_type buffer_size = determine_main_buffer_size( count );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
 		
 		// Set Attributes
@@ -129,11 +130,9 @@ utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 	{
 		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
 		{
-			// Assume a lut width of 1 for the buffer size and check the actually needed lut width
-			width_type lut_width	= get_lut_width( determine_main_buffer_size( data_len , num_multibytes , 1 ) );
-			
-			// Determine the buffer size (excluding the lut indicator)
-			size_type buffer_size	= determine_main_buffer_size( data_len , num_multibytes , lut_width );
+			// Determine the buffer size (excluding the lut indicator) and the lut width
+			width_type	lut_width;
+			size_type	buffer_size	= determine_main_buffer_size( data_len , num_multibytes , &lut_width );
 			buffer					= t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ]; // The LUT indicator is 
 			
 			// Set up LUT
@@ -172,7 +171,7 @@ utf8_string::utf8_string( const char* str , size_type len , detail::empty ) :
 			return; // We have already done everything!
 		}
 		
-		size_type buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
+		size_type buffer_size = determine_main_buffer_size( data_len );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
 		
 		// Set up LUT
@@ -226,12 +225,10 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	if( data_len > utf8_string::get_sso_capacity() )
 	{
 		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
-		{
-			// Assume a lut width of 1 for the buffer size and check the actually needed lut width
-			width_type lut_width	= get_lut_width( determine_main_buffer_size( data_len , num_multibytes , 1 ) );
-			
-			// Determine the buffer size (excluding the lut indicator)
-			size_type buffer_size	= determine_main_buffer_size( data_len , num_multibytes , lut_width );
+		{	
+			// Determine the buffer size (excluding the lut indicator) and the lut width
+			width_type lut_width;
+			size_type buffer_size	= determine_main_buffer_size( data_len , num_multibytes , &lut_width );
 			buffer					= t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ]; // The LUT indicator is 
 			
 			//! Fill LUT
@@ -262,7 +259,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 			return; // We have already done everything!
 		}
 		
-		size_type buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
+		size_type buffer_size = determine_main_buffer_size( data_len );
 		buffer = t_non_sso.data = new char[ determine_total_buffer_size( buffer_size ) ];
 		
 		// Set up LUT
@@ -358,6 +355,85 @@ utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size
 }
 #endif
 
+utf8_string& utf8_string::operator=( const utf8_string& str )
+{
+	// Note: Self assignment is expected to be very rare. We tolerate overhead in this situation.
+	// Therefore, we right away check for sso states in 'this' and 'str'. If they are equal, do the test then.
+	
+	switch( sso_inactive() + str.sso_inactive() * 2 )
+	{
+		case 3: // [sso-inactive] = [sso-inactive]
+		{
+			if( &str == this )
+				return *this;
+			const char* str_lut_base_ptr = utf8_string::get_lut_base_ptr( str.t_non_sso.data , str.t_non_sso.buffer_size );
+			if( utf8_string::lut_active( str_lut_base_ptr ) )
+			{
+				width_type	lut_width = get_lut_width( t_non_sso.buffer_size ); // Lut width, if the current buffer is used
+				size_type	str_lut_len = utf8_string::get_lut_len( str_lut_base_ptr );
+				
+				// Can the current buffer hold the data and the lut?
+				if( utf8_string::determine_main_buffer_size( str.t_non_sso.data_len , str_lut_len , lut_width ) < t_non_sso.buffer_size )
+				{
+					width_type	str_lut_width = get_lut_width( str.t_non_sso.buffer_size );
+					
+					// How to copy indices?
+					if( lut_width == str_lut_width ){
+						str_lut_len *= str_lut_width; // Compute the size in bytes of the lut
+						std::memcpy(
+							utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size ) - str_lut_len
+							, str_lut_base_ptr - str_lut_len
+							, str_lut_len + sizeof(indicator_type) // Also copy lut indicator
+						);
+					}
+					else{
+						char* lut_iter = utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size );
+						for( ; str_lut_len > 0 ; --str_lut_len )
+							utf8_string::set_lut(
+								lut_iter -= lut_width
+								, lut_width
+								, utf8_string::get_lut( str_lut_base_ptr -= str_lut_width , str_lut_width )
+							);
+					}
+				}
+				else
+					goto lbl_replicate_whole_buffer;
+			}
+			// Is the current buffer too small to hold just the data?
+			else if( utf8_string::determine_main_buffer_size( str.t_non_sso.data_len ) > t_non_sso.buffer_size )
+				goto lbl_replicate_whole_buffer;
+			
+			// Copy data and lut indicator only
+			std::memcpy( t_non_sso.data , str.t_non_sso.data , str.t_non_sso.data_len + 1 );
+			utf8_string::copy_lut_indicator(
+				utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size )
+				, str_lut_base_ptr
+			);
+			t_non_sso.data_len = str.t_non_sso.data_len;
+			t_non_sso.string_len = str.t_non_sso.string_len; // Copy the string_len bit pattern
+			return *this;
+			
+		lbl_replicate_whole_buffer: // Replicate the whole buffer
+			delete[] t_non_sso.data;
+		}
+			[[fallthrough]]
+		case 2: // [sso-active] = [sso-inactive]
+			t_non_sso.data = new char[ utf8_string::determine_total_buffer_size( str.t_non_sso.buffer_size ) ];
+			std::memcpy( t_non_sso.data , str.t_non_sso.data , str.t_non_sso.buffer_size + sizeof(indicator_type) ); // Copy data
+			t_non_sso.buffer_size = str.t_non_sso.buffer_size;
+			t_non_sso.data_len = str.t_non_sso.data_len;
+			t_non_sso.string_len = str.t_non_sso.string_len; // This also disables SSO
+			return *this;
+		case 1: // [sso-inactive] = [sso-active]
+			delete[] t_non_sso.data;
+			[[fallthrough]]
+		case 0: // [sso-active] = [sso-active]
+			if( &str != this )
+				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
+			return *this;
+	}
+}
+
 
 
 void utf8_string::shrink_to_fit()
@@ -377,9 +453,9 @@ void utf8_string::shrink_to_fit()
 	
 	if( lut_active( lut_base_ptr ) )
 	{
-		size_type lut_len				= get_lut_len( lut_base_ptr );
-		size_type required_lut_width	= get_lut_width( determine_main_buffer_size( data_len , lut_len , 1 ) );
-		required_buffer_size			= determine_main_buffer_size( data_len , lut_len , required_lut_width );
+		size_type	lut_len				= get_lut_len( lut_base_ptr );
+		width_type	new_lut_width;
+		required_buffer_size			= determine_main_buffer_size( data_len , lut_len , &new_lut_width );
 		
 		//! Determine the threshold above which it's profitable to reallocate (at least 10 bytes and at least a quarter of the memory)
 		if( buffer_size < std::max<size_type>( required_buffer_size + 10 , required_buffer_size >> 2 ) )
@@ -387,16 +463,16 @@ void utf8_string::shrink_to_fit()
 		
 		// Allocate new buffer
 		t_non_sso.data					= new char[ determine_total_buffer_size( required_buffer_size ) ];
-		size_type	old_lut_width		= get_lut_width( buffer_size );
+		size_type	old_lut_width		= utf8_string::get_lut_width( buffer_size );
 		char*		new_lut_base_ptr	= utf8_string::get_lut_base_ptr( t_non_sso.data , required_buffer_size );
 		
 		// Does the data type width change?
-		if( old_lut_width != required_lut_width ){ // Copy indices one at a time
+		if( old_lut_width != new_lut_width ){ // Copy indices one at a time
 			utf8_string::set_lut_indiciator( new_lut_base_ptr , true , lut_len );
 			for( size_type i = 0 ; i < lut_len ; i++ )
 				set_lut(
-					new_lut_base_ptr -= required_lut_width
-					, required_lut_width
+					new_lut_base_ptr -= new_lut_width
+					, new_lut_width
 					, get_lut( lut_base_ptr -= old_lut_width , old_lut_width )
 				);
 		}
@@ -407,7 +483,7 @@ void utf8_string::shrink_to_fit()
 	}
 	else
 	{
-		required_buffer_size = determine_main_buffer_size( data_len , 0 , 1 );
+		required_buffer_size = determine_main_buffer_size( data_len );
 		
 		//! Determine the threshold above which it's profitable to reallocate (at least 10 bytes and at least a quarter of the memory)
 		if( buffer_size < std::max<size_type>( required_buffer_size + 10 , required_buffer_size >> 2 ) )
@@ -699,7 +775,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 	const char* buffer			= t_non_sso.data;
 	const char* lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	bool lut_active				= utf8_string::lut_active( lut_base_ptr );
-	width_type lut_width;
+	width_type lut_width; // Ignore uninitialized warning, see [5]
 	
 	// Count the number of SUBSTRING Multibytes and codepoints
 	if( lut_active )
@@ -737,14 +813,11 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 	width_type	substr_lut_width;
 	
 	// Indices Table worth the memory loss?
-	if( size_type( substr_mbs - 1 ) < size_type( substr_cps / 2 ) ){ // Note: substr_mbs is intended to underflow at '0'
-		// Assume a lut width of 1 for the buffer size and check the actually needed lut width
-		substr_lut_width	= get_lut_width( determine_main_buffer_size( byte_count , substr_mbs , 1 ) );
-		substr_buffer_size	= determine_main_buffer_size( byte_count , substr_mbs , substr_lut_width );
-	}
+	if( size_type( substr_mbs - 1 ) < size_type( substr_cps / 2 ) ) // Note: substr_mbs is intended to underflow at '0'
+		substr_buffer_size	= determine_main_buffer_size( byte_count , substr_mbs , &substr_lut_width );
 	else{
 		substr_lut_width	= 0;
-		substr_buffer_size	= determine_main_buffer_size( byte_count , 0 , 1 );
+		substr_buffer_size	= determine_main_buffer_size( byte_count );
 	}
 	
 	char* substr_buffer			= new char[ determine_total_buffer_size( substr_buffer_size ) ];
@@ -763,7 +836,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 		if( lut_active )
 		{
 			// Can we do a plain copy of indices?
-			if( index == 0 && substr_lut_width == lut_width )
+			if( index == 0 && substr_lut_width == lut_width ) // [5]: lut_width is initialized, as soon as 'lut_active' is true
 				std::memcpy(
 					substr_lut_base_ptr - substr_mbs * lut_width
 					, lut_base_ptr - ( mb_index + substr_mbs ) * lut_width
@@ -963,18 +1036,15 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	size_type	new_lut_len = old_lut_len - replaced_mbs + repl_lut_len;
 	size_type	new_string_len = old_string_len - replaced_cps + repl_string_len;
 	size_type	new_buffer_size;
-	size_type	new_lut_width; // [2] ; 0 signalizes, that we don't need a lut
+	width_type	new_lut_width; // [2] ; 0 signalizes, that we don't need a lut
 	
 	
 	// Indices Table worth the memory loss?
-	if( size_type( new_lut_len - 1 ) < size_type( new_string_len / 2 ) ){ // Note: new_lut_len is intended to underflow at '0'
-		// Assume a lut width of 1 for the buffer size and check the actually needed lut width
-		new_lut_width	= get_lut_width( determine_main_buffer_size( new_data_len , new_lut_len , 1 ) );
-		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , new_lut_width );
-	}
+	if( size_type( new_lut_len - 1 ) < size_type( new_string_len / 2 ) ) // Note: new_lut_len is intended to underflow at '0'
+		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , &new_lut_width );
 	else{
 		new_lut_width = 0;
-		new_buffer_size = determine_main_buffer_size( new_data_len , 0 , 1 );
+		new_buffer_size = determine_main_buffer_size( new_data_len );
 	}
 	
 	// Can we reuse the old buffer?
