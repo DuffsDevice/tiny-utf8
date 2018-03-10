@@ -24,6 +24,7 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "tinyutf8.h"
+#include <ostream>
 
 utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type cp ) :
 	t_sso( 0 )
@@ -1645,6 +1646,17 @@ int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_strin
 	utf8_string::difference_type	max_index = std::max( lhs.get_index() , rhs.get_index() );
 	utf8_string::size_type			num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
 	return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
+}
+
+std::ostream& operator<<( std::ostream& stream , const utf8_string& str ){
+	return stream << str.c_str();
+}
+
+std::istream& operator>>( std::istream& stream , utf8_string& str ){
+	std::string tmp;
+	stream >> tmp;
+	str = move(tmp);
+	return stream;
 }
 
 constexpr utf8_string::size_type utf8_string::npos;

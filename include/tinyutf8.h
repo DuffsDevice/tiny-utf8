@@ -26,13 +26,6 @@
 #ifndef _TINY_UTF8_H_
 #define _TINY_UTF8_H_
 
-
-// Define the following macro, if you plan to output an utf8_string
-// to an ostream or read an utf8_string from an istream
-#ifdef _TINY_UTF8_H_USE_IOSTREAM_
-#include <iostream> // for ostream/istream overloads
-#endif
-
 // Define the following macro, if you want to be guarded against malformed utf8 sequences
 #define _TINY_UTF8_H_SAFE_MODE_
 
@@ -45,6 +38,7 @@
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
 #include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <stdexcept> // for std::out_of_range
+#include <iosfwd> // for ostream/istream forward declarations
 #ifdef _MSC_VER
 #include <intrin.h> // for __lzcnt
 #endif
@@ -1812,17 +1806,8 @@ static inline bool operator<=( const utf8_string::const_reverse_iterator& lhs , 
 extern int operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs );
 extern int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs );
 
-#ifdef _TINY_UTF8_H_USE_IOSTREAM_
-static inline std::ostream& operator<<( std::ostream& stream , const utf8_string& str ){
-	return stream << str.c_str();
-}
-
-static inline std::istream& operator>>( std::istream& stream , utf8_string& str ){
-	std::string tmp;
-	stream >> tmp;
-	str = move(tmp);
-	return stream;
-}
-#endif // ifndef _TINY_UTF8_H_USE_IOSTREAM_
+//! Stream Operations
+extern std::ostream& operator<<( std::ostream& stream , const utf8_string& str );
+extern std::istream& operator>>( std::istream& stream , utf8_string& str );
 
 #endif
