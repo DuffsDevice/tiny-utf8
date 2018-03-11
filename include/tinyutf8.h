@@ -562,9 +562,9 @@ class utf8_string
 		/**
 		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 code point
 		 */
-		static inline width_type			get_codepoint_bytes( char first_byte , size_type data_left )
 		// Data left is the number of bytes left in the buffer INCLUDING this one
-		#if defined(_TINY_UTF8_H_HAS_CLZ_)
+		#if defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
+		static inline width_type			get_codepoint_bytes( char first_byte , size_type data_left )
 		{
 			if( first_byte ){
 				// Before counting the leading one's we need to shift the byte into the most significant part of the integer
@@ -578,7 +578,7 @@ class utf8_string
 			return 1;
 		}
 		#else
-		; // Defined in source file
+		static width_type					get_codepoint_bytes( char first_byte , size_type data_left ); // Defined in source file
 		#endif
 		
 		/**

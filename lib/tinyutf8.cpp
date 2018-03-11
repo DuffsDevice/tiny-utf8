@@ -325,7 +325,7 @@ utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const ch
 }
 
 
-#if !defined(_TINY_UTF8_H_HAS_CLZ_)
+#if !defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
 utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size_type data_left )
 {
 	// Only Check the possibilities, that could appear
