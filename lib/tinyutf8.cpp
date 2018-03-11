@@ -417,7 +417,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 		lbl_replicate_whole_buffer: // Replicate the whole buffer
 			delete[] t_non_sso.data;
 		}
-			[[fallthrough]]
+			[[fallthrough]];
 		case 2: // [sso-active] = [sso-inactive]
 			t_non_sso.data = new char[ utf8_string::determine_total_buffer_size( str.t_non_sso.buffer_size ) ];
 			std::memcpy( t_non_sso.data , str.t_non_sso.data , str.t_non_sso.buffer_size + sizeof(indicator_type) ); // Copy data
@@ -427,7 +427,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 			return *this;
 		case 1: // [sso-inactive] = [sso-active]
 			delete[] t_non_sso.data;
-			[[fallthrough]]
+			[[fallthrough]];
 		case 0: // [sso-active] = [sso-active]
 			if( &str != this )
 				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
