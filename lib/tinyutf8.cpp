@@ -990,6 +990,265 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 
 
 
+utf8_string& utf8_string::append( const utf8_string& app )
+{
+	// Will add nothing?
+	bool app_sso_inactive = app.sso_inactive();
+	size_type app_data_len = app_sso_inactive ? app.t_non_sso.data_len : app.get_sso_data_len();
+	if( app_data_len == 0 )
+		return *this;
+	
+	// Compute some metrics
+	size_type old_data_len	= size();
+	size_type new_data_len	= old_data_len + app_data_len;
+	
+	// Will be sso string?
+	if( new_data_len <= utf8_string::get_sso_capacity() ){
+		std::memcpy( t_sso.data + old_data_len , app.t_sso.data , app_data_len ); // Copy APPENDIX (must have sso active as well)
+		t_sso.data[new_data_len] = 0; // Trailing '\0'
+		set_sso_data_len( new_data_len ); // Adjust size
+		return *this;
+	}
+	
+	//! Ok, obviously no small string, we have to update the data, the lut and the number of code points
+	
+	
+	// Count code points and multibytes of insertion
+	bool		app_lut_active;
+	const char*	app_buffer;
+	const char*	app_lut_base_ptr;
+	size_type	app_buffer_size;
+	size_type	app_string_len;
+	size_type	app_lut_len;
+	if( app.sso_inactive() )
+	{
+		app_buffer_size	= app.t_non_sso.buffer_size;
+		app_buffer		= app.t_non_sso.data;
+		app_string_len	= app.get_non_sso_string_len();
+		
+		// Compute the number of multibytes
+		app_lut_base_ptr = utf8_string::get_lut_base_ptr( app_buffer , app_buffer_size );
+		app_lut_active = utf8_string::lut_active( app_lut_base_ptr );
+		if( app_lut_active )
+			app_lut_len = utf8_string::get_lut_len( app_lut_base_ptr );
+		else{
+			app_lut_len = 0;
+			for( size_type iter = 0 ; iter < app_data_len ; ){
+				width_type bytes = get_codepoint_bytes( app_buffer[iter] , app_data_len - iter );
+				app_lut_len += bytes > 1; iter += bytes;
+			}
+		}
+	}
+	else
+	{
+		app_lut_active	= false;
+		app_string_len	= 0;
+		app_buffer		= app.t_sso.data;
+		app_buffer_size	= utf8_string::get_sso_capacity();
+		app_lut_len		= 0;
+		for( size_type iter = 0 ; iter < app_data_len ; ){
+			width_type bytes = get_codepoint_bytes( app_buffer[iter] , app_data_len - iter );
+			app_lut_len += bytes > 1; iter += bytes; ++app_string_len;
+		}
+	}
+	
+	// Count code points and multibytes of this string
+	char*		old_buffer;
+	char*		old_lut_base_ptr; // Ignore uninitialized warning, see [3]
+	size_type	old_buffer_size;
+	size_type	old_string_len;
+	bool		old_lut_active;
+	size_type	old_lut_len;
+	bool		old_sso_inactive = sso_inactive();
+	if( old_sso_inactive )
+	{
+		old_buffer_size	= t_non_sso.buffer_size;
+		old_buffer		= t_non_sso.data;
+		old_string_len	= get_non_sso_string_len();
+		
+		// Count TOTAL multibytes
+		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
+		if( (old_lut_active = utf8_string::lut_active( old_lut_base_ptr )) )
+			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
+		else{
+			old_lut_len = 0;
+			for( size_type iter	= 0 ; iter < old_data_len ; ){
+				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
+				old_lut_len += bytes > 1; iter += bytes;
+			}
+		}
+	}
+	else
+	{
+		old_buffer		= t_sso.data;
+		old_buffer_size	= utf8_string::get_sso_capacity();
+		old_string_len	= 0;
+		old_lut_len		= 0;
+		size_type iter	= 0;
+		old_lut_active	= false;
+		while( iter < old_data_len ){ // Count multibytes and code points
+			width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
+			old_lut_len += bytes > 1; iter += bytes; ++old_string_len;
+		}
+	}
+	
+	
+	// Compute updated metrics
+	size_type	new_lut_len = old_lut_len + app_lut_len;
+	size_type	new_string_len = old_string_len + app_string_len;
+	size_type	new_buffer_size;
+	width_type	new_lut_width; // [2] ; 0 signalizes, that we don't need a lut
+	
+	// Use indices table?
+	if( new_lut_len > 0 && ( old_lut_active || !old_sso_inactive ) )
+		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , &new_lut_width );
+	else{
+		new_lut_width = 0;
+		new_buffer_size = determine_main_buffer_size( new_data_len );
+	}
+	
+	// Can we reuse the old buffer?
+	if( new_buffer_size <= old_buffer_size )
+	{
+		// [3] At this point, 'old_sso_inactive' MUST be true, because else,
+		// the resulting string would have sso active (which is handled way above)
+		
+		// Need to fill the lut? (see [2])
+		if( new_lut_width )
+		{
+			// Make sure, the lut width stays the same, because we still have the same buffer size
+			new_lut_width = utf8_string::get_lut_width( old_buffer_size );
+			
+			// Append new INDICES
+			char*		lut_dest_iter = old_lut_base_ptr - old_lut_len * new_lut_width;
+			if( app_lut_active )
+			{
+				size_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
+				const char*	app_lut_iter = app_lut_base_ptr;
+				while( app_lut_len-- > 0 )
+					utf8_string::set_lut(
+						lut_dest_iter -= new_lut_width
+						, new_lut_width
+						, utf8_string::get_lut( app_lut_iter -= app_lut_width , app_lut_width ) + old_data_len
+					);
+			}
+			else{
+				size_type iter = 0;
+				while( iter < app_data_len ){
+					width_type bytes = get_codepoint_bytes( app_buffer[iter] , app_data_len - iter );
+					if( bytes > 1 )
+						utf8_string::set_lut( lut_dest_iter -= new_lut_width , new_lut_width , iter + old_data_len );
+					iter += bytes;
+				}
+			}
+			
+			// Set new lut mode
+			utf8_string::set_lut_indiciator( old_lut_base_ptr , true , new_lut_len );
+		}
+		else // Set new lut mode
+			utf8_string::set_lut_indiciator( old_lut_base_ptr , new_lut_len == 0 , 0 );
+		
+		// Update buffer and data_len
+		std::memcpy( old_buffer + old_data_len , app_buffer , app_data_len ); // Copy BUFFER of the insertion
+		old_buffer[new_data_len] = 0; // Trailing '\0'
+	}
+	else // No, apparently we have to allocate a new buffer...
+	{
+		new_buffer_size				<<= 1; // Allocate twice as much, in order to amortize allocations (keeping in mind alignment)
+		char*	new_buffer			= new char[ determine_total_buffer_size( new_buffer_size ) ];
+		char*	new_lut_base_ptr	= utf8_string::get_lut_base_ptr( new_buffer , new_buffer_size );
+		
+		// Write NEW BUFFER
+		std::memcpy( new_buffer , old_buffer , old_data_len ); // Copy current BUFFER
+		std::memcpy( new_buffer + old_data_len , app_buffer , app_data_len ); // Copy BUFFER of appendix
+		new_buffer[new_data_len] = 0; // Trailing '\0'
+		
+		// Need to fill the lut? (see [2])
+		if( new_lut_width )
+		{
+			// Reuse indices from old lut?
+			if( old_lut_active )
+			{
+				size_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
+			
+				// Copy all old INDICES
+				if( new_lut_width != old_lut_width )
+				{
+					char*		lut_iter = old_lut_base_ptr;
+					char*		new_lut_iter = new_lut_base_ptr;
+					size_type	num_indices = old_lut_len;
+					while( num_indices-- > 0 )
+						utf8_string::set_lut(
+							new_lut_iter -= new_lut_width
+							, new_lut_width
+							, utf8_string::get_lut( lut_iter -= old_lut_width , old_lut_width )
+						);
+				}
+				else // Plain copy of them
+					std::memcpy(
+						new_lut_base_ptr - old_lut_len * new_lut_width
+						, old_lut_base_ptr - old_lut_len * old_lut_width
+						, old_lut_len * old_lut_width
+					);
+			}
+			else // We need to fill these indices manually...
+			{
+				char*		new_lut_iter	= new_lut_base_ptr;
+				size_type	iter			= 0;
+				while( iter < old_data_len ){ // Fill lut with indices BEFORE insertion
+					width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
+					if( bytes > 1 )
+						utf8_string::set_lut( new_lut_iter -= new_lut_width , new_lut_width , iter );
+					iter += bytes;
+				}
+			}
+			
+			// Copy INDICES of the insertion
+			char*		lut_dest_iter = new_lut_base_ptr - old_lut_len * new_lut_width;
+			if( app_lut_active )
+			{
+				size_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
+				const char*	app_lut_iter = app_lut_base_ptr;
+				while( app_lut_len-- > 0 )
+					utf8_string::set_lut(
+						lut_dest_iter -= new_lut_width
+						, new_lut_width
+						, utf8_string::get_lut( app_lut_iter -= app_lut_width , app_lut_width ) + old_data_len
+					);
+			}
+			else{
+				size_type app_iter = 0;
+				while( app_iter < app_data_len ){
+					width_type bytes = get_codepoint_bytes( app_buffer[app_iter] , app_data_len - app_iter );
+					if( bytes > 1 )
+						utf8_string::set_lut( lut_dest_iter -= new_lut_width , new_lut_width , app_iter + old_data_len );
+					app_iter += bytes;
+				}
+			}
+			
+			utf8_string::set_lut_indiciator( new_lut_base_ptr , true , new_lut_len ); // Set new lut mode and len
+		}
+		else // Set new lut mode
+			utf8_string::set_lut_indiciator( new_lut_base_ptr , new_lut_len == 0 , 0 );
+	
+		// Delete the old buffer?
+		if( old_sso_inactive )
+			delete[] old_buffer;
+		
+		// Set new Attributes
+		t_non_sso.data			= new_buffer;
+		t_non_sso.buffer_size	= new_buffer_size;
+	}
+	
+	// Adjust Attributes
+	t_non_sso.data_len = new_data_len;
+	set_non_sso_string_len( new_string_len );
+	
+	return *this;
+}
+
+
+
 utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 {
 	// Bound checks...

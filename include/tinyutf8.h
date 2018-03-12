@@ -1339,7 +1339,7 @@ public:
 	/**
 	 * Prepend the supplied utf8_string to this utf8_string
 	 * 
-	 * @param	appendix	The utf8_string to be prepended
+	 * @param	prependix	The utf8_string to be prepended
 	 * @return	A reference to this utf8_string, which now has the supplied string prepended
 	 */
 	inline utf8_string& prepend( const utf8_string& prependix ){
@@ -1352,9 +1352,7 @@ public:
 	 * @param	appendix	The utf8_string to be appended
 	 * @return	A reference to this utf8_string, which now has the supplied string appended
 	 */
-	utf8_string& append( const utf8_string& appendix ){
-		return raw_insert( size() , appendix );
-	}
+	utf8_string& append( const utf8_string& appendix );
 	inline utf8_string& operator+=( const utf8_string& appendix ){
 		return append( appendix );
 	}
