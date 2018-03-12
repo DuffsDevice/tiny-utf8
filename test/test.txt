@@ -22,7 +22,7 @@ String: Hello  ツ  World
 Length: 15
 Size (bytes): 17
 RequiresUnicode: 1
-SSOActive: 1
+SSOActive: 0
 9nd codepoint:  
 
 Test 2: 
@@ -31,18 +31,18 @@ String: Hello ツ ♫ World
 Length: 15
 Size (bytes): 19
 RequiresUnicode: 1
-SSOActive: 1
+SSOActive: 0
 Appended '♫ World': Hello ツ ♫ World♫ World
 Length: 22
 Size (bytes): 28
 RequiresUnicode: 1
-SSOActive: 1
+SSOActive: 0
 
 
 Test 3: 
 -------
 String: Hello ツ World ♫
-SSOActive: 1
+SSOActive: 0
 RequiresUnicode: 1
 Iterative output: Hello U\12484 World U\9835
 Reverse iterative output: U\9835 dlroW U\12484 olleH
@@ -57,14 +57,14 @@ RequiresUnicode: 1
 Replaced codepoint 6 with 🤝: Hello 🤝 World
 Replaced codepoints 5-7 with ' ': Hello World
 Replaced the space with '~ 🤝 ~': Hello~ 🤝 ~World
-SSOActive: 1
+SSOActive: 0
 Length: 15
 Random access output: Hello~ U\129309 ~World
 
 Test 5: 
 -------
 String: Hello ツ World♫
-SSOActive: 1
+SSOActive: 0
 RequiresUnicode: 1
 Erased 14th codepoint: Hello ツ World
 SSOActive: 1
@@ -72,12 +72,12 @@ Erased codepoints [0,8): World
 
 Test 6: 
 -------
-String (ANSI): L�wen, B�ren, V�gel und K�fer sind Tiere.
+String (ANSI): L�wen, B�ren, V�gel und K�fer sind Tiere.
 RequiresUnicode: 1
 SSOActive: 0
 Iterative Output: LU\1800558, BU\19621n, VU\1735020 und KU\18853r sind Tiere.
 Reverse Iterative Output: .ereiT dnis rU\18853K dnu U\1735020V ,nU\19621B ,U\1800558L
-Converted to UTF-8: L����, B䲥n, V���� und K䦥r sind Tiere.
+Converted to UTF-8: L����, B䲥n, V���� und K䦥r sind Tiere.
 
 Test 7: 
 -------
@@ -94,115 +94,115 @@ Test 8:
 -------
 Full String: Hello ツ World rg rth rt he rh we gxgre
 Substring 3[16]: lo ツ World rg rt
-SSOActive: 1
+SSOActive: 0
 7th codepoint: o
 
 Test 6: 
 -------
 String: SSO: ツ♫
-Capacity: 31
+Capacity: 15
 String after insertion: SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 31
+Capacity after insertion: 29
 Length: 14
 Size (bytes): 22
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 42
+Capacity after insertion: 29
 Length: 21
 Size (bytes): 33
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 42
+Capacity after insertion: 29
 Length: 28
 Size (bytes): 44
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 42
+Capacity after insertion: 72
 Length: 35
 Size (bytes): 55
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 42
+Capacity after insertion: 72
 Length: 42
 Size (bytes): 66
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 72
 Length: 49
 Size (bytes): 77
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 72
 Length: 56
 Size (bytes): 88
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 72
 Length: 63
 Size (bytes): 99
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 72
 Length: 70
 Size (bytes): 110
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 133
 Length: 77
 Size (bytes): 121
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 133
 Length: 84
 Size (bytes): 132
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 133
 Length: 91
 Size (bytes): 143
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 102
+Capacity after insertion: 133
 Length: 98
 Size (bytes): 154
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 133
 Length: 105
 Size (bytes): 165
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 133
 Length: 112
 Size (bytes): 176
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 133
 Length: 119
 Size (bytes): 187
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 133
 Length: 126
 Size (bytes): 198
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 133
 Length: 133
 Size (bytes): 209
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 283
 Length: 140
 Size (bytes): 220
 
 String after insertion: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after insertion: 186
+Capacity after insertion: 283
 Length: 147
 Size (bytes): 231
 
 String after shrinking: SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫SSO: ツ♫
-Capacity after shrinking: 148
+Capacity after shrinking: 147
 Length: 147
 Size (bytes): 231
 
