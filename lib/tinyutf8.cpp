@@ -1330,7 +1330,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	size_type old_data_len = size();
 	if( index > old_data_len )
 		throw std::out_of_range( "utf8_string::(raw_)replace" );
-	size_type		end_index = index + replaced_len;
+	size_type end_index = index + replaced_len;
 	if( end_index > old_data_len || end_index < index ){ // 'end_index < index' is needed because of potential integer overflow in sum
 		end_index = old_data_len;
 		replaced_len = end_index - index;
