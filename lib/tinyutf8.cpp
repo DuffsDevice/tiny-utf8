@@ -104,6 +104,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 }
 
 
+
 utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoints_tag ) :
 	utf8_string()
 {
@@ -200,6 +201,7 @@ utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoi
 }
 
 
+
 utf8_string::utf8_string( const char* str , size_type data_len , detail::read_bytes_tag ) :
 	utf8_string()
 {
@@ -294,6 +296,8 @@ utf8_string::utf8_string( const char* str , size_type data_len , detail::read_by
 	std::memcpy( buffer , str , data_len );
 	buffer[data_len] = '\0';
 }
+
+
 
 utf8_string::utf8_string( const value_type* str , size_type len ) :
 	utf8_string()
@@ -421,7 +425,8 @@ utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const ch
 }
 
 
-#if !defined(_TINY_UTF8_H_HAS_CLZ_) && _TINY_UTF8_H_HAS_CLZ_ == true
+
+#if !defined(_TINY_UTF8_H_HAS_CLZ_) || _TINY_UTF8_H_HAS_CLZ_ == false
 utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size_type data_left )
 {
 	// Only Check the possibilities, that could appear
@@ -451,6 +456,8 @@ utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size
 	}
 }
 #endif
+
+
 
 utf8_string& utf8_string::operator=( const utf8_string& str )
 {
@@ -599,6 +606,8 @@ void utf8_string::shrink_to_fit()
 	delete[] buffer;
 }
 
+
+
 utf8_string::size_type utf8_string::get_non_sso_capacity() const
 {
 	size_type	data_len		= t_non_sso.data_len;
@@ -620,6 +629,8 @@ utf8_string::size_type utf8_string::get_non_sso_capacity() const
 	return ( buffer_size - 1 ) * string_len / data_len;
 }
 
+
+
 bool utf8_string::requires_unicode_sso() const
 {
 	constexpr size_type mask = get_hsb_mask<size_type>();
@@ -640,6 +651,8 @@ bool utf8_string::requires_unicode_sso() const
 	return false;
 }
 
+
+
 std::string utf8_string::cpp_str_bom() const
 {
 	// Create std::string
@@ -656,6 +669,8 @@ std::string utf8_string::cpp_str_bom() const
 	
 	return std::move(result);
 }
+
+
 
 utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_type byte_count ) const 
 {
@@ -721,6 +736,8 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 	return byte_count;
 }
 
+
+
 utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type cp_count ) const
 {
 	const char*	buffer;
@@ -762,6 +779,8 @@ utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type cp_count
 	
 	return num_bytes;
 }
+
+
 
 utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type cp_count ) const 
 {
@@ -968,6 +987,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , si
 	
 	return std::move(result);
 }
+
 
 
 utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
@@ -1322,6 +1342,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 	
 	return *this;
 }
+
 
 
 utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len , const utf8_string& repl )
@@ -1861,7 +1882,6 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 
 
 
-
 utf8_string::difference_type utf8_string::compare( const utf8_string& str ) const
 {
 	const_iterator	it1 = cbegin(), it2 = str.cbegin(), end1 = cend(), end2 = str.cend();
@@ -1877,17 +1897,6 @@ utf8_string::difference_type utf8_string::compare( const utf8_string& str ) cons
 
 
 
-
-utf8_string::size_type utf8_string::rfind( value_type cp , size_type start_pos ) const {
-	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
-	while( it < crend() ){
-		if( *it == cp )
-			return -( it - cbegin() );
-		it++;
-	}
-	return utf8_string::npos;
-}
-
 utf8_string::size_type utf8_string::raw_rfind( value_type cp , size_type index ) const {
 	if( index >= size() )
 		index = back_index();
@@ -1899,62 +1908,70 @@ utf8_string::size_type utf8_string::raw_rfind( value_type cp , size_type index )
 
 
 
-
 utf8_string::size_type utf8_string::find_first_of( const value_type* str , size_type start_pos ) const
 {
 	if( start_pos >= length() )
 		return utf8_string::npos;
 	
-	for( const_iterator it = get( start_pos ) ; it < cend() ; it++ )
+	for( const_iterator it = get( start_pos ), end = cend() ; it < end ; ++it, ++start_pos )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
-				return it - begin();
+				return start_pos;
 		}while( *++tmp );
 	}
 	
 	return utf8_string::npos;
 }
+
+
 
 utf8_string::size_type utf8_string::raw_find_first_of( const value_type* str , size_type index ) const
 {
 	if( index >= size() )
 		return utf8_string::npos;
 	
-	for( size_type it = index, my_size = size() ; it < my_size ; it += get_index_bytes( it ) )
-	{
-		const value_type*	tmp = str;
-		do{
-			if( raw_at(it) == *tmp )
-				return it;
-		}while( *++tmp );
-	}
-	
-	return utf8_string::npos;
-}
-
-
-
-
-utf8_string::size_type utf8_string::find_last_of( const value_type* str , size_type start_pos ) const
-{
-	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
-	
-	for( const_reverse_iterator rend = crend() ; it != rend ; )
+	for( const_iterator it = raw_get(index), end = cend() ; it < end ; ++it )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
-				return -( it - begin() );
+				return it.get_index();
 		}while( *++tmp );
-		it++;
 	}
 	
 	return utf8_string::npos;
 }
+
+
+
+utf8_string::size_type utf8_string::find_last_of( const value_type* str , size_type start_pos ) const
+{
+	const_reverse_iterator  it;
+	size_type               string_len = length();
+	if( start_pos >= string_len ){
+	    it = crbegin();
+	    start_pos = string_len - 1;
+	}
+	else
+	    it = rget( start_pos );
+	
+	for( const_reverse_iterator rend = crend() ; it != rend ; ++it, --start_pos ){
+		const value_type*	tmp = str;
+		value_type			cur = *it;
+		do{
+			if( cur == *tmp )
+				return start_pos;
+		}while( *++tmp );
+	}
+	
+	return utf8_string::npos;
+}
+
+
 
 utf8_string::size_type utf8_string::raw_find_last_of( const value_type* str , size_type index ) const
 {
@@ -1964,8 +1981,7 @@ utf8_string::size_type utf8_string::raw_find_last_of( const value_type* str , si
 	if( index >= size() )
 		index = back_index();
 	
-	for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) )
-	{
+	for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) ){
 		const value_type*	tmp = str;
 		value_type			cur = raw_at(it);
 		do{
@@ -1979,13 +1995,33 @@ utf8_string::size_type utf8_string::raw_find_last_of( const value_type* str , si
 
 
 
-
 utf8_string::size_type utf8_string::find_first_not_of( const value_type* str , size_type start_pos ) const
 {
 	if( start_pos >= length() )
 		return utf8_string::npos;
 	
-	for( const_iterator it = get(start_pos) , end = cend() ; it != end ; it++ )
+	for( const_iterator it = get(start_pos) , end = cend() ; it != end ; ++it, ++start_pos ){
+		const value_type*	tmp = str;
+		value_type			cur = *it;
+		do{
+			if( cur == *tmp )
+				goto continue2;
+		}while( *++tmp );
+		return start_pos;
+		continue2:;
+	}
+	
+	return utf8_string::npos;
+}
+
+
+
+utf8_string::size_type utf8_string::raw_find_first_not_of( const value_type* str , size_type index ) const
+{
+	if( index >= size() )
+		return utf8_string::npos;
+	
+	for( const_iterator it = raw_get(index), end = cend() ; it < end ; ++it )
 	{
 		const value_type*	tmp = str;
 		value_type			cur = *it;
@@ -1993,37 +2029,12 @@ utf8_string::size_type utf8_string::find_first_not_of( const value_type* str , s
 			if( cur == *tmp )
 				goto continue2;
 		}while( *++tmp );
-		
-		return it - begin();
-		
+		return it.get_index();
 		continue2:;
 	}
 	
 	return utf8_string::npos;
 }
-
-utf8_string::size_type utf8_string::raw_find_first_not_of( const value_type* str , size_type index ) const
-{
-	if( index >= size() )
-		return utf8_string::npos;
-	
-	for( size_type it = index, my_size = size() ; it < my_size ; it += get_index_bytes( it ) )
-	{
-		const value_type*	tmp = str;
-		value_type			cur = raw_at(it);
-		do{
-			if( cur == *tmp )
-				goto continue2;
-		}while( *++tmp );
-		
-		return it;
-		
-		continue2:;
-	}
-	
-	return utf8_string::npos;
-}
-
 
 
 
@@ -2032,25 +2043,30 @@ utf8_string::size_type utf8_string::find_last_not_of( const value_type* str , si
 	if( empty() )
 		return utf8_string::npos;
 	
-	const_reverse_iterator it = ( start_pos >= length() ) ? crbegin() : rget( start_pos );
+	const_reverse_iterator  end = rend(), it;
+	size_type               string_len = length();
+	if( start_pos >= string_len ){
+	    it = crbegin();
+	    start_pos = string_len - 1;
+	}
+	else
+	    it = rget( start_pos );
 	
-	while( it < rend() )
-	{
+	for( ; it < end ; ++it, --start_pos ){
 		const value_type*	tmp = str;
 		value_type			cur = *it;
 		do{
 			if( cur == *tmp )
 				goto continue2;
 		}while( *++tmp );
-		
-		return -( it - begin() );
-		
-		continue2:
-		it++;
+		return start_pos;
+		continue2:;
 	}
 	
 	return utf8_string::npos;
 }
+
+
 
 utf8_string::size_type utf8_string::raw_find_last_not_of( const value_type* str , size_type index ) const
 {
@@ -2070,14 +2086,13 @@ utf8_string::size_type utf8_string::raw_find_last_not_of( const value_type* str 
 				goto continue2;
 		}while( *++tmp );
 		
-		return it;
+		return it; // It will be either non-negative or -1, which equals utf8_string::npos!
 		
 		continue2:;
 	}
 	
 	return utf8_string::npos;
 }
-
 
 
 
@@ -2089,6 +2104,8 @@ int operator-( const utf8_string::const_iterator& lhs , const utf8_string::const
 	return max_index == lhs.get_index() ? num_codepoints : -num_codepoints;
 }
 
+
+
 int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs )
 {
 	utf8_string::difference_type	minIndex = std::min( lhs.get_index() , rhs.get_index() );
@@ -2097,9 +2114,13 @@ int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_strin
 	return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
 }
 
+
+
 std::ostream& operator<<( std::ostream& stream , const utf8_string& str ){
 	return stream << str.c_str();
 }
+
+
 
 std::istream& operator>>( std::istream& stream , utf8_string& str ){
 	std::string tmp;
