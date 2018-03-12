@@ -1,4 +1,4 @@
-# TINYUTF8
+# TINY <img src="https://github.com/DuffsDevice/tinyutf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;">
 
 ### DESCRIPTION
 TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
