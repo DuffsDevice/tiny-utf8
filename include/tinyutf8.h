@@ -26,10 +26,6 @@
 #ifndef _TINY_UTF8_H_
 #define _TINY_UTF8_H_
 
-// Define the following macro, if you want to be guarded against malformed utf8 sequences
-#define _TINY_UTF8_H_SAFE_MODE_
-
-
 // Includes
 #include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::memmove
