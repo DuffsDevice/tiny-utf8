@@ -1,0 +1,14 @@
+language: cpp
+
+os:
+  - linux
+  - windows
+  - osx
+
+compiler:
+  - gcc
+  - clang
+
+script:
+  - cd test
+  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-ignored-attributes -I"../include" test.cpp ../lib/tinyutf8.cpp
