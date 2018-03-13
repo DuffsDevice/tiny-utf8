@@ -1384,7 +1384,7 @@ public:
 	inline utf8_string operator+( const utf8_string& summand ) const {
 		utf8_string str = *this;
 		str.append( summand );
-		return std::move(str);
+		return str;
 	}
 	
 	

@@ -25,6 +25,7 @@
 
 #include "tinyutf8.h"
 #include <ostream>
+#include <istream>
 
 utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type cp ) :
 	t_sso( 0 )
@@ -667,7 +668,7 @@ std::string utf8_string::cpp_str_bom() const
 	// Copy my data into it
 	std::memcpy( tmp_buffer + 3 , get_buffer() , size() + 1 );
 	
-	return std::move(result);
+	return result;
 }
 
 
@@ -880,7 +881,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 		std::memcpy( result.t_sso.data , get_buffer() + index , byte_count );
 		result.t_sso.data[byte_count] = '\0';
 		
-		return std::move(result);
+		return result;
 	}
 	
 	// At this point, sso must be inactive, because a substring can only be smaller than this string
@@ -985,7 +986,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 	result.t_non_sso.buffer_size = substr_buffer_size;
 	result.set_non_sso_string_len( substr_cps );
 	
-	return std::move(result);
+	return result;
 }
 
 
