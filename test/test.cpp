@@ -12,7 +12,7 @@ using namespace std;
 
 int main()
 {
-	ofstream out = ofstream( "test.txt" , std::ios::binary );
+	ofstream out{ "test.txt" , std::ios::binary };
 	
 	stringstream  cout;
 	

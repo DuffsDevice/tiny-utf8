@@ -2,7 +2,6 @@ language: cpp
 
 os:
   - linux
-  - windows
   - osx
 
 compiler:
@@ -11,4 +10,4 @@ compiler:
 
 script:
   - cd test
-  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-ignored-attributes -I"../include" test.cpp ../lib/tinyutf8.cpp
+  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I"../include" test.cpp ../lib/tinyutf8.cpp
