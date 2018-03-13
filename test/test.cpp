@@ -124,7 +124,7 @@ int main()
 		
 		cout << endl << "Random access output: ";
 		
-		for( int i = 0 ; i < str.length() ; i++ )
+		for( unsigned int i = 0 ; i < str.length() ; i++ )
 		{
 			char32_t cp = str[i];
 			if( cp <= 127 )
@@ -161,7 +161,7 @@ int main()
 		cout << "Length: " << str.length() << endl;
 		cout << "Random access output: ";
 		
-		for( int i = 0 ; i < str.length() ; i++ )
+		for( unsigned int i = 0 ; i < str.length() ; i++ )
 		{
 			char32_t cp = str[i];
 			if( cp <= 127 )

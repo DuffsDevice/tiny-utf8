@@ -853,7 +853,7 @@ utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type c
 
 
 
-utf8_string utf8_string::raw_substr( size_type index , size_type byte_count , size_type num_substr_codepoints ) const
+utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) const
 {
 	// Bound checks...
 	size_type data_len = size();

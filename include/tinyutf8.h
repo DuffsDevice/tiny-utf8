@@ -78,9 +78,9 @@ namespace detail
 	{
 		T			number;
 		struct{
-			char	bytes[sizeof(T)-1];
-			char	lbyte;
-		};
+			char	dummy[sizeof(T)-1];
+			char	last;
+		} bytes;
 	};
 }
 
@@ -671,8 +671,8 @@ private: //! Non-static helper methods
 		else if( detail::is_little_endian::value ){
 			detail::last_byte<size_type> lb;
 			lb.number = string_len;
-			lb.lbyte <<= 1;
-			lb.lbyte |= 0x1;
+			lb.bytes.last <<= 1;
+			lb.bytes.last |= 0x1;
 			t_non_sso.string_len = lb.number;
 		}
 		else
@@ -687,7 +687,7 @@ private: //! Non-static helper methods
 		else if( detail::is_little_endian::value ){
 			detail::last_byte<size_type> lb;
 			lb.number = t_non_sso.string_len;
-			lb.lbyte >>= 1;
+			lb.bytes.last >>= 1;
 			return lb.number;
 		}
 		else
@@ -1586,7 +1586,7 @@ public:
 	 */
 	inline utf8_string substr( iterator first , iterator last ) const {
 		size_type byte_count = last.t_raw_index - first.t_raw_index;
-		return raw_substr( first.t_raw_index , byte_count , get_num_codepoints( first.t_raw_index , byte_count ) );
+		return raw_substr( first.t_raw_index , byte_count );
 	}
 	/**
 	 * Returns a portion of the utf8_string
@@ -1604,7 +1604,7 @@ public:
 		
 		size_type byte_count = get_num_bytes( byte_start , len );
 		
-		return raw_substr( byte_start , byte_count , len );
+		return raw_substr( byte_start , byte_count );
 	}
 	/**
 	 * Returns a portion of the utf8_string (indexed on byte-base)
@@ -1613,17 +1613,9 @@ public:
 	 *			actual byte indices, it is much faster that substr()
 	 * @param	start_byte		The byte position where the substring shall start
 	 * @param	byte_count		The number of bytes that the substring shall have
-	 * @param	num_substr_codepoints
-	 *							(Optional) The number of codepoints
-	 *							the substring will have, in case this is already known
 	 * @return	The utf8_string holding the specified bytes
 	 */
-	utf8_string raw_substr( size_type start_byte , size_type byte_count , size_type num_substr_codepoints ) const ;
-	inline utf8_string raw_substr( size_type start_byte , size_type byte_count = utf8_string::npos ) const {
-		if( byte_count == utf8_string::npos )
-			byte_count = size() - start_byte;
-		return raw_substr( start_byte , byte_count , get_num_codepoints( start_byte , byte_count ) );
-	}
+	utf8_string raw_substr( size_type start_byte , size_type byte_count ) const ;
 	
 	
 	/**
