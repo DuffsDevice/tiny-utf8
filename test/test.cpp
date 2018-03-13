@@ -197,7 +197,7 @@ int main()
 	{
 		cout << "Test 6: " << endl << "-------" << endl;
 		
-		std::ifstream in = ifstream( "input.txt" , ios::binary );
+		std::ifstream in{ "input.txt" , ios::binary };
 		
 		utf8_string str = std::string( (std::istreambuf_iterator<char>(in)) , std::istreambuf_iterator<char>() );
 		
