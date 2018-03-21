@@ -1,6 +1,6 @@
 # TINY <img src="https://github.com/DuffsDevice/tinyutf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;">
 
-[![Build Status](https://travis-ci.org/DuffsDevice/tinyutf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tinyutf8)
+[![Build Status](https://travis-ci.org/DuffsDevice/tinyutf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tinyutf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tinyutf8/blob/master/LICENCE)
 
 ### DESCRIPTION
 TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
