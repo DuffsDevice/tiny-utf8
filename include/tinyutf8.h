@@ -939,7 +939,7 @@ public:
 	 */
 	inline void swap( utf8_string& str ){
 		if( &str != this ){
-			utf8_string tmp;
+			char tmp[sizeof(utf8_string)];
 			std::memcpy( &tmp , &str , sizeof(utf8_string) );
 			std::memcpy( &str , this , sizeof(utf8_string) );
 			std::memcpy( this , &tmp , sizeof(utf8_string) );
