@@ -634,7 +634,7 @@ utf8_string::size_type utf8_string::get_non_sso_capacity() const
 
 bool utf8_string::requires_unicode_sso() const
 {
-	constexpr size_type mask = get_hsb_mask<size_type>();
+	constexpr size_type mask = get_msb_mask<size_type>();
 	size_type			data_len = get_sso_data_len();
 	size_type			i = 0;
 	

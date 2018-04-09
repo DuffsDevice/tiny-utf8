@@ -710,7 +710,7 @@ private: //! Non-static helper methods
 	
 	// Helper for requires_unicode_sso that generates masks of the form 10000000 10000000...
 	template<typename T>
-	static constexpr T get_hsb_mask( width_type bytes = sizeof(T) ){ return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_hsb_mask<T>( bytes - 1 ) : T(0); }
+	static constexpr T get_msb_mask( width_type bytes = sizeof(T) ){ return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_msb_mask<T>( bytes - 1 ) : T(0); }
 	
 	//! Check, whether the string contains code points > 127
 	bool				requires_unicode_sso() const ;
@@ -724,25 +724,8 @@ private: //! Non-static helper methods
 		return sso_inactive() ? t_non_sso.buffer_size : get_sso_capacity();
 	}
 	
-	
 	//! Returns an std::string with the UTF-8 BOM prepended
 	std::string			cpp_str_bom() const ;
-	
-	//! Get the byte index of the last code point
-	inline size_type	back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
-	
-	/**
-	 * Counts the number of codepoints
-	 * that are built up of the supplied amout of bytes
-	 */
-	size_type			get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
-	
-	/**
-	 * Counts the number of bytes
-	 * required to hold the supplied amount of codepoints starting at the supplied byte index (or 0 for the '_from_start' version)
-	 */
-	size_type			get_num_bytes( size_type byte_start , size_type cp_count ) const ;
-	size_type			get_num_bytes_from_start( size_type cp_count ) const ;
 	
 	//! Constructs an utf8_string from a character literal
 	utf8_string( const char* str , size_type len , detail::read_codepoints_tag );
@@ -1859,6 +1842,23 @@ public:
 	inline width_type get_codepoint_pre_bytes( size_type codepoint_index ) const {
 		return get_index_pre_bytes( get_num_bytes_from_start( codepoint_index ) );
 	}
+	
+	
+	//! Get the byte index of the last code point
+	inline size_type	back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
+	
+	/**
+	 * Counts the number of codepoints
+	 * that are contained within the supplied range of bytes
+	 */
+	size_type			get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
+	
+	/**
+	 * Counts the number of bytes required to hold the supplied amount of codepoints
+	 * starting at the supplied byte index (or '0' for the '_from_start' version)
+	 */
+	size_type			get_num_bytes( size_type byte_start , size_type cp_count ) const ;
+	size_type			get_num_bytes_from_start( size_type cp_count ) const ;
 	
 	
 	//! Friend iterator difference computation functions
