@@ -59,7 +59,9 @@ namespace detail
 	#define _TINY_UTF8_H_HAS_CLZ_ true
 	static inline unsigned int clz( uint16_t val ){ return __lzcnt16( val ); }
 	static inline unsigned int clz( uint32_t val ){ return __lzcnt( val ); }
-	static inline unsigned int clz( uint64_t val ){ return __lzcnt64( val ); }
+	#ifndef WIN32
+	static inline unsigned int clz(uint64_t val) { return __lzcnt64(val); }
+	#endif // WIN32
 	static inline unsigned int clz( char32_t val ){ return __lzcnt( val ); }
 	#endif
 	
@@ -498,16 +500,7 @@ private: //! Static helper methods
 	
 	//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
 	//! Returns the number of bytes of the destination data type
-	static inline width_type			get_lut_width( size_type buffer_size ){
-		return buffer_size <= std::numeric_limits<std::uint8_t>::max()
-			? sizeof(std::uint8_t)
-			: buffer_size <= std::numeric_limits<std::uint16_t>::max()
-				? sizeof(std::uint16_t)
-				: buffer_size <= std::numeric_limits<std::uint32_t>::max()
-					? sizeof(std::uint32_t)
-					: sizeof(std::uint64_t)
-		;
-	}
+	static width_type					get_lut_width( size_type buffer_size );
 	
 	//! Determine the needed buffer size and the needed lut width (excluding the trailling LUT indicator)
 	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ){
