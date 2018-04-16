@@ -118,7 +118,8 @@ private: //! Layout specifications
 		char			data[sizeof(NON_SSO)-1];
 		unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
 		SSO( unsigned char data_len ) :
-			data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+			data{ '\0' }
+			, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 		{}
 	};
 	
