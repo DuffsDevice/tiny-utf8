@@ -454,16 +454,6 @@ utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const ch
 }
 
 
-utf8_string::width_type utf8_string::get_lut_width(size_type buffer_size) {
-	return buffer_size <= std::numeric_limits<std::uint8_t>::max()
-			? sizeof(std::uint8_t)
-			: buffer_size <= std::numeric_limits<std::uint16_t>::max()
-				? sizeof(std::uint16_t)
-				: buffer_size <= std::numeric_limits<std::uint32_t>::max()
-					? sizeof(std::uint32_t)
-					: sizeof(std::uint64_t);
-}
-
 
 #if !defined(_TINY_UTF8_H_HAS_CLZ_) || _TINY_UTF8_H_HAS_CLZ_ == false
 utf8_string::width_type utf8_string::get_codepoint_bytes( char first_byte , size_type data_left )
