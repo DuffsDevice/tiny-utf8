@@ -59,7 +59,9 @@ namespace detail
 	#define _TINY_UTF8_H_HAS_CLZ_ true
 	static inline unsigned int clz( uint16_t val ){ return __lzcnt16( val ); }
 	static inline unsigned int clz( uint32_t val ){ return __lzcnt( val ); }
-	static inline unsigned int clz( uint64_t val ){ return __lzcnt64( val ); }
+	#ifndef WIN32
+	static inline unsigned int clz( uint64_t val ){ return __lzcnt64(val); }
+	#endif // WIN32
 	static inline unsigned int clz( char32_t val ){ return __lzcnt( val ); }
 	#endif
 	

@@ -39,21 +39,18 @@ inline utf8_string::width_type utf8_string::get_lut_width( size_type buffer_size
 	;
 }
 
-inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width )
-{
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ){
 	size_type width_guess	= get_lut_width( ++data_len ); // Don't forget, we need a terminating '\0', distinct from the lut indicator
 	data_len += lut_len * width_guess; // Add the estimated number of bytes from the lut
 	data_len += lut_len * ( ( *lut_width = get_lut_width( data_len ) ) - width_guess ); // Adjust the added bytes from the lut
 	return round_up_to_align( data_len ); // Make the buffer size_type-aligned
 }
 
-inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width )
-{
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
 	return round_up_to_align( data_len + 1 + lut_len * lut_width ); // Compute the size_type-aligned buffer size
 }
 
-inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len )
-{
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len ){
 	// Make the buffer size_type-aligned
 	return round_up_to_align( data_len + 1 );
 }
