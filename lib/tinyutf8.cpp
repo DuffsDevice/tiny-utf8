@@ -26,6 +26,37 @@
 #include "tinyutf8.h"
 #include <ostream>
 #include <istream>
+#include <algorithm>
+
+inline utf8_string::width_type utf8_string::get_lut_width( size_type buffer_size ){
+	return buffer_size <= std::numeric_limits<std::uint8_t>::max()
+		? sizeof(std::uint8_t)
+		: buffer_size <= std::numeric_limits<std::uint16_t>::max()
+			? sizeof(std::uint16_t)
+			: buffer_size <= std::numeric_limits<std::uint32_t>::max()
+				? sizeof(std::uint32_t)
+				: sizeof(std::uint64_t)
+	;
+}
+
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width )
+{
+	size_type width_guess	= get_lut_width( ++data_len ); // Don't forget, we need a terminating '\0', distinct from the lut indicator
+	data_len += lut_len * width_guess; // Add the estimated number of bytes from the lut
+	data_len += lut_len * ( ( *lut_width = get_lut_width( data_len ) ) - width_guess ); // Adjust the added bytes from the lut
+	return round_up_to_align( data_len ); // Make the buffer size_type-aligned
+}
+
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width )
+{
+	return round_up_to_align( data_len + 1 + lut_len * lut_width ); // Compute the size_type-aligned buffer size
+}
+
+inline utf8_string::size_type utf8_string::determine_main_buffer_size( size_type data_len )
+{
+	// Make the buffer size_type-aligned
+	return round_up_to_align( data_len + 1 );
+}
 
 utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type cp ) :
 	t_sso( 0 )
