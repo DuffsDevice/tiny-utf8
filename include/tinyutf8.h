@@ -60,7 +60,7 @@ namespace detail
 	static inline unsigned int clz( uint16_t val ){ return __lzcnt16( val ); }
 	static inline unsigned int clz( uint32_t val ){ return __lzcnt( val ); }
 	#ifndef WIN32
-	static inline unsigned int clz(uint64_t val) { return __lzcnt64(val); }
+	static inline unsigned int clz( uint64_t val ){ return __lzcnt64(val); }
 	#endif // WIN32
 	static inline unsigned int clz( char32_t val ){ return __lzcnt( val ); }
 	#endif
@@ -120,7 +120,8 @@ private: //! Layout specifications
 		char			data[sizeof(NON_SSO)-1];
 		unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
 		SSO( unsigned char data_len ) :
-			data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+			data{ '\0' }
+			, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 		{}
 	};
 	
@@ -500,24 +501,15 @@ private: //! Static helper methods
 	
 	//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
 	//! Returns the number of bytes of the destination data type
-	static width_type					get_lut_width( size_type buffer_size );
+	static inline width_type			get_lut_width( size_type buffer_size );
 	
 	//! Determine the needed buffer size and the needed lut width (excluding the trailling LUT indicator)
-	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ){
-		size_type width_guess	= get_lut_width( ++data_len ); // Don't forget, we need a terminating '\0', distinct from the lut indicator
-		data_len += lut_len * width_guess; // Add the estimated number of bytes from the lut
-		data_len += lut_len * ( ( *lut_width = get_lut_width( data_len ) ) - width_guess ); // Adjust the added bytes from the lut
-		return round_up_to_align( data_len ); // Make the buffer size_type-aligned
-	}
+	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width );
 	//! Determine the needed buffer size if the lut width is known (excluding the trailling LUT indicator)
-	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
-		return round_up_to_align( data_len + 1 + lut_len * lut_width ); // Compute the size_type-aligned buffer size
-	}
+	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width );
 	//! Determine the needed buffer size if the lut is empty (excluding the trailling LUT indicator)
-	static inline size_type				determine_main_buffer_size( size_type data_len ){
-		// Make the buffer size_type-aligned
-		return round_up_to_align( data_len + 1 );
-	}
+	static inline size_type				determine_main_buffer_size( size_type data_len );
+	
 	//! Same as above but this time including the LUT indicator
 	static inline size_type				determine_total_buffer_size( size_type main_buffer_size ){
 		return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
