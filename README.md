@@ -34,7 +34,7 @@ Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 
 ### EXAMPLE USAGE
 
-```c
+```cpp
 #include <iostream>
 #include <algorithm>
 #include <tinyutf8.h>
