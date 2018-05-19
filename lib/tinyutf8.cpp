@@ -752,11 +752,11 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 	
 	// Procedure: Reduce the byte count by the number of data bytes within multibytes
 	const char*	buffer_iter = buffer + index;
-	const char*	buffer_end = buffer + data_len;
+	const char*	fragment_end = buffer_iter + byte_count;
 	
 	// Iterate the data byte by byte...
-	while( buffer_iter < buffer_end ){
-		width_type bytes = utf8_string::get_codepoint_bytes( *buffer_iter , buffer_end - buffer_iter );
+	while( buffer_iter < fragment_end ){
+		width_type bytes = utf8_string::get_codepoint_bytes( *buffer_iter , fragment_end - buffer_iter );
 		buffer_iter += bytes;
 		byte_count -= bytes - 1;
 	}
