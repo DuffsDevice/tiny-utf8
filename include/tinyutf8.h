@@ -119,9 +119,12 @@ private: //! Layout specifications
 	{
 		char			data[sizeof(NON_SSO)-1];
 		unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
-		SSO( unsigned char data_len ) :
-			data{ '\0' }
+		SSO( unsigned char data_len , char value ) :
+			data{ value }
 			, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+		{}
+		SSO( unsigned char data_len ) :
+			data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 		{}
 	};
 	
@@ -723,7 +726,7 @@ public:
 	 * 
 	 * @note Creates an Instance of type utf8_string that is empty
 	 */
-	inline utf8_string() : t_sso( 0 ) {}
+	inline utf8_string() : t_sso( 0 , '\0' ) {}
 	/**
 	 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
 	 * 
@@ -783,8 +786,8 @@ public:
 	 * @param	n		The number of codepoints generated
 	 * @param	cp		The code point that the whole buffer will be set to
 	 */
-	inline utf8_string( value_type cp ) : t_sso( 1 ) {
-		t_sso.data[ encode_utf8( cp , t_sso.data ) ] = 0;
+	inline utf8_string( value_type cp ) : t_sso( cp = encode_utf8( cp , t_sso.data ) ) {
+		t_sso.data[cp] = '\0';
 	}
 	/**
 	 * Constructor that fills the string with a certain amount of characters
