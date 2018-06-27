@@ -506,6 +506,13 @@ private: //! Static helper methods
 	//! Returns the number of bytes of the destination data type
 	static inline width_type			get_lut_width( size_type buffer_size );
 	
+	//! Determine, whether or not a LUT is worth to set up
+	static inline bool					is_lut_worth( size_type pot_lut_len , size_type string_len , bool lut_present , bool biased = true ){
+		size_type threshold = ( biased ? ( lut_present ? 5 : 3 ) : 4 ) * string_len / 8u;
+		// Note pot_lut_len is supposed to underflow at '0'
+		return size_type( pot_lut_len - 1 ) < threshold;
+	}
+	
 	//! Determine the needed buffer size and the needed lut width (excluding the trailling LUT indicator)
 	static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width );
 	//! Determine the needed buffer size if the lut width is known (excluding the trailling LUT indicator)

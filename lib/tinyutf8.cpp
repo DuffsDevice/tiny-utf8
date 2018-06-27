@@ -1128,8 +1128,10 @@ utf8_string& utf8_string::append( const utf8_string& app )
 	size_type	new_buffer_size;
 	width_type	new_lut_width; // [2] ; 0 signalizes, that we don't need a lut
 	
-	// Use indices table?
-	if( new_lut_len > 0 && ( old_lut_active || !old_sso_inactive ) )
+	// Indices Table worth the memory loss?
+	// If the ratio of indices/codepoints is lower 5/8 and we have a LUT -> keep it
+	// If we don't have a LUT, it has to drop below 3/8 for us to start one
+	if( utf8_string::is_lut_worth( new_lut_len , new_string_len , old_lut_active , old_sso_inactive ) )
 		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , &new_lut_width );
 	else{
 		new_lut_width = 0;
@@ -1195,6 +1197,9 @@ utf8_string& utf8_string::append( const utf8_string& app )
 		// Need to fill the lut? (see [2])
 		if( new_lut_width )
 		{
+			// Update the lut width, since we doubled the buffer size a couple of lines above
+			new_lut_width = utf8_string::get_lut_width( new_buffer_size );
+			
 			// Reuse indices from old lut?
 			if( old_lut_active )
 			{
@@ -1409,7 +1414,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 	width_type	new_lut_width; // [2] ; 0 signalizes, that we don't need a lut
 	
 	// Indices Table worth the memory loss?
-	if( size_type( new_lut_len - 1 ) < size_type( new_string_len / 2 ) ) // Note: new_lut_len is intended to underflow at '0'
+	if( utf8_string::is_lut_worth( new_lut_len , new_string_len , old_lut_active , old_sso_inactive ) )
 		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , &new_lut_width );
 	else{
 		new_lut_width = 0;
@@ -1528,6 +1533,9 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 		// Need to fill the lut? (see [2])
 		if( new_lut_width )
 		{
+			// Update the lut width, since we doubled the buffer size a couple of lines above
+			new_lut_width = utf8_string::get_lut_width( new_buffer_size );
+			
 			// Reuse indices from old lut?
 			if( old_lut_active )
 			{
@@ -1800,7 +1808,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 	
 	
 	// Indices Table worth the memory loss?
-	if( size_type( new_lut_len - 1 ) < size_type( new_string_len / 2 ) ) // Note: new_lut_len is intended to underflow at '0'
+	if( utf8_string::is_lut_worth( new_lut_len , new_string_len , old_lut_active , old_sso_inactive ) )
 		new_buffer_size	= determine_main_buffer_size( new_data_len , new_lut_len , &new_lut_width );
 	else{
 		new_lut_width = 0;
@@ -1928,6 +1936,9 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		// Need to fill the lut? (see [2])
 		if( new_lut_width )
 		{
+			// Update the lut width, since we doubled the buffer size a couple of lines above
+			new_lut_width = utf8_string::get_lut_width( new_buffer_size );
+			
 			// Reuse indices from old lut?
 			if( old_lut_active )
 			{
