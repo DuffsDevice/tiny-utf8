@@ -1076,7 +1076,7 @@ public:
 	 * @note	Returns the UTF-8 formatted content of this utf8_string
 	 * @return	UTF-8 formatted data, wrapped inside an std::string
 	 */
-	inline std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() ); }
+	inline std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() , size() ); }
 	
 	
 	/**
