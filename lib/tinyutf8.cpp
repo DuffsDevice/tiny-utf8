@@ -733,7 +733,7 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 			}
 			
 			// Iterate over relevant multibyte indices
-			while( lut_iter > lut_begin ){
+			while( lut_iter >= lut_begin ){
 				size_type multibyte_index = utf8_string::get_lut( lut_iter , lut_width );
 				if( multibyte_index >= end_index )
 					break;
