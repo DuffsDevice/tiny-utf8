@@ -159,7 +159,7 @@ utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoi
 	// Need heap memory?
 	if( data_len > utf8_string::get_sso_capacity() )
 	{
-		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
+		if( utf8_string::is_lut_worth( num_multibytes , string_len , false , false )
 		{
 			// Determine the buffer size (excluding the lut indicator) and the lut width
 			width_type	lut_width;
@@ -256,7 +256,7 @@ utf8_string::utf8_string( const char* str , size_type data_len , detail::read_by
 	// Need heap memory?
 	if( data_len > utf8_string::get_sso_capacity() )
 	{
-		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
+		if( utf8_string::is_lut_worth( num_multibytes , string_len , false , false )
 		{
 			// Determine the buffer size (excluding the lut indicator) and the lut width
 			width_type	lut_width;
@@ -354,7 +354,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 	// Need heap memory?
 	if( data_len > utf8_string::get_sso_capacity() )
 	{
-		if( size_type( num_multibytes - 1 ) < size_type( string_len / 2 ) ) // Indices Table worth the memory loss? (Note: num_multibytes is intended to underflow at '0')
+		if( utf8_string::is_lut_worth( num_multibytes , string_len , false , false )
 		{	
 			// Determine the buffer size (excluding the lut indicator) and the lut width
 			width_type lut_width;
