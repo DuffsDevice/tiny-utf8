@@ -49,3 +49,7 @@ int main()
     return 0;
 }
 ```
+
+### BUGS
+
+If you encounter any bugs, please file a bug report through the "Issues" tab. I'll try to answer it soon!
