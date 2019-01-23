@@ -596,7 +596,8 @@ private: //! Static helper methods
 				return 5;
 			else if( cp <= 0x7FFFFFFF )
 				return 6;
-			return 1;
+			else
+				return 7;
 		#endif
 	}
 	
