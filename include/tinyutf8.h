@@ -794,7 +794,7 @@ public:
 	 * @param	n		The number of codepoints generated
 	 * @param	cp		The code point that the whole buffer will be set to
 	 */
-	inline utf8_string( value_type cp ) : t_sso( cp = encode_utf8( cp , t_sso.data ) ) {
+	explicit inline utf8_string( value_type cp ) : t_sso( cp = encode_utf8( cp , t_sso.data ) ) {
 		t_sso.data[cp] = '\0';
 	}
 	/**
