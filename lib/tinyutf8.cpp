@@ -501,7 +501,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 			if( &str == this )
 				return *this;
 			const char* str_lut_base_ptr = utf8_string::get_lut_base_ptr( str.t_non_sso.data , str.t_non_sso.buffer_size );
-			if( utf8_string::lut_active( str_lut_base_ptr ) )
+			if( utf8_string::is_lut_active( str_lut_base_ptr ) )
 			{
 				width_type	lut_width = get_lut_width( t_non_sso.buffer_size ); // Lut width, if the current buffer is used
 				size_type	str_lut_len = utf8_string::get_lut_len( str_lut_base_ptr );
@@ -586,7 +586,7 @@ void utf8_string::shrink_to_fit()
 	char*		lut_base_ptr = utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	size_type	required_buffer_size;
 	
-	if( lut_active( lut_base_ptr ) )
+	if( is_lut_active( lut_base_ptr ) )
 	{
 		size_type	lut_len				= get_lut_len( lut_base_ptr );
 		width_type	new_lut_width;
@@ -651,7 +651,7 @@ utf8_string::size_type utf8_string::get_non_sso_capacity() const
 	const char*	lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 	
 	// If the lut is active, add the number of additional bytes to the current data length
-	if( utf8_string::lut_active( lut_base_ptr ) )
+	if( utf8_string::is_lut_active( lut_base_ptr ) )
 		data_len += utf8_string::get_lut_width( buffer_size ) * utf8_string::get_lut_len( lut_base_ptr );
 	
 	// Return the buffer size (excluding the potential trailing '\0') divided by the average number of bytes per code point
@@ -714,7 +714,7 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 		const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 		
 		// Is the LUT active?
-		if( utf8_string::lut_active( lut_iter ) )
+		if( utf8_string::is_lut_active( lut_iter ) )
 		{
 			size_type lut_len = utf8_string::get_lut_len( lut_iter );
 			
@@ -780,7 +780,7 @@ utf8_string::size_type utf8_string::get_num_bytes_from_start( size_type cp_count
 		const char*	lut_iter	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
 		
 		// Is the lut active?
-		if( utf8_string::lut_active( lut_iter ) )
+		if( utf8_string::is_lut_active( lut_iter ) )
 		{
 			// Reduce the byte count by the number of data bytes within multibytes
 			width_type lut_width = utf8_string::get_lut_width( buffer_size );
@@ -830,7 +830,7 @@ utf8_string::size_type utf8_string::get_num_bytes( size_type index , size_type c
 			return data_len - index;
 		
 		// Is the lut active?
-		if( utf8_string::lut_active( lut_iter ) )
+		if( utf8_string::is_lut_active( lut_iter ) )
 		{
 			size_type orig_index = index;
 			size_type lut_len = utf8_string::get_lut_len( lut_iter );
@@ -920,7 +920,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 	size_type buffer_size		= t_non_sso.buffer_size;
 	const char* buffer			= t_non_sso.data;
 	const char* lut_base_ptr	= utf8_string::get_lut_base_ptr( buffer , buffer_size );
-	bool lut_active				= utf8_string::lut_active( lut_base_ptr );
+	bool lut_active				= utf8_string::is_lut_active( lut_base_ptr );
 	width_type lut_width; // Ignore uninitialized warning, see [5]
 	
 	// Count the number of SUBSTRING Multibytes and codepoints
@@ -1057,7 +1057,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 		
 		// Compute the number of multibytes
 		app_lut_base_ptr = utf8_string::get_lut_base_ptr( app_buffer , app_buffer_size );
-		app_lut_active = utf8_string::lut_active( app_lut_base_ptr );
+		app_lut_active = utf8_string::is_lut_active( app_lut_base_ptr );
 		if( app_lut_active )
 			app_lut_len = utf8_string::get_lut_len( app_lut_base_ptr );
 		else{
@@ -1097,7 +1097,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 		
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::lut_active( old_lut_base_ptr )) )
+		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = 0;
@@ -1332,7 +1332,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 		
 		// Compute the number of multibytes
 		str_lut_base_ptr = utf8_string::get_lut_base_ptr( str_buffer , str_buffer_size );
-		str_lut_active = utf8_string::lut_active( str_lut_base_ptr );
+		str_lut_active = utf8_string::is_lut_active( str_lut_base_ptr );
 		if( str_lut_active )
 			str_lut_len = utf8_string::get_lut_len( str_lut_base_ptr );
 		else{
@@ -1377,7 +1377,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 		}
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::lut_active( old_lut_base_ptr )) )
+		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = mb_index;
@@ -1715,7 +1715,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		
 		// Compute the number of multibytes
 		repl_lut_base_ptr = utf8_string::get_lut_base_ptr( repl_buffer , repl_buffer_size );
-		repl_lut_active = utf8_string::lut_active( repl_lut_base_ptr );
+		repl_lut_active = utf8_string::is_lut_active( repl_lut_base_ptr );
 		if( repl_lut_active )
 			repl_lut_len = utf8_string::get_lut_len( repl_lut_base_ptr );
 		else{
@@ -1765,7 +1765,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		}
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::lut_active( old_lut_base_ptr )) )
+		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = mb_index + replaced_mbs;
@@ -2112,7 +2112,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	char*		old_buffer = t_non_sso.data;
 	size_type	old_buffer_size = t_non_sso.buffer_size;
 	char*		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-	bool		old_lut_active = utf8_string::lut_active( old_lut_base_ptr );
+	bool		old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr );
 	size_type	replaced_cps = 0;
 	
 	// Adjust data length
@@ -2177,21 +2177,6 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	set_non_sso_string_len( get_non_sso_string_len() - replaced_cps );
 	
 	return *this;
-}
-
-
-
-utf8_string::difference_type utf8_string::compare( const utf8_string& str ) const
-{
-	const_iterator	it1 = cbegin(), it2 = str.cbegin(), end1 = cend(), end2 = str.cend();
-	while( it1 < end1 && it2 < end2 ){
-		difference_type diff = *it2 - *it1;
-		if( diff )
-			return diff;
-		++it1;
-		++it2;
-	}
-	return ( it1 == end1 ? 1 : 0 ) - ( it2 == end2 ? 1 : 0 );
 }
 
 

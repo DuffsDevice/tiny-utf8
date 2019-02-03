@@ -482,7 +482,7 @@ private: //! Static helper methods
 	>::type;
 	
 	//! Check, if the lut is active using the lut base ptr
-	static inline bool					lut_active( const char* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
+	static inline bool					is_lut_active( const char* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
 	
 	//! Rounds the supplied value to a multiple of sizeof(size_type)
 	static inline size_type				round_up_to_align( size_type val ){
@@ -506,9 +506,9 @@ private: //! Static helper methods
 	//! Returns the number of bytes of the destination data type
 	static inline width_type			get_lut_width( size_type buffer_size );
 	
-	//! Determine, whether or not a LUT is worth to set up
+	//! Determine, whether or not a LUT is worth to set up. General case: worth below 25%. If LUT present <33,3%, otherwise <16,7%
 	static inline bool					is_lut_worth( size_type pot_lut_len , size_type string_len , bool lut_present , bool biased = true ){
-		size_type threshold = ( biased ? ( lut_present ? 5 : 3 ) : 4 ) * string_len / 8u;
+		size_type threshold = biased ? ( lut_present ? string_len / 3u : string_len / 6u ) : string_len / 4u;
 		// Note pot_lut_len is supposed to underflow at '0'
 		return size_type( pot_lut_len - 1 ) < threshold;
 	}
@@ -762,13 +762,12 @@ public:
 			t_sso.data[LITLEN] = '\0';
 			set_sso_data_len( LITLEN );
 		}
-		else{
+		else
 			set_sso_data_len( LITLEN - 1 );
-		}
 	}
 	template<size_type LITLEN>
 	inline utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = nullptr ) :
-		utf8_string( str , utf8_string::npos , detail::read_codepoints_tag() ) // Call the one that works on arbitrary character arrays
+		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , detail::read_bytes_tag() )
 	{}
 	/**
 	 * Constructor taking an std::string
@@ -864,6 +863,10 @@ public:
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
 	utf8_string( const value_type* str , size_type len = utf8_string::npos );
+	template<size_type LITLEN>
+	inline utf8_string( const value_type (&str)[LITLEN] ) :
+		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) )
+	{}
 	/**
 	 * Constructor taking an initializer list of codepoints.
 	 * 
@@ -1072,15 +1075,6 @@ public:
 	
 	
 	/**
-	 * Get the raw data contained in this utf8_string wrapped by an std::string
-	 * 
-	 * @note	Returns the UTF-8 formatted content of this utf8_string
-	 * @return	UTF-8 formatted data, wrapped inside an std::string
-	 */
-	inline std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() , size() ); }
-	
-	
-	/**
 	 * Get the number of codepoints in this utf8_string
 	 * 
 	 * @note	Returns the number of codepoints that are taken care of
@@ -1109,37 +1103,7 @@ public:
 	inline bool empty() const { return sso_inactive() ? !t_non_sso.data_len : t_sso.data_len == (get_sso_capacity() << 1); }
 	
 	
-	/**
-	 * Check whether the data inside this utf8_string cannot be iterated by an std::string
-	 * 
-	 * @note	Returns true, if the utf8_string has codepoints that exceed 7 bits to be stored
-	 * @return	True, if there are UTF-8 formatted byte sequences,
-	 *			false, if there are only ascii characters (<128) inside
-	 */
-	inline bool requires_unicode() const {
-		return sso_inactive() ? t_non_sso.data_len != get_non_sso_string_len() : requires_unicode_sso();
-	}
 	
-	
-	/**
-	 * Determine, if small string optimization is active
-	 * @return	True, if the utf8 data is stored within the utf8_string object itself
-	 *			false, otherwise
-	 */
-	inline bool sso_active() const { return sso_inactive() == false; }
-	
-	
-	/**
-	 * Receive a (null-terminated) wide string literal from this UTF-8 string
-	 * 
-	 * @param	dest	A buffer capable of holding at least 'length()+1' elements of type 'value_type'
-	 * @return	void
-	 */
-	void to_wide_literal( value_type* dest ) const {
-		for( const char* data = get_buffer(), * data_end = data + size() ; data < data_end ; )
-			data += decode_utf8_and_len( data , *dest++ , data_end - data );
-		*dest = 0;
-	}
 	
 	
 	/**
@@ -1412,20 +1376,34 @@ public:
 	 * @param	str		The UTF-8 sequence to fill the this utf8_string with
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
-	template<typename T>
-	inline utf8_string& assign( T&& str , enable_if_ptr<T,char> = nullptr ){
-		return *this = utf8_string( str );
-	}
 	inline utf8_string& assign( const char* str , size_type len ){
 		return *this = utf8_string( str , len );
 	}
 	/**
-	 * Assigns an utf8 char literal to this string
+	 * Assigns an utf8 char literal to this string (with possibly embedded '\0's)
 	 * 
 	 * @param	str		The UTF-8 literal to fill the utf8_string with
 	 */
 	template<size_type LITLEN>
 	inline utf8_string& assign( const char (&str)[LITLEN] ){
+		return *this = utf8_string( str );
+	}
+	/**
+	 * Assigns an utf-32 sequence and the maximum length to read from it (in number of codepoints) to this string
+	 * 
+	 * @param	str		The UTF-8 sequence to fill the this utf8_string with
+	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
+	 */
+	inline utf8_string& assign( const value_type* str , size_type len ){
+		return *this = utf8_string( str , len );
+	}
+	/**
+	 * Assigns an utf-32 char literal to this string (with possibly embedded '\0's)
+	 * 
+	 * @param	str		The UTF-32 literal to fill the utf8_string with
+	 */
+	template<size_type LITLEN>
+	inline utf8_string& assign( const value_type (&str)[LITLEN] ){
 		return *this = utf8_string( str );
 	}
 	/**
@@ -1745,80 +1723,161 @@ public:
 	}
 	
 	/**
-	 * Compares this utf8_string to the supplied one
+	 * Compare this string with the supplied one.
 	 *
-	 * @param	str	The string to compare this one with
+	 * @param	str		The string to compare this one with
 	 * @return	0	They compare equal
 	 *			<0	Either the value of the first character that does not match is lower in
 	 *			the compared string, or all compared characters match but the compared string is shorter.
 	 *			>0	Either the value of the first character that does not match is greater in
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	difference_type compare( const utf8_string& str ) const ;
-	
-	/**
-	 * Returns true, if the supplied string compares unequal to this one.
-	 *
-	 * @param	str		The string to compare this one with
-	 * @return	true	They compare unequal
-	 *			false	They compare equal
-	 */
-	inline bool equals_not( const utf8_string& str ) const {
-		size_type my_size = size();
-		return my_size != str.size() || std::memcmp( str.data() , data() , my_size + 1 );
+	inline int compare( const utf8_string& str ) const {
+		size_type my_size = size(), str_size = str.size();
+		if( my_size != str_size )
+			return my_size < str_size ? -1 : 1;
+		return std::memcmp( data() , str.data() , my_size );
 	}
 	/**
-	 * Returns true, if the supplied string compares unequal to this one.
+	 * Compare this string with the supplied one.
 	 *
 	 * @param	str		The string to compare this one with, interpreted as UTF-8.
-	 * @return	true	They compare equal
-	 *			false	They compare different
+	 * @return	0	They compare equal
+	 *			<0	Either the value of the first character that does not match is lower in
+	 *			the compared string, or all compared characters match but the compared string is shorter.
+	 *			>0	Either the value of the first character that does not match is greater in
+	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	inline bool equals_not( const std::string& str ) const {
-		size_type my_size = size();
-		return my_size != str.size() || std::memcmp( str.data() , data() , my_size + 1 );
+	inline int compare( const std::string& str ) const {
+		size_type my_size = size(), str_size = str.size();
+		if( my_size != str_size )
+			return my_size < str_size ? -1 : 1;
+		return std::memcmp( data() , str.data() , my_size );
 	}
 	/**
-	 * Returns true, if the supplied string compares unequal to the contents of this utf8 string.
-	 * If this utf8 string contains embedded zeros, the result will always be false.
+	 * Compares this string with the supplied one.
+	 * Thes supplied string literal is considered to end with the trailling '\0'.
+	 * This is especially important, if this utf8 string contains embedded zeros.
 	 *
 	 * @param	str		Null-terminated string literal, interpreted as UTF-8. The pointer is expected to be valid
-	 * @return	true	They compare unequal
-	 *			false	They compare equal
+	 * @return	0	They compare equal
+	 *			<0	Either the value of the first character that does not match is lower in
+	 *			the compared string, or all compared characters match but the compared string is shorter.
+	 *			>0	Either the value of the first character that does not match is greater in
+	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	inline bool equals_not( const char* str ) const {
-		const char* it = data();
-		for( const char* end = it + size() ; it != end && *it == *str ; ++it, ++str );
-		return *it != *str; // Even if it == end, it points to the zero after the data, because its 0 terminated
+	inline int compare( const char* str ) const {
+		const char* it = data(), *end = it + size();
+		while( it != end && *str ){
+			if( *it != *str )
+				return *it < *str ? -1 : 1;
+			++it, ++str;
+		}
+		return *str ? -1 : it == end ? 0 : 1;
 	}
 	/**
-	 * Returns true, if the supplied string compares unequal to the contents of this utf8 string.
-	 * If this utf8 string contains embedded zeros, the result will always be false.
+	 * Compares this string with the supplied one.
+	 *
+	 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-8. The pointer is expected to be valid
+	 * @return	0	They compare equal
+	 *			<0	Either the value of the first character that does not match is lower in
+	 *			the compared string, or all compared characters match but the compared string is shorter.
+	 *			>0	Either the value of the first character that does not match is greater in
+	 *			the compared string, or all compared characters match but the compared string is longer.
+	 */
+	template<size_type LITLEN> 
+	inline int compare( const char (&str)[LITLEN] ) const {
+		const char* it = data(), *end = it + size();
+		size_type i = str[LITLEN-1] ? 0 : 1;
+		while( it != end && i < LITLEN ){
+			if( *it != *str )
+				return *it < *str ? -1 : 1;
+			++it, ++str;
+		}
+		return i < LITLEN ? -1 : it == end ? 0 : 1;
+	}
+	/**
+	 * Compares this string with the supplied one.
+	 * Thes supplied string literal is considered to end with the trailling '\0'.
+	 * This is especially important, if this utf8 string contains embedded zeros.
 	 *
 	 * @param	str		Pointer to a null-terminated string literal, interpreted as UTF-32. The pointer is expected to be valid
-	 * @return	true	They compare unequal
-	 *			false	They compare equal
+	 * @return	0	They compare equal
+	 *			<0	Either the value of the first character that does not match is lower in
+	 *			the compared string, or all compared characters match but the compared string is shorter.
+	 *			>0	Either the value of the first character that does not match is greater in
+	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	inline bool equals_not( const value_type* str ) const {
-		const_iterator it = cbegin();
-		for( const_iterator end = cend() ; it != end && *str == *it ; ++it, ++str );
-		return *it != *str; // Even if it == end, it points to the zero after the data, because its 0 terminated
+	inline int compare( const value_type* str ) const {
+		const_iterator	it = cbegin(), end = cend();
+		while( it != end && *str ){
+			if( *it != *str )
+				return *it < *str ? -1 : 1;
+			++it, ++str;
+		}
+		return *str ? -1 : it == end ? 0 : 1;
+	}
+	/**
+	 * Compares this string with the supplied one.
+	 *
+	 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-32. The pointer is expected to be valid
+	 * @return	0	They compare equal
+	 *			<0	Either the value of the first character that does not match is lower in
+	 *			the compared string, or all compared characters match but the compared string is shorter.
+	 *			>0	Either the value of the first character that does not match is greater in
+	 *			the compared string, or all compared characters match but the compared string is longer.
+	 */
+	template<size_type LITLEN> 
+	inline int compare( const value_type (&str)[LITLEN] ) const {
+		const_iterator	it = cbegin(), end = cend();
+		size_type i = str[LITLEN-1] ? 0 : 1;
+		while( it != end && i < LITLEN ){
+			if( *it != *str )
+				return *it < *str ? -1 : 1;
+			++it, ++str;
+		}
+		return i < LITLEN ? -1 : it == end ? 0 : 1;
 	}
 	
-	//! Compare this utf8_string to another string
-	inline bool operator==( const utf8_string& str ) const { return !equals_not( str ); }
-	inline bool operator!=( const utf8_string& str ) const { return equals_not( str ); }
-	inline bool operator==( const char* str ) const { return !equals_not( str ); }
-	inline bool operator!=( const char* str ) const { return equals_not( str ); }
-	inline bool operator==( const value_type* str ) const { return !equals_not( str ); }
-	inline bool operator!=( const value_type* str ) const { return equals_not( str ); }
-	inline bool operator==( const std::string& str ) const { return !equals_not( str ); }
-	inline bool operator!=( const std::string& str ) const { return equals_not( str ); }
+	//! Equality Comparison Operators
+	inline bool operator==( const utf8_string& str ) const { return compare( str ) == 0; }
+	inline bool operator!=( const utf8_string& str ) const { return compare( str ) != 0; }
+	inline bool operator==( const char* str ) const { return compare( str ) == 0; }
+	inline bool operator!=( const char* str ) const { return compare( str ) != 0; }
+	template<size_type LITLEN> inline bool operator==( const char (&str)[LITLEN] ) const { return compare( str ) == 0; }
+	template<size_type LITLEN> inline bool operator!=( const char (&str)[LITLEN] ) const { return compare( str ) != 0; }
+	inline bool operator==( const value_type* str ) const { return compare( str ) == 0; }
+	inline bool operator!=( const value_type* str ) const { return compare( str ) != 0; }
+	template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
+	template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
+	inline bool operator==( const std::string& str ) const { return compare( str ) == 0; }
+	inline bool operator!=( const std::string& str ) const { return compare( str ) != 0; }
 	
-	inline bool operator>( const utf8_string& str ) const { return str.compare( *this ) > 0; }
-	inline bool operator>=( const utf8_string& str ) const { return str.compare( *this ) >= 0; }
-	inline bool operator<( const utf8_string& str ) const { return str.compare( *this ) < 0; }
-	inline bool operator<=( const utf8_string& str ) const { return str.compare( *this ) <= 0; }
+	//! Lexicographical comparison Operators
+	inline bool operator>( const utf8_string& str ) const { return compare( str ) > 0; }
+	inline bool operator>=( const utf8_string& str ) const { return compare( str ) >= 0; }
+	inline bool operator<( const utf8_string& str ) const { return compare( str ) < 0; }
+	inline bool operator<=( const utf8_string& str ) const { return compare( str ) <= 0; }
+	inline bool operator>( const char* str ) const { return compare( str ) > 0; }
+	inline bool operator>=( const char* str ) const { return compare( str ) >= 0; }
+	inline bool operator<( const char* str ) const { return compare( str ) < 0; }
+	inline bool operator<=( const char* str ) const { return compare( str ) <= 0; }
+	template<size_type LITLEN> inline bool operator>( const char (&str)[LITLEN] ) const { return compare( str ) > 0; }
+	template<size_type LITLEN> inline bool operator>=( const char (&str)[LITLEN] ) const { return compare( str ) >= 0; }
+	template<size_type LITLEN> inline bool operator<( const char (&str)[LITLEN] ) const { return compare( str ) < 0; }
+	template<size_type LITLEN> inline bool operator<=( const char (&str)[LITLEN] ) const { return compare( str ) <= 0; }
+	inline bool operator>( const value_type* str ) const { return compare( str ) > 0; }
+	inline bool operator>=( const value_type* str ) const { return compare( str ) >= 0; }
+	inline bool operator<( const value_type* str ) const { return compare( str ) < 0; }
+	inline bool operator<=( const value_type* str ) const { return compare( str ) <= 0; }
+	template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
+	template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
+	template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
+	template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
+	inline bool operator>( const std::string& str ) const { return compare( str ) > 0; }
+	inline bool operator>=( const std::string& str ) const { return compare( str ) >= 0; }
+	inline bool operator<( const std::string& str ) const { return compare( str ) < 0; }
+	inline bool operator<=( const std::string& str ) const { return compare( str ) <= 0; }
 	
 	
 	//! Get the number of bytes of code point in utf8_string
@@ -1860,6 +1919,59 @@ public:
 	//! Friend iterator difference computation functions
 	friend int operator-( const const_iterator& lhs , const const_iterator& rhs );
 	friend int operator-( const const_reverse_iterator& lhs , const const_reverse_iterator& rhs );
+	
+	
+public: //! tinyutf8-specific features
+	
+	
+	/**
+	 * Check whether the data inside this utf8_string cannot be iterated by an std::string
+	 * 
+	 * @note	Returns true, if the utf8_string has codepoints that exceed 7 bits to be stored
+	 * @return	True, if there are UTF-8 formatted byte sequences,
+	 *			false, if there are only ascii characters (<128) inside
+	 */
+	inline bool requires_unicode() const {
+		return sso_inactive() ? t_non_sso.data_len != get_non_sso_string_len() : requires_unicode_sso();
+	}
+	
+	
+	/**
+	 * Determine, if small string optimization is active
+	 * @return	True, if the utf8 data is stored within the utf8_string object itself
+	 *			false, otherwise
+	 */
+	inline bool sso_active() const { return sso_inactive() == false; }
+	
+	
+	/**
+	 * Determine, if small string optimization is active
+	 * @return	True, if the utf8 data is stored within the utf8_string object itself
+	 *			false, otherwise
+	 */
+	inline bool lut_active() const { return sso_inactive() && utf8_string::is_lut_active( utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size ) ); }
+	
+	
+	/**
+	 * Receive a (null-terminated) wide string literal from this UTF-8 string
+	 * 
+	 * @param	dest	A buffer capable of holding at least 'length()+1' elements of type 'value_type'
+	 * @return	void
+	 */
+	void to_wide_literal( value_type* dest ) const {
+		for( const char* data = get_buffer(), * data_end = data + size() ; data < data_end ; )
+			data += decode_utf8_and_len( data , *dest++ , data_end - data );
+		*dest = 0;
+	}
+	
+	
+	/**
+	 * Get the raw data contained in this utf8_string wrapped by an std::string
+	 * 
+	 * @note	Returns the UTF-8 formatted content of this utf8_string
+	 * @return	UTF-8 formatted data, wrapped inside an std::string
+	 */
+	inline std::string cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::string( c_str() , size() ); }
 };
 
 //! Compare two iterators
