@@ -1766,7 +1766,7 @@ public:
 	 *			>0	Either the value of the first character that does not match is greater in
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	inline int compare( const char* str ) const {
+	int compare( const char* str ) const {
 		const char* it = data(), *end = it + size();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1786,7 +1786,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<size_type LITLEN> 
-	inline int compare( const char (&str)[LITLEN] ) const {
+	int compare( const char (&str)[LITLEN] ) const {
 		const char* it = data(), *end = it + size();
 		size_type i = str[LITLEN-1] ? 0 : 1;
 		while( it != end && i < LITLEN ){
@@ -1808,7 +1808,7 @@ public:
 	 *			>0	Either the value of the first character that does not match is greater in
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	inline int compare( const value_type* str ) const {
+	int compare( const value_type* str ) const {
 		const_iterator	it = cbegin(), end = cend();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1828,7 +1828,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<size_type LITLEN> 
-	inline int compare( const value_type (&str)[LITLEN] ) const {
+	int compare( const value_type (&str)[LITLEN] ) const {
 		const_iterator	it = cbegin(), end = cend();
 		size_type i = str[LITLEN-1] ? 0 : 1;
 		while( it != end && i < LITLEN ){
