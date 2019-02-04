@@ -4,7 +4,6 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#define _TINY_UTF8_H_USE_IOSTREAM_
 #include <tinyutf8.h>
 
 using namespace std;

@@ -1,27 +1,29 @@
-// Copyright (c) 2018 Jakob Riedle (DuffsDevice)
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. The name of the author may not be used to endorse or promote products
-//    derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESS OR
-// IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-// OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-// NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-// THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/**
+ * Copyright (c) 2019 Jakob Riedle (DuffsDevice)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #include "tinyutf8.h"
 #include <ostream>
@@ -179,15 +181,16 @@ utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoi
 				width_type bytes = get_codepoint_bytes( *str_iter , str_end - str_iter );
 				switch( bytes )
 				{
-					case 7:	buffer_iter[6] = str_iter[6]; // Copy data byte
-					case 6:	buffer_iter[5] = str_iter[5]; // Copy data byte
-					case 5:	buffer_iter[4] = str_iter[4]; // Copy data byte
-					case 4:	buffer_iter[3] = str_iter[3]; // Copy data byte
-					case 3:	buffer_iter[2] = str_iter[2]; // Copy data byte
+					case 7:	buffer_iter[6] = str_iter[6]; [[fallthrough]]; // Copy data byte
+					case 6:	buffer_iter[5] = str_iter[5]; [[fallthrough]]; // Copy data byte
+					case 5:	buffer_iter[4] = str_iter[4]; [[fallthrough]]; // Copy data byte
+					case 4:	buffer_iter[3] = str_iter[3]; [[fallthrough]]; // Copy data byte
+					case 3:	buffer_iter[2] = str_iter[2]; [[fallthrough]]; // Copy data byte
 					case 2:	buffer_iter[1] = str_iter[1]; // Copy data byte
 						// Set next entry in the LUT!
 						utf8_string::set_lut( lut_iter -= lut_width , lut_width , str_iter - str );
-					case 1: buffer_iter[0] = str_iter[0]; // Copy data byte
+						[[fallthrough]];
+					case 1: buffer_iter[0] = str_iter[0]; break; // Copy data byte
 				}
 				buffer_iter	+= bytes;
 				str_iter	+= bytes;
@@ -276,15 +279,16 @@ utf8_string::utf8_string( const char* str , size_type data_len , detail::read_by
 				width_type bytes = get_codepoint_bytes( *str_iter , str_end - str_iter );
 				switch( bytes )
 				{
-					case 7:	buffer_iter[6] = str_iter[6]; // Copy data byte
-					case 6:	buffer_iter[5] = str_iter[5]; // Copy data byte
-					case 5:	buffer_iter[4] = str_iter[4]; // Copy data byte
-					case 4:	buffer_iter[3] = str_iter[3]; // Copy data byte
-					case 3:	buffer_iter[2] = str_iter[2]; // Copy data byte
+					case 7:	buffer_iter[6] = str_iter[6]; [[fallthrough]]; // Copy data byte
+					case 6:	buffer_iter[5] = str_iter[5]; [[fallthrough]]; // Copy data byte
+					case 5:	buffer_iter[4] = str_iter[4]; [[fallthrough]]; // Copy data byte
+					case 4:	buffer_iter[3] = str_iter[3]; [[fallthrough]]; // Copy data byte
+					case 3:	buffer_iter[2] = str_iter[2]; [[fallthrough]]; // Copy data byte
 					case 2:	buffer_iter[1] = str_iter[1]; // Copy data byte
 						// Set next entry in the LUT!
 						utf8_string::set_lut( lut_iter -= lut_width , lut_width , str_iter - str );
-					case 1: buffer_iter[0] = str_iter[0]; // Copy data byte
+						[[fallthrough]];
+					case 1: buffer_iter[0] = str_iter[0]; break; // Copy data byte
 				}
 				buffer_iter	+= bytes;
 				str_iter	+= bytes;
@@ -432,21 +436,27 @@ utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const ch
 		default:
 			if( ((unsigned char)data_start[-7] & 0xFE ) == 0xFC )	// 11111110 seven bytes
 				return 7;
+			[[fallthrough]];
 		case 6:
 			if( ((unsigned char)data_start[-6] & 0xFE ) == 0xFC )	// 1111110X six bytes
 				return 6;
+			[[fallthrough]];
 		case 5:
 			if( ((unsigned char)data_start[-5] & 0xFC ) == 0xF8 )	// 111110XX five bytes
 				return 5;
+			[[fallthrough]];
 		case 4:
 			if( ((unsigned char)data_start[-4] & 0xF8 ) == 0xF0 )	// 11110XXX four bytes
 				return 4;
+			[[fallthrough]];
 		case 3:
 			if( ((unsigned char)data_start[-3] & 0xF0 ) == 0xE0 )	// 1110XXXX three bytes
 				return 3;
+			[[fallthrough]];
 		case 2:
 			if( ((unsigned char)data_start[-2] & 0xE0 ) == 0xC0 )	// 110XXXXX two bytes
 				return 2;
+			[[fallthrough]];
 		case 1:
 		case 0:
 			return 1;
@@ -563,7 +573,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 			[[fallthrough]];
 		case 0: // [sso-active] = [sso-active]
 			if( &str != this )
-				std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
+				std::memcpy( (void*)this , &str , sizeof(utf8_string) ); // Copy data
 			return *this;
 	}
 	return *this;

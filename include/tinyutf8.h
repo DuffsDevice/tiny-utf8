@@ -1,27 +1,29 @@
-// Copyright (c) 2018 Jakob Riedle (DuffsDevice)
-// All rights reserved.
-
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. The name of the author may not be used to endorse or promote products
-//    derived from this software without specific prior written permission.
-
-// THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESS OR
-// IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-// OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-// NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-// THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+/**
+ * Copyright (c) 2019 Jakob Riedle (DuffsDevice)
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR 'AS IS' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #ifndef _TINY_UTF8_H_
 #define _TINY_UTF8_H_
@@ -39,7 +41,6 @@
 #ifdef _MSC_VER
 #include <intrin.h> // for __lzcnt
 #endif
-
 
 namespace detail
 {
@@ -632,11 +633,11 @@ private: //! Static helper methods
 	 */
 	inline static void					encode_utf8( value_type cp , char* dest , width_type cp_bytes ){
 		switch( cp_bytes ){
-			case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F);
-			case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F);
-			case 5: dest[cp_bytes-4] = 0x80 | ((cp >> 18) & 0x3F);
-			case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F);
-			case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F);
+			case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F); [[fallthrough]];
+			case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F); [[fallthrough]];
+			case 5: dest[cp_bytes-4] = 0x80 | ((cp >> 18) & 0x3F); [[fallthrough]];
+			case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F); [[fallthrough]];
+			case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F); [[fallthrough]];
 			case 2: dest[cp_bytes-1] = 0x80 | ((cp >>  0) & 0x3F);
 				dest[0] = ( std::uint_least16_t(0xFF00uL) >> cp_bytes ) | ( cp >> ( 6 * cp_bytes - 6 ) );
 				break;
@@ -743,7 +744,7 @@ public:
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
 	template<typename T>
-	inline utf8_string( T&& str , enable_if_ptr<T,char> = {} ) :
+	inline utf8_string( T&& str , enable_if_ptr<T,char>* = {} ) :
 		utf8_string( str , utf8_string::npos , detail::read_codepoints_tag() )
 	{}
 	inline utf8_string( const char* str , size_type len ) :
@@ -864,7 +865,7 @@ public:
 	 */
 	utf8_string( const value_type* str , size_type len );
 	template<typename T>
-	utf8_string( T&& str , enable_if_ptr<T,value_type> = {} ) :
+	utf8_string( T&& str , enable_if_ptr<T,value_type>* = {} ) :
 		utf8_string( str , utf8_string::npos )
 	{}
 	template<size_type LITLEN>
@@ -910,7 +911,7 @@ public:
 	inline utf8_string& operator=( utf8_string&& str ){
 		if( &str != this ){
 			clear(); // Reset old data
-			std::memcpy( this , &str , sizeof(utf8_string) ); // Copy data
+			std::memcpy( (void*)this , &str , sizeof(utf8_string) ); // Copy data
 			str.set_sso_data_len(0); // Reset old string
 		}
 		return *this;
@@ -927,8 +928,8 @@ public:
 		if( &str != this ){
 			char tmp[sizeof(utf8_string)];
 			std::memcpy( &tmp , &str , sizeof(utf8_string) );
-			std::memcpy( &str , this , sizeof(utf8_string) );
-			std::memcpy( this , &tmp , sizeof(utf8_string) );
+			std::memcpy( (void*)&str , this , sizeof(utf8_string) );
+			std::memcpy( (void*)this , &tmp , sizeof(utf8_string) );
 		}
 	}
 	
@@ -1381,7 +1382,7 @@ public:
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
 	template<typename T>
-	inline utf8_string& assign( T&& str , enable_if_ptr<T,char> = {} ){
+	inline utf8_string& assign( T&& str , enable_if_ptr<T,char>* = {} ){
 		return *this = utf8_string( str );
 	}
 	inline utf8_string& assign( const char* str , size_type len ){
@@ -1403,7 +1404,7 @@ public:
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
 	template<typename T>
-	inline utf8_string& assign( T&& str , enable_if_ptr<T,value_type> = {} ){
+	inline utf8_string& assign( T&& str , enable_if_ptr<T,value_type>* = {} ){
 		return *this = utf8_string( str );
 	}
 	inline utf8_string& assign( const value_type* str , size_type len ){
@@ -1779,7 +1780,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<typename T>
-	int compare( T&& str , enable_if_ptr<T,char> = {} ) const {
+	int compare( T&& str , enable_if_ptr<T,char>* = {} ) const {
 		const char* it = data(), *end = it + size();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1822,7 +1823,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<typename T>
-	int compare( T&& str , enable_if_ptr<T,value_type> = {} ) const {
+	int compare( T&& str , enable_if_ptr<T,value_type>* = {} ) const {
 		const_iterator	it = cbegin(), end = cend();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1864,12 +1865,8 @@ public:
 	template<typename T> inline enable_if_ptr<T,value_type> operator!=( T&& str ) const { return compare( str ) != 0; }
 	template<size_type LITLEN> inline bool operator==( const char (&str)[LITLEN] ) const { return compare( str ) == 0; }
 	template<size_type LITLEN> inline bool operator!=( const char (&str)[LITLEN] ) const { return compare( str ) != 0; }
-																					  
-																					  
 	template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
 	template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
-																					   
-																					   
 	
 	//! Lexicographical comparison Operators
 	inline bool operator>( const utf8_string& str ) const { return compare( str ) > 0; }
@@ -1892,18 +1889,10 @@ public:
 	template<size_type LITLEN> inline bool operator>=( const char (&str)[LITLEN] ) const { return compare( str ) >= 0; }
 	template<size_type LITLEN> inline bool operator<( const char (&str)[LITLEN] ) const { return compare( str ) < 0; }
 	template<size_type LITLEN> inline bool operator<=( const char (&str)[LITLEN] ) const { return compare( str ) <= 0; }
-																					
-																					  
-																					
-																					  
 	template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
 	template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
 	template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
 	template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
-																					 
-																					   
-																					 
-																					   
 	
 	
 	//! Get the number of bytes of code point in utf8_string
