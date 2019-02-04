@@ -4,10 +4,10 @@
 
 ### DESCRIPTION
 TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
-The library consists solely of the class "utf8_string", which acts as a drop-in replacement for std::string.
+The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access.
 
-### FEATURES
+#### FEATURES
 - **Drop-in replacement for std::string**
 - **Very Lightweight** (~4K LOC)
 - **Very fast**, i.e. highly optimized decoder, encoder and traversal routines
@@ -16,23 +16,33 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Growth in Constant Time** (Amortized)
 - **Conversion between UTF32 and UTF8**
 - Small Stack Size, i.e. `sizeof(utf8_string)` = 16 Bytes (32Bit) / 32 Bytes (64Bit)
-- Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but allows for less complex code)
+- Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but until now otherwise considered out of scope)
 - Single header file, single source file
 - Straightforward C++11 Design
 - Possibility to prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
 - Supports raw (Byte-based) access for occasions where Speed is needed.
 - Supports `shrink_to_fit()`
-- Malformed UTF8 sequences will not lead to undefined behaviour
+- Malformed UTF8 sequences will **lead to defined behaviour**
 
-### WHAT TINYUTF8 DOES NOT
+## THE PURPOSE OF TINYUTF8
+Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, does it?
+
+The opinion shared by many "experienced Unicode programmers" (e.g. by [UTF-8 Everywhere](utf8everywhere.org)) is that "non-experienced" programmers both *under* and *over*estimate the need for Unicode- and encoding-specific treatment: This need is...
+  1. **overestimated**, because many times we really should care less about codepoint/grapheme borders within string data;
+  2. **underestimated**, because if we really want to "support" unicode, we need to think about *normalizations*, *visual character comparisons*, *reserved codepoint values*, *illegal code unit sequences* and so on and so forth.
+
+Unicode is not rocket science but nonetheless hard to get *right*. The benefit of TINYUTF8 is not to have [ICU](http://site.icu-project.org/) re-implemented in C++. **The benefit of TINYUTF8 is to get you as close to "supporting Unicode" as possible by 'just' replacing `std::string` with a custom class.**
+
+#### WHAT TINYUTF8 IS NOT AIMED FOR
 - Conversion between ISO encodings and UTF8
-- Other unicode encodings like UTF16
+- Interfacing with UTF16
 - Visible character comparison (`'ch'` vs. `'c'+'h'`)
-- Codepoint normalization
+- Codepoint Normalization
+- Correct invalid Code Unit sequences
 
 Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 
-### EXAMPLE USAGE
+## EXAMPLE USAGE
 
 ```cpp
 #include <iostream>
@@ -50,6 +60,9 @@ int main()
 }
 ```
 
-### BUGS
+## BUGS
 
-If you encounter any bugs, please file a bug report through the "Issues" tab. I'll try to answer it soon!
+If you encounter any bugs, please file a bug report through the "Issues" tab.
+I'll try to answer it soon!
+
+Jakob
