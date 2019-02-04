@@ -462,9 +462,9 @@ private: //! Static helper methods
 	
 	//! Helpers for the constructors
 	template<size_type L>
-	using enable_if_small_string = typename std::enable_if<L<=get_sso_capacity(),int*>::type;
+	using enable_if_small_string = typename std::enable_if<L<=get_sso_capacity(),bool>::type;
 	template<size_type L>
-	using enable_if_not_small_string = typename std::enable_if<get_sso_capacity()<L,int*>::type;
+	using enable_if_not_small_string = typename std::enable_if<get_sso_capacity()<L,bool>::type;
 	// Template to enable overloads, if the supplied type T is a character array without known bounds
 	template<typename T, typename CharType>
 	using enable_if_ptr = typename std::enable_if<
@@ -478,7 +478,7 @@ private: //! Static helper methods
 				>::type
 			>::type
 		>::value
-		, int*
+		, bool
 	>::type;
 	
 	//! Check, if the lut is active using the lut base ptr
@@ -743,7 +743,7 @@ public:
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
 	template<typename T>
-	inline utf8_string( T&& str , enable_if_ptr<T,char> = nullptr ) :
+	inline utf8_string( T&& str , enable_if_ptr<T,char> = {} ) :
 		utf8_string( str , utf8_string::npos , detail::read_codepoints_tag() )
 	{}
 	inline utf8_string( const char* str , size_type len ) :
@@ -756,7 +756,7 @@ public:
 	 * @param	str		The UTF-8 literal to fill the utf8_string with
 	 */
 	template<size_type LITLEN>
-	inline utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = nullptr ){
+	inline utf8_string( const char (&str)[LITLEN] , enable_if_small_string<LITLEN> = {} ){
 		std::memcpy( t_sso.data , str , LITLEN );
 		if( str[LITLEN-1] ){
 			t_sso.data[LITLEN] = '\0';
@@ -766,7 +766,7 @@ public:
 			set_sso_data_len( LITLEN - 1 );
 	}
 	template<size_type LITLEN>
-	inline utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = nullptr ) :
+	inline utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = {} ) :
 		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , detail::read_bytes_tag() )
 	{}
 	/**
@@ -862,7 +862,11 @@ public:
 	 * @param	str		The code point sequence to fill the utf8_string with
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
-	utf8_string( const value_type* str , size_type len = utf8_string::npos );
+	utf8_string( const value_type* str , size_type len );
+	template<typename T>
+	utf8_string( T&& str , enable_if_ptr<T,value_type> = {} ) :
+		utf8_string( str , utf8_string::npos )
+	{}
 	template<size_type LITLEN>
 	inline utf8_string( const value_type (&str)[LITLEN] ) :
 		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) )
@@ -1376,6 +1380,10 @@ public:
 	 * @param	str		The UTF-8 sequence to fill the this utf8_string with
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
+	template<typename T>
+	inline utf8_string& assign( T&& str , enable_if_ptr<T,char> = {} ){
+		return *this = utf8_string( str );
+	}
 	inline utf8_string& assign( const char* str , size_type len ){
 		return *this = utf8_string( str , len );
 	}
@@ -1394,6 +1402,10 @@ public:
 	 * @param	str		The UTF-8 sequence to fill the this utf8_string with
 	 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 	 */
+	template<typename T>
+	inline utf8_string& assign( T&& str , enable_if_ptr<T,value_type> = {} ){
+		return *this = utf8_string( str );
+	}
 	inline utf8_string& assign( const value_type* str , size_type len ){
 		return *this = utf8_string( str , len );
 	}
@@ -1766,7 +1778,8 @@ public:
 	 *			>0	Either the value of the first character that does not match is greater in
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	int compare( const char* str ) const {
+	template<typename T>
+	int compare( T&& str , enable_if_ptr<T,char> = {} ) const {
 		const char* it = data(), *end = it + size();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1808,7 +1821,8 @@ public:
 	 *			>0	Either the value of the first character that does not match is greater in
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
-	int compare( const value_type* str ) const {
+	template<typename T>
+	int compare( T&& str , enable_if_ptr<T,value_type> = {} ) const {
 		const_iterator	it = cbegin(), end = cend();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1842,42 +1856,54 @@ public:
 	//! Equality Comparison Operators
 	inline bool operator==( const utf8_string& str ) const { return compare( str ) == 0; }
 	inline bool operator!=( const utf8_string& str ) const { return compare( str ) != 0; }
-	inline bool operator==( const char* str ) const { return compare( str ) == 0; }
-	inline bool operator!=( const char* str ) const { return compare( str ) != 0; }
-	template<size_type LITLEN> inline bool operator==( const char (&str)[LITLEN] ) const { return compare( str ) == 0; }
-	template<size_type LITLEN> inline bool operator!=( const char (&str)[LITLEN] ) const { return compare( str ) != 0; }
-	inline bool operator==( const value_type* str ) const { return compare( str ) == 0; }
-	inline bool operator!=( const value_type* str ) const { return compare( str ) != 0; }
-	template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
-	template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
 	inline bool operator==( const std::string& str ) const { return compare( str ) == 0; }
 	inline bool operator!=( const std::string& str ) const { return compare( str ) != 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator==( T&& str ) const { return compare( str ) == 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator!=( T&& str ) const { return compare( str ) != 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator==( T&& str ) const { return compare( str ) == 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator!=( T&& str ) const { return compare( str ) != 0; }
+	template<size_type LITLEN> inline bool operator==( const char (&str)[LITLEN] ) const { return compare( str ) == 0; }
+	template<size_type LITLEN> inline bool operator!=( const char (&str)[LITLEN] ) const { return compare( str ) != 0; }
+																					  
+																					  
+	template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
+	template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
+																					   
+																					   
 	
 	//! Lexicographical comparison Operators
 	inline bool operator>( const utf8_string& str ) const { return compare( str ) > 0; }
 	inline bool operator>=( const utf8_string& str ) const { return compare( str ) >= 0; }
 	inline bool operator<( const utf8_string& str ) const { return compare( str ) < 0; }
 	inline bool operator<=( const utf8_string& str ) const { return compare( str ) <= 0; }
-	inline bool operator>( const char* str ) const { return compare( str ) > 0; }
-	inline bool operator>=( const char* str ) const { return compare( str ) >= 0; }
-	inline bool operator<( const char* str ) const { return compare( str ) < 0; }
-	inline bool operator<=( const char* str ) const { return compare( str ) <= 0; }
-	template<size_type LITLEN> inline bool operator>( const char (&str)[LITLEN] ) const { return compare( str ) > 0; }
-	template<size_type LITLEN> inline bool operator>=( const char (&str)[LITLEN] ) const { return compare( str ) >= 0; }
-	template<size_type LITLEN> inline bool operator<( const char (&str)[LITLEN] ) const { return compare( str ) < 0; }
-	template<size_type LITLEN> inline bool operator<=( const char (&str)[LITLEN] ) const { return compare( str ) <= 0; }
-	inline bool operator>( const value_type* str ) const { return compare( str ) > 0; }
-	inline bool operator>=( const value_type* str ) const { return compare( str ) >= 0; }
-	inline bool operator<( const value_type* str ) const { return compare( str ) < 0; }
-	inline bool operator<=( const value_type* str ) const { return compare( str ) <= 0; }
-	template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
-	template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
-	template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
-	template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
 	inline bool operator>( const std::string& str ) const { return compare( str ) > 0; }
 	inline bool operator>=( const std::string& str ) const { return compare( str ) >= 0; }
 	inline bool operator<( const std::string& str ) const { return compare( str ) < 0; }
 	inline bool operator<=( const std::string& str ) const { return compare( str ) <= 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator>( T&& str ) const { return compare( str ) > 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator>=( T&& str ) const { return compare( str ) >= 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator<( T&& str ) const { return compare( str ) < 0; }
+	template<typename T> inline enable_if_ptr<T,char> operator<=( T&& str ) const { return compare( str ) <= 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator>( T&& str ) const { return compare( str ) > 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator>=( T&& str ) const { return compare( str ) >= 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator<( T&& str ) const { return compare( str ) < 0; }
+	template<typename T> inline enable_if_ptr<T,value_type> operator<=( T&& str ) const { return compare( str ) <= 0; }
+	template<size_type LITLEN> inline bool operator>( const char (&str)[LITLEN] ) const { return compare( str ) > 0; }
+	template<size_type LITLEN> inline bool operator>=( const char (&str)[LITLEN] ) const { return compare( str ) >= 0; }
+	template<size_type LITLEN> inline bool operator<( const char (&str)[LITLEN] ) const { return compare( str ) < 0; }
+	template<size_type LITLEN> inline bool operator<=( const char (&str)[LITLEN] ) const { return compare( str ) <= 0; }
+																					
+																					  
+																					
+																					  
+	template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
+	template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
+	template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
+	template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
+																					 
+																					   
+																					 
+																					   
 	
 	
 	//! Get the number of bytes of code point in utf8_string
