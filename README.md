@@ -31,7 +31,11 @@ The opinion shared by many "experienced Unicode programmers" (e.g. by [UTF-8 Eve
   1. **overestimated**, because many times we really should care less about codepoint/grapheme borders within string data;
   2. **underestimated**, because if we really want to "support" unicode, we need to think about *normalizations*, *visual character comparisons*, *reserved codepoint values*, *illegal code unit sequences* and so on and so forth.
 
-Unicode is not rocket science but nonetheless hard to get *right*. The benefit of TINYUTF8 is not to have [ICU](http://site.icu-project.org/) re-implemented in C++. The benefit of TINYUTF8 is to bridge as many gaps to "supporting Unicode" as possible by 'just' replacing `std::string` with a custom class and provide you with a Codepoint Abstraction Layer that takes care of the Run-Length Encoding, without you noticing. TINYUTF8 is not the last piece in the Unicode puzzle, its the first.
+Unicode is not rocket science but nonetheless hard to get *right*. The benefit of TINYUTF8 is not to have [ICU](http://site.icu-project.org/) re-implemented in C++. The goal of TINYUTF8 is to
+  1. bridge as many gaps to "supporting Unicode" as possible by 'just' replacing `std::string` with a custom class which means to
+  2. provide you with a Codepoint Abstraction Layer that takes care of the Run-Length Encoding, without you noticing.
+
+TINYUTF8 does not give you the Unicode puzzle, its the first piece.
 
 #### WHAT TINYUTF8 IS NOT AIMED FOR
 - Conversion between ISO encodings and UTF8
