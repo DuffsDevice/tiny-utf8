@@ -1,9 +1,9 @@
-# TINY <img src="https://github.com/DuffsDevice/tinyutf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;">
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;">
 
-[![Build Status](https://travis-ci.org/DuffsDevice/tinyutf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tinyutf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tinyutf8/blob/master/LICENCE)
+[![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
 ### DESCRIPTION
-TINYUTF8 is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
+**Tiny-utf8** is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access.
 
@@ -27,20 +27,20 @@ Its implementation is successfully in the middle between small memory footprint 
 - Supports `shrink_to_fit()`
 - Malformed UTF8 sequences will **lead to defined behaviour**
 
-## THE PURPOSE OF TINYUTF8
+## THE PURPOSE OF TINY-UTF8
 Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, does it?
 
 The opinion shared by many "experienced Unicode programmers" (e.g. published on [UTF-8 Everywhere](utf8everywhere.org)) is that "non-experienced" programmers both *under* and *over*estimate the need for Unicode- and encoding-specific treatment: This need is...
   1. **overestimated**, because many times we really should care less about codepoint/grapheme borders within string data;
   2. **underestimated**, because if we really want to "support" unicode, we need to think about *normalizations*, *visual character comparisons*, *reserved codepoint values*, *illegal code unit sequences* and so on and so forth.
 
-Unicode is not rocket science but nonetheless hard to get *right*. TINYUTF8 does not intend to be an enterprise solution like [ICU](http://site.icu-project.org/) for C++. The goal of TINYUTF8 is to
+Unicode is not rocket science but nonetheless hard to get *right*. **Tiny-utf8** does not intend to be an enterprise solution like [ICU](http://site.icu-project.org/) for C++. The goal of **tiny-utf8** is to
   - bridge as many gaps to "supporting Unicode" as possible by 'just' replacing `std::string` with a custom class which means to
   - provide you with a Codepoint Abstraction Layer that takes care of the Run-Length Encoding, without you noticing.
 
-TINYUTF8 aims to be the simple-and-dependable groundwork which you build Unicode infrastructure upon. And, if *1)* C++2a should happen to make your Unicode life easier than TINYUTF8 or *2)* you decide to go enterprise, you have not wasted much time replacing `std::string` with `utf8_string` either. This is what makes TINYUTF8 so agreeable.
+**Tiny-utf8** aims to be the simple-and-dependable groundwork which you build Unicode infrastructure upon. And, if *1)* C++2a should happen to make your Unicode life easier than **tiny-utf8** or *2)* you decide to go enterprise, you have not wasted much time replacing `std::string` with `utf8_string` either. This is what makes **tiny-utf8** so agreeable.
 
-#### WHAT TINYUTF8 IS NOT AIMED FOR
+#### WHAT TINY-UTF8 IS NOT AIMED FOR
 - Conversion between ISO encodings and UTF8
 - Interfacing with UTF16
 - Visible character comparison (`'ch'` vs. `'c'+'h'`)
