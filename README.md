@@ -5,7 +5,7 @@
 ### DESCRIPTION
 **Tiny-utf8** is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
-Its implementation is successfully in the middle between small memory footprint and fast access.
+Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
 
 #### FEATURES
 - **Drop-in replacement for std::string**
@@ -20,7 +20,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Conversion between UTF32 and UTF8**
 - Small Stack Size, i.e. `sizeof(utf8_string)` = 16 Bytes (32Bit) / 32 Bytes (64Bit)
 - Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but until now otherwise considered out of scope)
-- Single header file, single source file
+- ***NEW:** Single Header File*
 - Straightforward C++11 Design
 - Possibility to prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
 - Supports raw (Byte-based) access for occasions where Speed is needed.
