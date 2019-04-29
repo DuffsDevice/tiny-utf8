@@ -1565,15 +1565,11 @@ public:
 	 * @param	len		The number codepoints to be included within the substring
 	 * @return	The utf8_string holding the specified codepoints
 	 */
-	utf8_string substr( size_type pos , size_type len = utf8_string::npos ) const
-	{
+	utf8_string substr( size_type pos , size_type len = utf8_string::npos ) const {
 		size_type byte_start = get_num_bytes_from_start( pos );
-		
 		if( len == utf8_string::npos )
 			return raw_substr( byte_start , utf8_string::npos );
-		
 		size_type byte_count = get_num_bytes( byte_start , len );
-		
 		return raw_substr( byte_start , byte_count );
 	}
 	/**
