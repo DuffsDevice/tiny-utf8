@@ -100,7 +100,7 @@ public:
 	typedef char32_t					value_type;
 	typedef value_type					const_reference;
 	typedef std::uint_fast8_t			width_type; // Data type capable of holding the number of code units in a code point
-	constexpr const static size_type	npos = -1;
+	enum : size_type{					npos = -1 };
 	
 private: //! Layout specifications
 	
