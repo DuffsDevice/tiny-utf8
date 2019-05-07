@@ -69,7 +69,7 @@ int main()
 
 ## BUILD MODES
 
-Since Version 2.3, **tiny-utf8** is header-only, i.e. *tinyutf8.h* includes all definitions and one doesn't need to build *tinyutf8.cpp* separately. If you want to speed up your compilation time with a large number of source files, include *tinyutf8.hpp* instead, which `#define`s `TINY_UTF8_FORWARD_DECLARE_ONLY` and then includes *tinyutf8.h*, which now has all definitions removed.
+Since Version 3, **tiny-utf8** is header-only, i.e. *tinyutf8.h* includes all definitions and one doesn't need to build *tinyutf8.cpp* separately. If you want to speed up your compilation time with a large number of source files, include *tinyutf8.hpp* instead, which `#define`s `TINY_UTF8_FORWARD_DECLARE_ONLY` and then includes *tinyutf8.h*, which now has all definitions removed.
 
 Subsequently, in order to build the definitions in *tinyutf8.h* in a separate source file, add *lib/tinyutf8.cpp* to your source files, which only includes *tinyutf8.h* (instead of *tinyutf8.h**pp***).
 
