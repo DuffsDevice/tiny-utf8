@@ -42,7 +42,7 @@
 #include <intrin.h> // for __lzcnt
 #endif
 
-namespace detail
+namespace tiny_utf8_detail
 {
 	// Used for tag dispatching in constructor
 	struct read_codepoints_tag{};
@@ -562,7 +562,7 @@ private: //! Static helper methods
 	{
 		if( first_byte ){
 			// Before counting the leading one's we need to shift the byte into the most significant part of the integer
-			size_type codepoint_bytes = detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
+			size_type codepoint_bytes = tiny_utf8_detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
 			
 			// The test below would actually be ( codepoint_bytes <= data_left && codepoint_bytes ),
 			// but codepoint_bytes is unsigned and thus wraps around zero, which makes the following faster:
@@ -587,7 +587,7 @@ private: //! Static helper methods
 				1 , 1 , 1 , 1 , 1 , 1 , 1 , 2 , 2 , 2 , 2 , 3 , 3 , 3 , 3 , 3
 				, 4 , 4 , 4 , 4 , 4 , 5 , 5 , 5 , 5 , 5 , 6 , 6 , 6 , 6 , 6 , 7
 			};
-			return lut[ 31 - detail::clz( cp ) ];
+			return lut[ 31 - tiny_utf8_detail::clz( cp ) ];
 		#else
 			if( cp <= 0x7F )
 				return 1;
@@ -669,8 +669,8 @@ private: //! Non-static helper methods
 			t_non_sso.string_len = string_len;
 			t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
 		}
-		else if( detail::is_little_endian::value ){
-			detail::last_byte<size_type> lb;
+		else if( tiny_utf8_detail::is_little_endian::value ){
+			tiny_utf8_detail::last_byte<size_type> lb;
 			lb.number = string_len;
 			lb.bytes.last <<= 1;
 			lb.bytes.last |= 0x1;
@@ -685,8 +685,8 @@ private: //! Non-static helper methods
 		// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
 		if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 )
 			return t_non_sso.string_len;
-		else if( detail::is_little_endian::value ){
-			detail::last_byte<size_type> lb;
+		else if( tiny_utf8_detail::is_little_endian::value ){
+			tiny_utf8_detail::last_byte<size_type> lb;
 			lb.number = t_non_sso.string_len;
 			lb.bytes.last >>= 1;
 			return lb.number;
@@ -729,8 +729,8 @@ private: //! Non-static helper methods
 	std::string			cpp_str_bom() const ;
 	
 	//! Constructs an utf8_string from a character literal
-	utf8_string( const char* str , size_type len , detail::read_codepoints_tag );
-	utf8_string( const char* str , size_type len , detail::read_bytes_tag );
+	utf8_string( const char* str , size_type len , tiny_utf8_detail::read_codepoints_tag );
+	utf8_string( const char* str , size_type len , tiny_utf8_detail::read_bytes_tag );
 	
 public:
 	
@@ -749,10 +749,10 @@ public:
 	 */
 	template<typename T>
 	inline utf8_string( T&& str , enable_if_ptr<T,char>* = {} ) :
-		utf8_string( str , utf8_string::npos , detail::read_codepoints_tag() )
+		utf8_string( str , utf8_string::npos , tiny_utf8_detail::read_codepoints_tag() )
 	{}
 	inline utf8_string( const char* str , size_type len ) :
-		utf8_string( str , len , detail::read_codepoints_tag() )
+		utf8_string( str , len , tiny_utf8_detail::read_codepoints_tag() )
 	{}
 	/**
 	 * Constructor taking an utf8 char literal
@@ -772,7 +772,7 @@ public:
 	}
 	template<size_type LITLEN>
 	inline utf8_string( const char (&str)[LITLEN] , enable_if_not_small_string<LITLEN> = {} ) :
-		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , detail::read_bytes_tag() )
+		utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , tiny_utf8_detail::read_bytes_tag() )
 	{}
 	/**
 	 * Constructor taking an std::string
@@ -781,7 +781,7 @@ public:
 	 * @param	str		The byte data, that will be interpreted as UTF-8
 	 */
 	inline utf8_string( std::string str ) :
-		utf8_string( str.c_str() , str.length() , detail::read_bytes_tag() )
+		utf8_string( str.c_str() , str.length() , tiny_utf8_detail::read_bytes_tag() )
 	{}
 	/**
 	 * Constructor that fills the string with a certain amount of codepoints
@@ -2130,7 +2130,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 	buffer[count] = 0;
 }
 
-utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoints_tag ) :
+utf8_string::utf8_string( const char* str , size_type len , tiny_utf8_detail::read_codepoints_tag ) :
 	utf8_string()
 {
 	if( !len )
@@ -2226,7 +2226,7 @@ utf8_string::utf8_string( const char* str , size_type len , detail::read_codepoi
 	buffer[data_len] = '\0';
 }
 
-utf8_string::utf8_string( const char* str , size_type data_len , detail::read_bytes_tag ) :
+utf8_string::utf8_string( const char* str , size_type data_len , tiny_utf8_detail::read_bytes_tag ) :
 	utf8_string()
 {
 	if( !data_len )
