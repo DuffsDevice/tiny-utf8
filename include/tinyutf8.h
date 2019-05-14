@@ -1802,13 +1802,13 @@ public:
 	template<size_type LITLEN> 
 	int compare( const char (&str)[LITLEN] ) const {
 		const char* it = data(), *end = it + size();
-		size_type i = str[LITLEN-1] ? 0 : 1;
-		while( it != end && i < LITLEN ){
+		size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
+		while( it != end && index < length ){
 			if( *it != *str )
 				return *it < *str ? -1 : 1;
-			++it, ++str;
+			++it, ++index;
 		}
-		return i < LITLEN ? -1 : it == end ? 0 : 1;
+		return index < length ? -1 : it == end ? 0 : 1;
 	}
 	/**
 	 * Compares this string with the supplied one.
@@ -1845,13 +1845,13 @@ public:
 	template<size_type LITLEN> 
 	int compare( const value_type (&str)[LITLEN] ) const {
 		const_iterator	it = cbegin(), end = cend();
-		size_type i = str[LITLEN-1] ? 0 : 1;
+		size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 		while( it != end && i < LITLEN ){
 			if( *it != *str )
 				return *it < *str ? -1 : 1;
 			++it, ++str;
 		}
-		return i < LITLEN ? -1 : it == end ? 0 : 1;
+		return index < length ? -1 : it == end ? 0 : 1;
 	}
 	
 	//! Equality Comparison Operators
