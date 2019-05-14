@@ -1849,7 +1849,7 @@ public:
 		while( it != end && i < LITLEN ){
 			if( *it != *str )
 				return *it < *str ? -1 : 1;
-			++it, ++str;
+			++it, ++index;
 		}
 		return index < length ? -1 : it == end ? 0 : 1;
 	}
