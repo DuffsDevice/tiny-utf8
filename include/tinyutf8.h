@@ -1780,7 +1780,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<typename T>
-	int compare( T&& str , enable_if_ptr<T,char>* = {} ) const {
+	int compare( T str , enable_if_ptr<T,char>* = {} ) const {
 		const char* it = data(), *end = it + size();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1804,8 +1804,8 @@ public:
 		const char* it = data(), *end = it + size();
 		size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 		while( it != end && index < length ){
-			if( *it != *str )
-				return *it < *str ? -1 : 1;
+			if( *it != str[index] )
+				return *it < str[index] ? -1 : 1;
 			++it, ++index;
 		}
 		return index < length ? -1 : it == end ? 0 : 1;
@@ -1823,7 +1823,7 @@ public:
 	 *			the compared string, or all compared characters match but the compared string is longer.
 	 */
 	template<typename T>
-	int compare( T&& str , enable_if_ptr<T,value_type>* = {} ) const {
+	int compare( T str , enable_if_ptr<T,value_type>* = {} ) const {
 		const_iterator	it = cbegin(), end = cend();
 		while( it != end && *str ){
 			if( *it != *str )
@@ -1847,8 +1847,8 @@ public:
 		const_iterator	it = cbegin(), end = cend();
 		size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 		while( it != end && index < length ){
-			if( *it != *str )
-				return *it < *str ? -1 : 1;
+			if( *it != str[index] )
+				return *it < str[index] ? -1 : 1;
 			++it, ++index;
 		}
 		return index < length ? -1 : it == end ? 0 : 1;
