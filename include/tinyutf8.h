@@ -2710,7 +2710,7 @@ utf8_string::size_type utf8_string::get_num_codepoints( size_type index , size_t
 			size_type		end_index	= index + byte_count;
 			
 			// Iterate to the start of the relevant part of the multibyte table
-			while( lut_iter > lut_begin ){
+			while( lut_iter >= lut_begin ){
 				lut_iter -= lut_width; // Move cursor to the next lut entry
 				if( utf8_string::get_lut( lut_iter , lut_width ) >= index )
 					break;
