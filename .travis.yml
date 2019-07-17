@@ -9,5 +9,4 @@ compiler:
   - clang
 
 script:
-  - cd test
-  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I"../include" test.cpp
+  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I. test/test.cpp
