@@ -1,1 +1,1 @@
-g++ -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I"../include" test.cpp
+g++ -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I.. test.cpp
