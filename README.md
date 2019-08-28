@@ -45,7 +45,7 @@ Unicode is not rocket science but nonetheless hard to get *right*. **Tiny-utf8**
 - Interfacing with UTF16
 - Visible character comparison (`'ch'` vs. `'c'+'h'`)
 - Codepoint Normalization
-- Correct invalid Code Unit sequences
+- Correction of invalid Code Unit sequences
 
 Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 
