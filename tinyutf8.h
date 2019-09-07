@@ -471,7 +471,7 @@ private: //! Static helper methods
 	template<size_type L>
 	using enable_if_not_small_string = typename std::enable_if<get_sso_capacity()<L,bool>::type;
 	// Template to enable overloads, if the supplied type T is a character array without known bounds
-	template<typename T, typename CharType>
+	template<typename T, typename CharType, typename DataType = bool>
 	using enable_if_ptr = typename std::enable_if<
 		std::is_pointer<typename std::remove_reference<T>::type>::value
 		&&
@@ -483,7 +483,7 @@ private: //! Static helper methods
 				>::type
 			>::type
 		>::value
-		, bool
+		, DataType
 	>::type;
 	
 	//! Check, if the lut is active using the lut base ptr
@@ -1315,6 +1315,9 @@ public:
 	inline utf8_string& push_back( value_type cp ){
 		return append( utf8_string( cp ) );
 	}
+	inline utf8_string& operator+=( value_type cp ){
+		return append( utf8_string( cp ) );
+	}
 	
 	/**
 	 * Prepends the supplied code point to this utf8_string
@@ -1328,16 +1331,30 @@ public:
 	
 	
 	/**
-	 * Adds the supplied utf8_string to a copy of this utf8_string
+	 * Appends/prepends the supplied utf8_string resp. char/value_type (value/literal) to a copy of this utf8_string
 	 * 
-	 * @param	summand		The utf8_string to be added 
-	 * @return	A reference to the newly created utf8_string, which now has the supplied string appended
+	 * @param	lhs		The utf8_string to be added 
+	 * @return	The newly created utf8_string, consisting of the concatenated parts.
 	 */
-	inline utf8_string operator+( const utf8_string& summand ) const {
-		utf8_string str = *this;
-		str.append( summand );
-		return str;
-	}
+	// with utf8_string in both operands
+	inline utf8_string operator+( utf8_string summand ) const & { summand.prepend( *this ); return summand; }
+	inline utf8_string operator+( const utf8_string& summand ) && { append( summand ); return static_cast<utf8_string&&>( *this ); }
+	
+	// with utf8_string as first operand
+	friend inline utf8_string operator+( utf8_string lhs , char rhs ){ lhs.push_back( rhs ); return lhs; }
+	friend inline utf8_string operator+( utf8_string lhs , value_type rhs ){ lhs.push_back( rhs ); return lhs; }
+	template<typename T> friend inline enable_if_ptr<T,char, utf8_string> operator+( utf8_string lhs , T&& rhs ){ lhs.append( utf8_string( rhs ) ); return lhs; }
+	template<typename T> friend inline enable_if_ptr<T,value_type, utf8_string> operator+( utf8_string lhs , T&& rhs ){ lhs.append( utf8_string( rhs ) ); return lhs; }
+	template<size_type LITLEN> friend inline utf8_string operator+( utf8_string lhs , const char (&rhs)[LITLEN] ){ lhs.append( utf8_string( rhs ) ); return lhs; }
+	template<size_type LITLEN> friend inline utf8_string operator+( utf8_string lhs , const value_type (&rhs)[LITLEN] ){ lhs.append( utf8_string( rhs ) ); return lhs; }
+	
+	// With utf8_string as second operand
+	friend inline utf8_string operator+( char lhs , utf8_string rhs ){ rhs.push_front( lhs ); return rhs; }
+	friend inline utf8_string operator+( value_type lhs , utf8_string rhs ){ rhs.push_front( lhs ); return rhs; }
+	template<typename T> friend inline enable_if_ptr<T,char, utf8_string> operator+( T&& lhs , utf8_string rhs ){ rhs.prepend( utf8_string( lhs ) ); return rhs; }
+	template<typename T> friend inline enable_if_ptr<T,value_type, utf8_string> operator+( T&& lhs , utf8_string rhs ){ rhs.prepend( utf8_string( lhs ) ); return rhs; }
+	template<size_type LITLEN> friend inline utf8_string operator+( const char (&lhs)[LITLEN] , utf8_string rhs ){ rhs.prepend( utf8_string( lhs ) ); return rhs; }
+	template<size_type LITLEN> friend inline utf8_string operator+( const value_type (&lhs)[LITLEN] , utf8_string rhs ){ rhs.prepend( utf8_string( lhs ) ); return rhs; }
 	
 	
 	/**
@@ -1932,8 +1949,8 @@ public:
 	
 	
 	//! Friend iterator difference computation functions
-	friend int operator-( const const_iterator& lhs , const const_iterator& rhs );
-	friend int operator-( const const_reverse_iterator& lhs , const const_reverse_iterator& rhs );
+	friend difference_type operator-( const const_iterator& lhs , const const_iterator& rhs );
+	friend difference_type operator-( const const_reverse_iterator& lhs , const const_reverse_iterator& rhs );
 	
 	
 public: //! tinyutf8-specific features
@@ -2017,8 +2034,8 @@ static inline bool operator<=( const utf8_string::const_reverse_iterator& lhs , 
 
 #if defined(TINY_UTF8_FORWARD_DECLARE_ONLY) && TINY_UTF8_FORWARD_DECLARE_ONLY == true
 	//! Compute distance between iterators
-	extern int operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs );
-	extern int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs );
+	extern utf8_string::difference_type operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs );
+	extern utf8_string::difference_type operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs );
 
 	//! Stream Operations
 	extern std::ostream& operator<<( std::ostream& stream , const utf8_string& str );
@@ -4329,16 +4346,16 @@ utf8_string::size_type utf8_string::raw_find_last_not_of( const value_type* str 
 	return utf8_string::npos;
 }
 
-int operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs ){
+utf8_string::difference_type operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs ){
 	utf8_string::difference_type minIndex = std::min( lhs.get_index() , rhs.get_index() );
 	utf8_string::difference_type max_index = std::max( lhs.get_index() , rhs.get_index() );
-	utf8_string::size_type num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
+	utf8_string::difference_type num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
 	return max_index == lhs.get_index() ? num_codepoints : -num_codepoints;
 }
-int operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs ){
+utf8_string::difference_type operator-( const utf8_string::const_reverse_iterator& lhs , const utf8_string::const_reverse_iterator& rhs ){
 	utf8_string::difference_type	minIndex = std::min( lhs.get_index() , rhs.get_index() );
 	utf8_string::difference_type	max_index = std::max( lhs.get_index() , rhs.get_index() );
-	utf8_string::size_type			num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
+	utf8_string::difference_type	num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
 	return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
 }
 
