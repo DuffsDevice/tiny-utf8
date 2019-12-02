@@ -2043,7 +2043,9 @@ static inline bool operator<=( const utf8_string::const_reverse_iterator& lhs , 
 }
 
 //! std::hash specialization
-template<> struct std::hash<utf8_string> {
+namespace std{
+template<> class hash<utf8_string>{
+public:
 	size_t operator()( const utf8_string& string ) const {
 		std::hash<char>	hasher;
 		size_t			size = string.size();
@@ -2054,6 +2056,7 @@ template<> struct std::hash<utf8_string> {
 		return result;
 	}
 };
+}
 
 #if defined(TINY_UTF8_FORWARD_DECLARE_ONLY) && TINY_UTF8_FORWARD_DECLARE_ONLY == true
 	//! Compute distance between iterators
