@@ -32,7 +32,8 @@
 #include <memory> // for std::unique_ptr
 #include <cstring> // for std::memcpy, std::memmove
 #include <string> // for std::string
-#include <limits> // for numeric_limits
+#include <limits> // for std::numeric_limits
+#include <functional> // for std::hash
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
 #include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <stdexcept> // for std::out_of_range
@@ -4366,6 +4367,18 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 	str = move(tmp);
 	return stream;
 }
+
+template<> struct std::hash<utf8_string> {
+    size_t operator()( const utf8_string& string ) const {
+		std::hash<char>	hasher;
+		size_t			size = string.size();
+		size_t			result = 0;
+		const char*		buffer = string.data();
+		for( size_t iterator = 0 ; iterator < size ; ++iterator )
+			result = result * 31u + hasher( buffer[iterator] );
+		return result;
+    }
+};
 
 #endif // TINY_UTF8_FORWARD_DECLARE_ONLY
 
