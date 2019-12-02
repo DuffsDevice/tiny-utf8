@@ -36,11 +36,18 @@
 #include <functional> // for std::hash
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
 #include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
-#include <stdexcept> // for std::out_of_range
 #include <initializer_list> // for std::initializer_list
 #include <iosfwd> // for ostream/istream forward declarations
 #ifdef _MSC_VER
 #include <intrin.h> // for __lzcnt
+#endif
+
+//! Determine the mode of error handling
+#if defined(__cpp_exceptions) && !defined(TINY_UTF8_NOEXCEPT) && !defined(TINY_UTF8_THROW)
+	#include <stdexcept> // for std::out_of_range
+	#define TINY_UTF8_THROW( LOCATION , FAILING_PREDICATE ) throw std::out_of_range( LOCATION ": " #FAILING_PREDICATE )
+#else
+	#define TINY_UTF8_THROW( ... ) void()
 #endif
 
 namespace tiny_utf8_detail
@@ -1002,8 +1009,10 @@ public:
 	}
 	value_type raw_at( size_type byte_index ) const {
 		size_type size = this->size();
-		if( byte_index >= size )
-			throw std::out_of_range( "utf8_string::(raw_)at" );
+		if( byte_index >= size ){
+			TINY_UTF8_THROW( "utf8_string::(raw_)at" , byte_index >= size );
+			return 0;
+		}
 		const char* pos = get_buffer() + byte_index;
 		return *pos ? decode_utf8( pos , utf8_string::get_codepoint_bytes( *pos , size - byte_index ) ) : 0;
 	}
@@ -2033,6 +2042,19 @@ static inline bool operator<=( const utf8_string::const_reverse_iterator& lhs , 
 	return lhs.get_index() >= rhs.get_index();
 }
 
+//! std::hash specialization
+template<> struct std::hash<utf8_string> {
+	size_t operator()( const utf8_string& string ) const {
+		std::hash<char>	hasher;
+		size_t			size = string.size();
+		size_t			result = 0;
+		const char*		buffer = string.data();
+		for( size_t iterator = 0 ; iterator < size ; ++iterator )
+			result = result * 31u + hasher( buffer[iterator] );
+		return result;
+	}
+};
+
 #if defined(TINY_UTF8_FORWARD_DECLARE_ONLY) && TINY_UTF8_FORWARD_DECLARE_ONLY == true
 	//! Compute distance between iterators
 	extern utf8_string::difference_type operator-( const utf8_string::const_iterator& lhs , const utf8_string::const_iterator& rhs );
@@ -2882,8 +2904,10 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 {
 	// Bound checks...
 	size_type data_len = size();
-	if( index > data_len )
-		throw std::out_of_range( "utf8_string::(raw_)substr" );
+	if( index > data_len ){
+		TINY_UTF8_THROW( "utf8_string::(raw_)substr" , index > data_len );
+		return {};
+	}
 	size_type		end_index = index + byte_count;
 	if( end_index > data_len || end_index < index ){ // 'end_index < index' is needed because of potential integer overflow in sum
 		end_index = data_len;
@@ -3279,8 +3303,10 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 {
 	// Bound checks...
 	size_type old_data_len = size();
-	if( index > old_data_len )
-		throw std::out_of_range( "utf8_string::(raw_)insert" );
+	if( index > old_data_len ){
+		TINY_UTF8_THROW( "utf8_string::(raw_)insert" , index > old_data_len );
+		return *this;
+	}
 	
 	// Compute the updated metrics
 	size_type str_data_len	= str.size();
@@ -3635,8 +3661,10 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 {
 	// Bound checks...
 	size_type old_data_len = size();
-	if( index > old_data_len )
-		throw std::out_of_range( "utf8_string::(raw_)replace" );
+	if( index > old_data_len ){
+		TINY_UTF8_THROW( "utf8_string::(raw_)replace" , index > old_data_len );
+		return *this;
+	}
 	size_type end_index = index + replaced_len;
 	if( end_index > old_data_len || end_index < index ){ // 'end_index < index' is needed because of potential integer overflow in sum
 		end_index = old_data_len;
@@ -4045,8 +4073,10 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 {
 	// Bound checks...
 	size_type old_data_len = size();
-	if( index > old_data_len )
-		throw std::out_of_range( "utf8_string::(raw_)erase" );
+	if( index > old_data_len ){
+		TINY_UTF8_THROW( "utf8_string::(raw_)erase" , index > old_data_len );
+		return *this;
+	}
 	if( !len )
 		return *this;
 	size_type		end_index = index + len;
@@ -4367,18 +4397,6 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 	str = move(tmp);
 	return stream;
 }
-
-template<> struct std::hash<utf8_string> {
-    size_t operator()( const utf8_string& string ) const {
-		std::hash<char>	hasher;
-		size_t			size = string.size();
-		size_t			result = 0;
-		const char*		buffer = string.data();
-		for( size_t iterator = 0 ; iterator < size ; ++iterator )
-			result = result * 31u + hasher( buffer[iterator] );
-		return result;
-    }
-};
 
 #endif // TINY_UTF8_FORWARD_DECLARE_ONLY
 
