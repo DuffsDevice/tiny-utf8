@@ -50,6 +50,12 @@
 	#define TINY_UTF8_THROW( ... ) void()
 #endif
 
+//! Remove -Wmaybe-uninitialized, since it is wrong for all cases in this file
+#if defined (__GNUC__)
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic push
+#endif
+
 namespace tiny_utf8_detail
 {
 	// Used for tag dispatching in constructor
@@ -4402,5 +4408,9 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 }
 
 #endif // TINY_UTF8_FORWARD_DECLARE_ONLY
+
+#if defined (__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 #endif // _TINY_UTF8_H_
