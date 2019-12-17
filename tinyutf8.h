@@ -50,6 +50,7 @@
 	#define TINY_UTF8_THROW( ... ) void()
 #endif
 
+//! Remove -Wmaybe-uninitialized, since it is wrong for all cases in this file
 #if defined (__GNUC__)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic push
