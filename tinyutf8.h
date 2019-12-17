@@ -51,7 +51,7 @@
 #endif
 
 #if defined (__GNUC__)
-#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic push
 #endif
 
