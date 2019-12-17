@@ -43,11 +43,13 @@
 #endif
 
 //! Determine the mode of error handling
-#if defined(__cpp_exceptions) && !defined(TINY_UTF8_NOEXCEPT) && !defined(TINY_UTF8_THROW)
-	#include <stdexcept> // for std::out_of_range
-	#define TINY_UTF8_THROW( LOCATION , FAILING_PREDICATE ) throw std::out_of_range( LOCATION ": " #FAILING_PREDICATE )
-#else
-	#define TINY_UTF8_THROW( ... ) void()
+#ifndef TINY_UTF8_THROW
+	#if defined(__cpp_exceptions) && !defined(TINY_UTF8_NOEXCEPT)
+		#include <stdexcept> // for std::out_of_range
+		#define TINY_UTF8_THROW( LOCATION , FAILING_PREDICATE ) throw std::out_of_range( LOCATION ": " #FAILING_PREDICATE )
+	#else
+		#define TINY_UTF8_THROW( ... ) void()
+	#endif
 #endif
 
 //! Remove -Wmaybe-uninitialized, since it is wrong for all cases in this file
