@@ -40,7 +40,7 @@ Unicode is not rocket science but nonetheless hard to get *right*. **Tiny-utf8**
 
 **Tiny-utf8** aims to be the simple-and-dependable groundwork which you build Unicode infrastructure upon. And, if *1)* C++2a should happen to make your Unicode life easier than **tiny-utf8** or *2)* you decide to go enterprise, you have not wasted much time replacing `std::string` with `utf8_string` either. This is what makes **tiny-utf8** so agreeable.
 
-#### WHAT TINY-UTF8 IS NOT AIMED FOR
+#### WHAT TINY-UTF8 IS NOT AIMED AT
 - Conversion between ISO encodings and UTF8
 - Interfacing with UTF16
 - Visible character comparison (`'ch'` vs. `'c'+'h'`)
