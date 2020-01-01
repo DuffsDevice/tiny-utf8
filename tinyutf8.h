@@ -557,10 +557,10 @@ private: //! Static helper methods
 	}
 	static inline void					set_lut( char* iter , width_type lut_width , size_type value ){
 		switch( lut_width ){
-		case sizeof(std::uint8_t):	*(std::uint8_t*)iter = value; break;
-		case sizeof(std::uint16_t):	*(std::uint16_t*)iter = value; break;
-		case sizeof(std::uint32_t):	*(std::uint32_t*)iter = value; break;
-		case sizeof(std::uint64_t):	*(std::uint64_t*)iter = value; break;
+		case sizeof(std::uint8_t):	*(std::uint8_t*)iter = (std::uint8_t)value; break;
+		case sizeof(std::uint16_t):	*(std::uint16_t*)iter = (std::uint16_t)value; break;
+		case sizeof(std::uint32_t):	*(std::uint32_t*)iter = (std::uint32_t)value; break;
+		case sizeof(std::uint64_t):	*(std::uint64_t*)iter = (std::uint64_t)value; break;
 		}
 	}
 	
@@ -583,7 +583,7 @@ private: //! Static helper methods
 			// The test below would actually be ( codepoint_bytes <= data_left && codepoint_bytes ),
 			// but codepoint_bytes is unsigned and thus wraps around zero, which makes the following faster:
 			if( size_type( codepoint_bytes - 1 ) < size_type(data_left) )
-				return codepoint_bytes;
+				return (width_type)codepoint_bytes;
 		}
 		return 1;
 	}
@@ -659,9 +659,11 @@ private: //! Static helper methods
 			case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F); [[fallthrough]];
 			case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F); [[fallthrough]];
 			case 2: dest[cp_bytes-1] = 0x80 | ((cp >>  0) & 0x3F);
-				dest[0] = ( std::uint_least16_t(0xFF00uL) >> cp_bytes ) | ( cp >> ( 6 * cp_bytes - 6 ) );
+				dest[0] = (unsigned char)( ( std::uint_least16_t(0xFF00uL) >> cp_bytes ) | ( cp >> ( 6 * cp_bytes - 6 ) ) );
 				break;
-			case 1: dest[0]	= char(cp);
+			case 1:
+				dest[0] = (unsigned char)cp;
+				break;
 		}
 	}
 	
@@ -814,7 +816,9 @@ public:
 	 * @param	n		The number of codepoints generated
 	 * @param	cp		The code point that the whole buffer will be set to
 	 */
-	explicit inline utf8_string( value_type cp ) : t_sso( cp = encode_utf8( cp , t_sso.data ) ) {
+	explicit inline utf8_string( value_type cp ) :
+		t_sso( (size_type)( cp = encode_utf8( cp , t_sso.data ) ) )
+	{
 		t_sso.data[cp] = '\0';
 	}
 	/**
