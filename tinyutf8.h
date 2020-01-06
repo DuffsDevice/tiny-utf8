@@ -2084,11 +2084,11 @@ public:
 #include <algorithm>
 
 inline utf8_string::width_type utf8_string::get_lut_width( size_type buffer_size ){
-	return buffer_size <= std::numeric_limits<std::uint8_t>::max()
+	return buffer_size <= (size_type)std::numeric_limits<std::uint8_t>::max() + 1
 		? sizeof(std::uint8_t)
-		: buffer_size <= std::numeric_limits<std::uint16_t>::max()
+		: buffer_size <= (size_type)std::numeric_limits<std::uint16_t>::max() + 1
 			? sizeof(std::uint16_t)
-			: buffer_size <= std::numeric_limits<std::uint32_t>::max()
+			: buffer_size <= (size_type)std::numeric_limits<std::uint32_t>::max() + 1
 				? sizeof(std::uint32_t)
 				: sizeof(std::uint64_t)
 	;
