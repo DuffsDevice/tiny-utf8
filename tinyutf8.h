@@ -78,12 +78,22 @@ namespace tiny_utf8_detail
 		#ifndef TINY_UTF8_HAS_CLZ
 			#define TINY_UTF8_HAS_CLZ true
 		#endif
-		static inline unsigned int clz( uint16_t val ){ return __lzcnt16( val ); }
-		static inline unsigned int clz( uint32_t val ){ return __lzcnt( val ); }
+		template <typename T, size_t bit_size = std::numeric_limits<T>::digits>
+		static inline unsigned int lzcnt( T val )
+		{
+			unsigned long pos;
+			#ifndef WIN32
+				return _BitScanReverse64(&pos, val) ? bit_size - pos - 1 : bit_size;
+			#else
+				return _BitScanReverse(&pos, val) ? bit_size - pos - 1 : bit_size;
+			#endif
+		}
+		static inline unsigned int clz( uint16_t val ){ return lzcnt(val); }
+		static inline unsigned int clz( uint32_t val ) { return lzcnt(val); }
 		#ifndef WIN32
-			static inline unsigned int clz( uint64_t val ){ return __lzcnt64(val); }
+			static inline unsigned int clz( uint64_t val ){ return lzcnt(val); }
 		#endif // WIN32
-		static inline unsigned int clz( char32_t val ){ return __lzcnt( val ); }
+		static inline unsigned int clz( char32_t val ){ return lzcnt(val); }
 	#endif
 	
 	//! Helper to detect little endian
