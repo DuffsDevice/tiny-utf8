@@ -69,21 +69,31 @@ namespace tiny_utf8_detail
 		#ifndef TINY_UTF8_HAS_CLZ
 			#define TINY_UTF8_HAS_CLZ true
 		#endif
-		static inline unsigned int clz( unsigned int val ){ return __builtin_clz( val ); }
-		static inline unsigned int clz( unsigned long int val ){ return __builtin_clzl( val ); }
-		static inline unsigned int clz( char32_t val ){
-			return sizeof(char32_t) == sizeof(unsigned long int) ? __builtin_clzl( val ) : __builtin_clz( val );
+		static inline unsigned int clz( unsigned int value ){ return __builtin_clz( value ); }
+		static inline unsigned int clz( unsigned long int value ){ return __builtin_clzl( value ); }
+		static inline unsigned int clz( char32_t value ){
+			return sizeof(char32_t) == sizeof(unsigned long int) ? __builtin_clzl( value ) : __builtin_clz( value );
 		}
 	#elif defined(_MSC_VER)
 		#ifndef TINY_UTF8_HAS_CLZ
 			#define TINY_UTF8_HAS_CLZ true
 		#endif
-		static inline unsigned int clz( uint16_t val ){ return __lzcnt16( val ); }
-		static inline unsigned int clz( uint32_t val ){ return __lzcnt( val ); }
+		template<typename T>
+		static inline unsigned int lzcnt( T value ){
+			unsigned long value_log2;
+			#ifndef WIN32
+				_BitScanReverse64( &value_log2 , value );
+			#else
+				_BitScanReverse( &value_log2 , value );
+			#endif
+			return sizeof(T) * 8 - value_log2 - 1;
+		}
+		static inline unsigned int clz( uint16_t value ){ return lzcnt( value ); }
+		static inline unsigned int clz( uint32_t value ){ return lzcnt( value ); }
 		#ifndef WIN32
-			static inline unsigned int clz( uint64_t val ){ return __lzcnt64(val); }
+			static inline unsigned int clz( uint64_t value ){ return lzcnt( value ); }
 		#endif // WIN32
-		static inline unsigned int clz( char32_t val ){ return __lzcnt( val ); }
+		static inline unsigned int clz( char32_t value ){ return lzcnt( value ); }
 	#endif
 	
 	//! Helper to detect little endian
