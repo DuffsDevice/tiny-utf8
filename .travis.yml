@@ -11,3 +11,8 @@ compiler:
 
 script:
   - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I. test/test.cpp
+  
+jobs:
+  exclude:
+  - os: windows
+    compiler: clang
