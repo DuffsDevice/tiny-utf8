@@ -3,6 +3,7 @@ language: cpp
 os:
   - linux
   - osx
+  - windows
 
 compiler:
   - gcc
