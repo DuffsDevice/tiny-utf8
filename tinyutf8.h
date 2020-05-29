@@ -4438,6 +4438,5 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 #elif defined (_MSC_VER)
 #pragma warning(pop)
 #endif
-#endif
 
 #endif // _TINY_UTF8_H_
