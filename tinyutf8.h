@@ -569,7 +569,7 @@ private: //! Static helper methods
 		case sizeof(std::uint16_t):	return *(const std::uint16_t*)iter;
 		case sizeof(std::uint32_t):	return *(const std::uint32_t*)iter;
 		}
-		return *(const std::uint64_t*)iter;
+		return (size_type)*(const std::uint64_t*)iter;
 	}
 	static inline void					set_lut( char* iter , width_type lut_width , size_type value ){
 		switch( lut_width ){
@@ -833,7 +833,7 @@ public:
 	 * @param	cp		The code point that the whole buffer will be set to
 	 */
 	explicit inline utf8_string( value_type cp ) :
-		t_sso( (size_type)( cp = encode_utf8( cp , t_sso.data ) ) )
+		t_sso( (unsigned char)( cp = encode_utf8( cp , t_sso.data ) ) )
 	{
 		t_sso.data[cp] = '\0';
 	}
@@ -2153,7 +2153,7 @@ utf8_string::utf8_string( utf8_string::size_type count , utf8_string::value_type
 		buffer = t_sso.data;
 		
 		// Set Attributes
-		set_sso_data_len( data_len );
+		set_sso_data_len( (unsigned char)data_len );
 	}
 	
 	// Fill the buffer
@@ -2191,7 +2191,7 @@ utf8_string::utf8_string( utf8_string::size_type count , char cp ) :
 	}
 	else{
 		buffer = t_sso.data;
-		set_sso_data_len( count );
+		set_sso_data_len( (unsigned char)count );
 	}
 	
 	// Fill the buffer
@@ -2286,7 +2286,7 @@ utf8_string::utf8_string( const char* str , size_type len , tiny_utf8_detail::re
 		buffer = t_sso.data;
 		
 		// Set Attrbutes
-		set_sso_data_len( data_len );
+		set_sso_data_len( (unsigned char)data_len );
 		
 		// Set up LUT: Not necessary, since the LUT is automatically inactive,
 		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
@@ -2382,7 +2382,7 @@ utf8_string::utf8_string( const char* str , size_type data_len , tiny_utf8_detai
 		buffer = t_sso.data;
 		
 		// Set Attrbutes
-		set_sso_data_len( data_len );
+		set_sso_data_len( (unsigned char)data_len );
 		
 		// Set up LUT: Not necessary, since the LUT is automatically inactive,
 		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
@@ -2470,7 +2470,7 @@ utf8_string::utf8_string( const value_type* str , size_type len ) :
 		buffer = t_sso.data;
 		
 		// Set Attrbutes
-		set_sso_data_len( data_len );
+		set_sso_data_len( (unsigned char)data_len );
 		
 		// Set up LUT: Not necessary, since the LUT is automatically inactive,
 		// since SSO is active and the LUT indicator shadows 't_sso.data_len', which has the LSB = 0 (=> LUT inactive).
@@ -2661,7 +2661,7 @@ void utf8_string::shrink_to_fit()
 		
 		// Allocate new buffer
 		t_non_sso.data					= new char[ determine_total_buffer_size( required_buffer_size ) ];
-		size_type	old_lut_width		= utf8_string::get_lut_width( buffer_size );
+		width_type	old_lut_width		= utf8_string::get_lut_width( buffer_size );
 		char*		new_lut_base_ptr	= utf8_string::get_lut_base_ptr( t_non_sso.data , required_buffer_size );
 		
 		// Does the data type width change?
@@ -2953,12 +2953,13 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 	if( byte_count <= utf8_string::get_sso_capacity() )
 	{
 		utf8_string	result;
-		if( byte_count < utf8_string::get_sso_capacity() )
-			result.set_sso_data_len( byte_count ); // Set length
 		
 		// Copy data
 		std::memcpy( result.t_sso.data , get_buffer() + index , byte_count );
 		result.t_sso.data[byte_count] = '\0';
+		
+		// Set length
+		result.set_sso_data_len( (unsigned char)byte_count );
 		
 		return result;
 	}
@@ -3084,7 +3085,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 	if( new_data_len <= utf8_string::get_sso_capacity() ){
 		std::memcpy( t_sso.data + old_data_len , app.t_sso.data , app_data_len ); // Copy APPENDIX (must have sso active as well)
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		set_sso_data_len( new_data_len ); // Adjust size
+		set_sso_data_len( (unsigned char)new_data_len ); // Adjust size
 		return *this;
 	}
 	
@@ -3203,7 +3204,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 			char*		lut_dest_iter = old_lut_base_ptr - old_lut_len * new_lut_width;
 			if( app_lut_active )
 			{
-				size_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
+				width_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
 				const char*	app_lut_iter = app_lut_base_ptr;
 				while( app_lut_len-- > 0 )
 					utf8_string::set_lut(
@@ -3252,7 +3253,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 			// Reuse indices from old lut?
 			if( old_lut_active )
 			{
-				size_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
+				width_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
 			
 				// Copy all old INDICES
 				if( new_lut_width != old_lut_width )
@@ -3290,7 +3291,7 @@ utf8_string& utf8_string::append( const utf8_string& app )
 			char*		lut_dest_iter = new_lut_base_ptr - old_lut_len * new_lut_width;
 			if( app_lut_active )
 			{
-				size_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
+				width_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
 				const char*	app_lut_iter = app_lut_base_ptr;
 				while( app_lut_len-- > 0 )
 					utf8_string::set_lut(
@@ -3358,7 +3359,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 		
 		// Finish the new string object
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		set_sso_data_len( new_data_len );
+		set_sso_data_len( (unsigned char)new_data_len );
 		
 		return *this;
 	}
@@ -3534,7 +3535,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 			char*		lut_dest_iter = old_lut_base_ptr - mb_index * new_lut_width;
 			if( str_lut_active )
 			{
-				size_type	str_lut_width = utf8_string::get_lut_width( str_buffer_size );
+				width_type	str_lut_width = utf8_string::get_lut_width( str_buffer_size );
 				const char*	str_lut_iter = str_lut_base_ptr;
 				while( str_lut_len-- > 0 )
 					utf8_string::set_lut(
@@ -3588,7 +3589,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 			// Reuse indices from old lut?
 			if( old_lut_active )
 			{
-				size_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
+				width_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
 				
 				// Copy all INDICES BEFORE the insertion
 				if( new_lut_width != old_lut_width )
@@ -3648,7 +3649,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 			char*		lut_dest_iter = new_lut_base_ptr - mb_index * new_lut_width;
 			if( str_lut_active )
 			{
-				size_type	str_lut_width = utf8_string::get_lut_width( str_buffer_size );
+				width_type	str_lut_width = utf8_string::get_lut_width( str_buffer_size );
 				const char*	str_lut_iter = str_lut_base_ptr;
 				while( str_lut_len-- > 0 )
 					utf8_string::set_lut(
@@ -3933,7 +3934,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 			char*		lut_dest_iter = old_lut_base_ptr - mb_index * new_lut_width;
 			if( repl_lut_active )
 			{
-				size_type	repl_lut_width = utf8_string::get_lut_width( repl_buffer_size );
+				width_type	repl_lut_width = utf8_string::get_lut_width( repl_buffer_size );
 				const char*	repl_lut_iter = repl_lut_base_ptr;
 				while( repl_lut_len-- > 0 )
 					utf8_string::set_lut(
@@ -3991,7 +3992,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 			if( old_lut_active )
 			{
 				size_type	mb_end_index = mb_index + replaced_mbs;
-				size_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
+				width_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
 				
 				// Copy all INDICES BEFORE the replacement
 				if( new_lut_width != old_lut_width )
@@ -4148,7 +4149,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 		
 		// Finish the new string object
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		set_sso_data_len( new_data_len );
+		set_sso_data_len( (unsigned char)new_data_len );
 		
 		return *this;
 	}
@@ -4170,7 +4171,7 @@ utf8_string& utf8_string::raw_erase( size_type index , size_type len )
 	if( old_lut_active )
 	{
 		size_type	old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
-		size_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
+		width_type	old_lut_width = utf8_string::get_lut_width( old_buffer_size );
 		size_type	mb_end_index = 0;
 		size_type	replaced_mbs = 0;
 		size_type	iter	= 0;
