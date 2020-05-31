@@ -60,9 +60,13 @@
 #endif
 
 //! Remove Warning "-Wmaybe-uninitialized" (GCC/Clang) resp. "C4703" (MSVC), since it is wrong for all cases in this file
-#if defined (__GNUC__)
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#if defined (__clang__)
+#pragma clang diagnostic push
+// Clang is missing the option. See https://bugs.llvm.org/show_bug.cgi?id=24979
+// #pragma clang diagnostic ignored "-Wmaybe-uninitialized"
+#elif defined (__GNUC__)
 #pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #elif defined (_MSC_VER)
 #pragma warning(push)
 #pragma warning(disable:4703)
@@ -4436,7 +4440,9 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 
 #endif // TINY_UTF8_FORWARD_DECLARE_ONLY
 
-#if defined (__GNUC__)
+#if defined (__clang__)
+#pragma clang diagnostic pop
+#elif defined (__GNUC__)
 #pragma GCC diagnostic pop
 #elif defined (_MSC_VER)
 #pragma warning(pop)
