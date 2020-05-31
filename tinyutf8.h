@@ -55,23 +55,25 @@
 //! Determine the way to inform about fallthrough behavior
 #if __cplusplus >= 201700L
 	#define TINY_UTF8_FALLTHROUGH [[fallthrough]];
-#else
+#elif defined(__clang__)
+	// Clang does not warn about implicit fallthrough
 	#define TINY_UTF8_FALLTHROUGH
+#elif defined(__GNUC__) && __GNUG__ > 6
+	#define TINY_UTF8_FALLTHROUGH [[gnu::fallthrough]];
+#else
+	#define TINY_UTF8_FALLTHROUGH /* fall through */
 #endif
 
 //! Remove Warnings, since it is wrong for all cases in this file
 #if defined (__clang__)
-#pragma clang diagnostic push
-// #pragma clang diagnostic ignored "-Wmaybe-uninitialized" // Clang is missing it. See https://bugs.llvm.org/show_bug.cgi?id=24979
-#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
+	#pragma clang diagnostic push
+	// #pragma clang diagnostic ignored "-Wmaybe-uninitialized" // Clang is missing it. See https://bugs.llvm.org/show_bug.cgi?id=24979
 #elif defined (__GNUC__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
+	#pragma GCC diagnostic push
 #elif defined (_MSC_VER)
-#pragma warning(push)
-#pragma warning(disable:4703) // Maybe unitialized
-#pragma warning(disable:26819) // Implicit Fallthrough
+	#pragma warning(push)
+	#pragma warning(disable:4703) // Maybe unitialized
+	#pragma warning(disable:26819) // Implicit Fallthrough
 #endif
 
 namespace tiny_utf8_detail
