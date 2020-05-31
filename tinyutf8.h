@@ -53,10 +53,7 @@
 #endif
 
 //! Remove Warning "-Wmaybe-uninitialized" (GCC/Clang) resp. "C4703" (MSVC), since it is wrong for all cases in this file
-#if defined (__clang__)
-#pragma clang diagnostic ignored "-Wmaybe-uninitialized"
-#pragma clang diagnostic push
-#elif defined (__GNUC__)
+#if defined (__GNUC__)
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #pragma GCC diagnostic push
 #elif defined (_MSC_VER)
@@ -2072,7 +2069,7 @@ static inline bool operator<=( const utf8_string::const_reverse_iterator& lhs , 
 
 //! std::hash specialization
 namespace std{
-template<> class hash<utf8_string>{
+template<> struct hash<utf8_string>{
 public:
 	size_t operator()( const utf8_string& string ) const {
 		std::hash<char>	hasher;
@@ -4432,9 +4429,7 @@ std::istream& operator>>( std::istream& stream , utf8_string& str ){
 
 #endif // TINY_UTF8_FORWARD_DECLARE_ONLY
 
-#if defined (__clang__)
-#pragma clang diagnostic pop
-#elif defined (__GNUC__)
+#if defined (__GNUC__)
 #pragma GCC diagnostic pop
 #elif defined (_MSC_VER)
 #pragma warning(pop)
