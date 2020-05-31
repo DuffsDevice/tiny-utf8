@@ -54,22 +54,24 @@
 
 //! Determine the way to inform about fallthrough behavior
 #if __cplusplus >= 201700L
-	#define FALLTHROUGH_INTENTIONAL [[fallthrough]];
+	#define TINY_UTF8_FALLTHROUGH [[fallthrough]];
 #else
-	#define FALLTHROUGH_INTENTIONAL
+	#define TINY_UTF8_FALLTHROUGH
 #endif
 
-//! Remove Warning "-Wmaybe-uninitialized" (GCC/Clang) resp. "C4703" (MSVC), since it is wrong for all cases in this file
+//! Remove Warnings, since it is wrong for all cases in this file
 #if defined (__clang__)
 #pragma clang diagnostic push
-// Clang is missing the option. See https://bugs.llvm.org/show_bug.cgi?id=24979
-// #pragma clang diagnostic ignored "-Wmaybe-uninitialized"
+// #pragma clang diagnostic ignored "-Wmaybe-uninitialized" // Clang is missing it. See https://bugs.llvm.org/show_bug.cgi?id=24979
+#pragma clang diagnostic ignored "-Wimplicit-fallthrough"
 #elif defined (__GNUC__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
 #elif defined (_MSC_VER)
 #pragma warning(push)
-#pragma warning(disable:4703)
+#pragma warning(disable:4703) // Maybe unitialized
+#pragma warning(disable:26819) // Implicit Fallthrough
 #endif
 
 namespace tiny_utf8_detail
@@ -677,11 +679,11 @@ private: //! Static helper methods
 	 */
 	inline static void					encode_utf8( value_type cp , char* dest , width_type cp_bytes ){
 		switch( cp_bytes ){
-			case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F); FALLTHROUGH_INTENTIONAL
-			case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F); FALLTHROUGH_INTENTIONAL
-			case 5: dest[cp_bytes-4] = 0x80 | ((cp >> 18) & 0x3F); FALLTHROUGH_INTENTIONAL
-			case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F); FALLTHROUGH_INTENTIONAL
-			case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F); FALLTHROUGH_INTENTIONAL
+			case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F); TINY_UTF8_FALLTHROUGH
+			case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F); TINY_UTF8_FALLTHROUGH
+			case 5: dest[cp_bytes-4] = 0x80 | ((cp >> 18) & 0x3F); TINY_UTF8_FALLTHROUGH
+			case 4: dest[cp_bytes-3] = 0x80 | ((cp >> 12) & 0x3F); TINY_UTF8_FALLTHROUGH
+			case 3: dest[cp_bytes-2] = 0x80 | ((cp >>  6) & 0x3F); TINY_UTF8_FALLTHROUGH
 			case 2: dest[cp_bytes-1] = 0x80 | ((cp >>  0) & 0x3F);
 				dest[0] = (unsigned char)( ( std::uint_least16_t(0xFF00uL) >> cp_bytes ) | ( cp >> ( 6 * cp_bytes - 6 ) ) );
 				break;
@@ -2254,15 +2256,15 @@ utf8_string::utf8_string( const char* str , size_type len , tiny_utf8_detail::re
 				width_type bytes = get_codepoint_bytes( *str_iter , str_end - str_iter );
 				switch( bytes )
 				{
-					case 7:	buffer_iter[6] = str_iter[6]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 6:	buffer_iter[5] = str_iter[5]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 5:	buffer_iter[4] = str_iter[4]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 4:	buffer_iter[3] = str_iter[3]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 3:	buffer_iter[2] = str_iter[2]; FALLTHROUGH_INTENTIONAL // Copy data byte
+					case 7:	buffer_iter[6] = str_iter[6]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 6:	buffer_iter[5] = str_iter[5]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 5:	buffer_iter[4] = str_iter[4]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 4:	buffer_iter[3] = str_iter[3]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 3:	buffer_iter[2] = str_iter[2]; TINY_UTF8_FALLTHROUGH // Copy data byte
 					case 2:	buffer_iter[1] = str_iter[1]; // Copy data byte
 						// Set next entry in the LUT!
 						utf8_string::set_lut( lut_iter -= lut_width , lut_width , str_iter - str );
-						FALLTHROUGH_INTENTIONAL
+						TINY_UTF8_FALLTHROUGH
 					case 1: buffer_iter[0] = str_iter[0]; break; // Copy data byte
 				}
 				buffer_iter	+= bytes;
@@ -2350,15 +2352,15 @@ utf8_string::utf8_string( const char* str , size_type data_len , tiny_utf8_detai
 				width_type bytes = get_codepoint_bytes( *str_iter , str_end - str_iter );
 				switch( bytes )
 				{
-					case 7:	buffer_iter[6] = str_iter[6]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 6:	buffer_iter[5] = str_iter[5]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 5:	buffer_iter[4] = str_iter[4]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 4:	buffer_iter[3] = str_iter[3]; FALLTHROUGH_INTENTIONAL // Copy data byte
-					case 3:	buffer_iter[2] = str_iter[2]; FALLTHROUGH_INTENTIONAL // Copy data byte
+					case 7:	buffer_iter[6] = str_iter[6]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 6:	buffer_iter[5] = str_iter[5]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 5:	buffer_iter[4] = str_iter[4]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 4:	buffer_iter[3] = str_iter[3]; TINY_UTF8_FALLTHROUGH // Copy data byte
+					case 3:	buffer_iter[2] = str_iter[2]; TINY_UTF8_FALLTHROUGH // Copy data byte
 					case 2:	buffer_iter[1] = str_iter[1]; // Copy data byte
 						// Set next entry in the LUT!
 						utf8_string::set_lut( lut_iter -= lut_width , lut_width , str_iter - str );
-						FALLTHROUGH_INTENTIONAL
+						TINY_UTF8_FALLTHROUGH
 					case 1: buffer_iter[0] = str_iter[0]; break; // Copy data byte
 				}
 				buffer_iter	+= bytes;
@@ -2503,27 +2505,27 @@ utf8_string::width_type utf8_string::get_num_bytes_of_utf8_char_before( const ch
 		default:
 			if( ((unsigned char)data_start[-7] & 0xFE ) == 0xFC )	// 11111110 seven bytes
 				return 7;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 6:
 			if( ((unsigned char)data_start[-6] & 0xFE ) == 0xFC )	// 1111110X six bytes
 				return 6;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 5:
 			if( ((unsigned char)data_start[-5] & 0xFC ) == 0xF8 )	// 111110XX five bytes
 				return 5;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 4:
 			if( ((unsigned char)data_start[-4] & 0xF8 ) == 0xF0 )	// 11110XXX four bytes
 				return 4;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 3:
 			if( ((unsigned char)data_start[-3] & 0xF0 ) == 0xE0 )	// 1110XXXX three bytes
 				return 3;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 2:
 			if( ((unsigned char)data_start[-2] & 0xE0 ) == 0xC0 )	// 110XXXXX two bytes
 				return 2;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 1:
 		case 0:
 			return 1;
@@ -2623,7 +2625,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 		lbl_replicate_whole_buffer: // Replicate the whole buffer
 			delete[] t_non_sso.data;
 		}
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 2: // [sso-active] = [sso-inactive]
 			t_non_sso.data = new char[ utf8_string::determine_total_buffer_size( str.t_non_sso.buffer_size ) ];
 			std::memcpy( t_non_sso.data , str.t_non_sso.data , str.t_non_sso.buffer_size + sizeof(indicator_type) ); // Copy data
@@ -2633,7 +2635,7 @@ utf8_string& utf8_string::operator=( const utf8_string& str )
 			return *this;
 		case 1: // [sso-inactive] = [sso-active]
 			delete[] t_non_sso.data;
-			FALLTHROUGH_INTENTIONAL
+			TINY_UTF8_FALLTHROUGH
 		case 0: // [sso-active] = [sso-active]
 			if( &str != this )
 				std::memcpy( (void*)this , &str , sizeof(utf8_string) ); // Copy data
