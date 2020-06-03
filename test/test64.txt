@@ -80,13 +80,13 @@ Erased codepoints [0,8): World
 
 Test 6: 
 -------
-String (ANSI): Lò·¥®, Bå³¥n, Vò§¥¬ und Kå§¥r sind Tiere.
+String (ANSI): Löwen, Bären, Vögel und Käfer sind Tiere.
 RequiresUnicode: 1
 SSOActive: 0
 LUTActive: 1
 Iterative Output: LU\1800558, BU\19621n, VU\1735020 und KU\18853r sind Tiere.
 Reverse Iterative Output: .ereiT dnis rU\18853K dnu U\1735020V ,nU\19621B ,U\1800558L
-Converted to UTF-8: Lò·¥®, Bä²¥n, Vò§¥¬ und Kä¦¥r sind Tiere.
+Converted to UTF-8: Lö·¥®, Bä²¥n, Vö§¥¬ und Kä¦¥r sind Tiere.
 
 Test 7: 
 -------
