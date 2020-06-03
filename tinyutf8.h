@@ -72,8 +72,17 @@
 	#pragma GCC diagnostic push
 #elif defined (_MSC_VER)
 	#pragma warning(push)
+	#pragma warning(disable:4701) // Maybe unitialized
+	#pragma warning(disable:4702) // Unreachable code after call to TINY_UTF8_THROW()
 	#pragma warning(disable:4703) // Maybe unitialized
 	#pragma warning(disable:26819) // Implicit Fallthrough
+#endif
+
+//! Determine if constexpr
+#if __cplusplus >= 201700L
+	#define TINY_UTF8_CPP17( ... ) __VA_ARGS__
+#else
+	#define TINY_UTF8_CPP17( ... )
 #endif
 
 namespace tiny_utf8_detail
@@ -711,11 +720,11 @@ private: //! Non-static helper methods
 	inline void			set_non_sso_string_len( size_type string_len )
 	{
 		// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
-		if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 ){
+		if TINY_UTF8_CPP17(constexpr) ( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 ){
 			t_non_sso.string_len = string_len;
 			t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
 		}
-		else if( tiny_utf8_detail::is_little_endian::value ){
+		else if TINY_UTF8_CPP17(constexpr) ( tiny_utf8_detail::is_little_endian::value ){
 			tiny_utf8_detail::last_byte<size_type> lb;
 			lb.number = string_len;
 			lb.bytes.last <<= 1;
@@ -2758,9 +2767,9 @@ std::string utf8_string::cpp_str_bom() const
 	char*		tmp_buffer = const_cast<char*>( result.data() );
 	
 	// Write BOM
-	tmp_buffer[0] = char(0xEF);
-	tmp_buffer[1] = char(0xBB);
-	tmp_buffer[2] = char(0xBF);
+	tmp_buffer[0] = static_cast<char>(0xEF);
+	tmp_buffer[1] = static_cast<char>(0xBB);
+	tmp_buffer[2] = static_cast<char>(0xBF);
 	
 	// Copy my data into it
 	std::memcpy( tmp_buffer + 3 , get_buffer() , size() + 1 );
@@ -3049,7 +3058,7 @@ utf8_string utf8_string::raw_substr( size_type index , size_type byte_count ) co
 			if( index == 0 && substr_lut_width == lut_width ) // [5]: lut_width is initialized, as soon as 'lut_active' is true
 				std::memcpy(
 					substr_lut_base_ptr - substr_mbs * lut_width
-					, lut_base_ptr - ( mb_index + substr_mbs ) * lut_width
+					, lut_base_ptr - ( mb_index + substr_mbs ) * lut_width // mb_index is initialized, as soon as 'lut_active' is true
 					, substr_mbs * lut_width
 				);
 			else
@@ -3159,7 +3168,8 @@ utf8_string& utf8_string::append( const utf8_string& app )
 		
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
+		old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr );
+		if( old_lut_active )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = 0;
@@ -3213,11 +3223,11 @@ utf8_string& utf8_string::append( const utf8_string& app )
 			new_lut_width = utf8_string::get_lut_width( old_buffer_size );
 			
 			// Append new INDICES
-			char*		lut_dest_iter = old_lut_base_ptr - old_lut_len * new_lut_width;
+			char*		lut_dest_iter = old_lut_base_ptr - old_lut_len * new_lut_width; // 'old_lut_base_ptr' is initialized as 'old_sso_inactive' is true (see [3])
 			if( app_lut_active )
 			{
 				width_type	app_lut_width = utf8_string::get_lut_width( app_buffer_size );
-				const char*	app_lut_iter = app_lut_base_ptr;
+				const char*	app_lut_iter = app_lut_base_ptr; // 'app_lut_base_ptr' is initialized as soon as 'app_lut_active' is set to true
 				while( app_lut_len-- > 0 )
 					utf8_string::set_lut(
 						lut_dest_iter -= new_lut_width
@@ -3439,7 +3449,8 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 		}
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
+		old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr );
+		if( old_lut_active )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = mb_index;
@@ -3499,7 +3510,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 			if( old_lut_active )
 			{
 				// Offset all indices
-				char*		lut_iter = old_lut_base_ptr - mb_index * new_lut_width;
+				char*		lut_iter = old_lut_base_ptr - mb_index * new_lut_width; // 'old_lut_base_ptr' is initialized as soon as 'old_lut_active' is set to true
 				size_type	num_indices = old_lut_len - mb_index;
 				while( num_indices-- > 0 ){
 					lut_iter -= new_lut_width;
@@ -3548,7 +3559,7 @@ utf8_string& utf8_string::raw_insert( size_type index , const utf8_string& str )
 			if( str_lut_active )
 			{
 				width_type	str_lut_width = utf8_string::get_lut_width( str_buffer_size );
-				const char*	str_lut_iter = str_lut_base_ptr;
+				const char*	str_lut_iter = str_lut_base_ptr; // 'str_lut_base_ptr' is initialized as soon as 'str_lut_active' is set to true
 				while( str_lut_len-- > 0 )
 					utf8_string::set_lut(
 						lut_dest_iter -= new_lut_width
@@ -3754,7 +3765,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		
 		// Finish the new string object
 		t_sso.data[new_data_len] = 0; // Trailing '\0'
-		set_sso_data_len( new_data_len );
+		set_sso_data_len( (unsigned char)new_data_len );
 		
 		return *this;
 	}
@@ -3826,7 +3837,8 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 		}
 		// Count TOTAL multibytes
 		old_lut_base_ptr = utf8_string::get_lut_base_ptr( old_buffer , old_buffer_size );
-		if( (old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr )) )
+		old_lut_active = utf8_string::is_lut_active( old_lut_base_ptr );
+		if( old_lut_active )
 			old_lut_len = utf8_string::get_lut_len( old_lut_base_ptr );
 		else{
 			old_lut_len = mb_index + replaced_mbs;
@@ -3895,7 +3907,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 				
 				// Need to offset all indices? (This can be, if the replacement data has different size as the replaced data)
 				if( delta_len ){
-					char*		lut_iter = old_lut_base_ptr - mb_end_index * new_lut_width;
+					char*		lut_iter = old_lut_base_ptr - mb_end_index * new_lut_width; // 'old_lut_base_ptr' is initialized as soon as 'old_lut_active' is set to true
 					size_type	num_indices = old_lut_len - mb_end_index;
 					while( num_indices-- > 0 ){
 						lut_iter -= new_lut_width;
@@ -3947,7 +3959,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 			if( repl_lut_active )
 			{
 				width_type	repl_lut_width = utf8_string::get_lut_width( repl_buffer_size );
-				const char*	repl_lut_iter = repl_lut_base_ptr;
+				const char*	repl_lut_iter = repl_lut_base_ptr; // 'repl_lut_base_ptr' is initialized as soon as repl_lut_active' is set to true
 				while( repl_lut_len-- > 0 )
 					utf8_string::set_lut(
 						lut_dest_iter -= new_lut_width
@@ -4073,7 +4085,7 @@ utf8_string& utf8_string::raw_replace( size_type index , size_type replaced_len 
 			char*		lut_dest_iter = new_lut_base_ptr - mb_index * new_lut_width;
 			if( repl_lut_active )
 			{
-				size_type	repl_lut_width = utf8_string::get_lut_width( repl_buffer_size );
+				width_type	repl_lut_width = utf8_string::get_lut_width( repl_buffer_size );
 				const char*	repl_lut_iter = repl_lut_base_ptr;
 				while( repl_lut_len-- > 0 )
 					utf8_string::set_lut(
