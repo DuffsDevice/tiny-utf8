@@ -91,17 +91,18 @@ namespace tiny_utf8
 	// Forward Declaration
 	template<
 		typename ValueType = char32_t
-		#if __cplusplus > 201703L
-			, typename DataType = char8_t
-		#else
-			, typename DataType = char
-		#endif
-		, typename Allocator = std::allocator<std::size_t>
+		, typename DataType = char
+		, typename Allocator = std::allocator<char>
 	>
 	class basic_utf8_string;
 	
-	//! Typedef of utf8_string
-	using utf8_string = basic_utf8_string<>;	
+	//! Typedef of utf8_string (data type: char)
+	using utf8_string = basic_utf8_string<char32_t, char>;
+	
+	//! Typedef of u8string (data type char8_t)
+	#if __cplusplus > 201703L
+		using u8string = basic_utf8_string<char32_t, char8_t>;
+	#endif
 }
 
 //! Want a global declaration?
