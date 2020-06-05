@@ -34,12 +34,13 @@
 #include <string> // for std::string
 #include <limits> // for std::numeric_limits
 #include <functional> // for std::hash
+#include <algorithm> // for std::min, std::max
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
 #include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <initializer_list> // for std::initializer_list
 #include <iosfwd> // for ostream/istream forward declarations
 #ifdef _MSC_VER
-#include <intrin.h> // for __lzcnt
+#include <intrin.h> // for _BitScanReverse, _BitScanReverse64
 #endif
 
 //! Determine the mode of error handling
