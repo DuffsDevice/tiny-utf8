@@ -35,6 +35,7 @@
 #include <limits> // for std::numeric_limits
 #include <functional> // for std::hash
 #include <algorithm> // for std::min, std::max
+#include <type_traits> // for std::is_*
 #include <cstddef> // for ptrdiff_t, size_t and offsetof
 #include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <initializer_list> // for std::initializer_list
@@ -66,12 +67,12 @@
 #endif
 
 //! Remove Warnings, since it is wrong for all cases in this file
-#if defined (__clang__)
+#if defined(__clang__)
 	#pragma clang diagnostic push
 	// #pragma clang diagnostic ignored "-Wmaybe-uninitialized" // Clang is missing it. See https://bugs.llvm.org/show_bug.cgi?id=24979
-#elif defined (__GNUC__)
+#elif defined(__GNUC__)
 	#pragma GCC diagnostic push
-#elif defined (_MSC_VER)
+#elif defined(_MSC_VER)
 	#pragma warning(push)
 	#pragma warning(disable:4701) // Maybe unitialized
 	#pragma warning(disable:4702) // Unreachable code after call to TINY_UTF8_THROW()
@@ -84,6 +85,16 @@
 	#define TINY_UTF8_CPP17( ... ) __VA_ARGS__
 #else
 	#define TINY_UTF8_CPP17( ... )
+#endif
+
+//! Determine noexcept specifications
+#if defined(TINY_UTF8_NOEXCEPT)
+	#undef TINY_UTF8_NOEXCEPT
+	#define TINY_UTF8_NOEXCEPT true
+#elif !defined(__cpp_exceptions)
+	#define TINY_UTF8_NOEXCEPT true
+#else
+	#define TINY_UTF8_NOEXCEPT false
 #endif
 
 //! Want global declarations?
@@ -121,9 +132,9 @@ namespace tiny_utf8
 			#ifndef TINY_UTF8_HAS_CLZ
 				#define TINY_UTF8_HAS_CLZ true
 			#endif
-			static inline unsigned int clz( unsigned int value ){ return __builtin_clz( value ); }
-			static inline unsigned int clz( unsigned long int value ){ return __builtin_clzl( value ); }
-			static inline unsigned int clz( char32_t value ){
+			static inline unsigned int clz( unsigned int value ) noexcept { return __builtin_clz( value ); }
+			static inline unsigned int clz( unsigned long int value ) noexcept { return __builtin_clzl( value ); }
+			static inline unsigned int clz( char32_t value ) noexcept {
 				return sizeof(char32_t) == sizeof(unsigned long int) ? __builtin_clzl( value ) : __builtin_clz( value );
 			}
 		#elif defined(_MSC_VER)
@@ -131,7 +142,7 @@ namespace tiny_utf8
 				#define TINY_UTF8_HAS_CLZ true
 			#endif
 			template<typename T>
-			static inline unsigned int lzcnt( T value ){
+			static inline unsigned int lzcnt( T value ) noexcept {
 				unsigned long value_log2;
 				#ifndef WIN32
 					_BitScanReverse64( &value_log2 , value );
@@ -140,12 +151,12 @@ namespace tiny_utf8
 				#endif
 				return sizeof(T) * 8 - value_log2 - 1;
 			}
-			static inline unsigned int clz( uint16_t value ){ return lzcnt( value ); }
-			static inline unsigned int clz( uint32_t value ){ return lzcnt( value ); }
+			static inline unsigned int clz( uint16_t value ) noexcept { return lzcnt( value ); }
+			static inline unsigned int clz( uint32_t value ) noexcept { return lzcnt( value ); }
 			#ifndef WIN32
-				static inline unsigned int clz( uint64_t value ){ return lzcnt( value ); }
+				static inline unsigned int clz( uint64_t value ) noexcept { return lzcnt( value ); }
 			#endif // WIN32
-			static inline unsigned int clz( char32_t value ){ return lzcnt( value ); }
+			static inline unsigned int clz( char32_t value ) noexcept { return lzcnt( value ); }
 		#endif
 		
 		//! Helper to detect little endian
@@ -179,13 +190,13 @@ namespace tiny_utf8
 	public:
 		
 		//! Ctor
-		codepoint_reference( typename Container::size_type index , Container* instance ) :
+		codepoint_reference( typename Container::size_type index , Container* instance ) noexcept :
 			t_index( index )
 			, t_instance( instance )
 		{}
 		
 		//! Cast to wide char
-		operator typename Container::value_type() const {
+		operator typename Container::value_type() const noexcept( TINY_UTF8_NOEXCEPT || RangeCheck == false ) {
 			if TINY_UTF8_CPP17(constexpr) ( RangeCheck )
 				return static_cast<const Container*>(t_instance)->at( t_index );
 			else
@@ -193,10 +204,10 @@ namespace tiny_utf8
 		}
 		
 		//! Dereference operator to act as pointer type
-		codepoint_reference& operator*() const { return *this; }
+		codepoint_reference& operator*() const noexcept { return *this; }
 		
 		//! Assignment operator
-		codepoint_reference& operator=( typename Container::value_type cp ){
+		codepoint_reference& operator=( typename Container::value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			t_instance->replace( t_index , cp );
 			return *this;
 		}
@@ -211,18 +222,18 @@ namespace tiny_utf8
 	public:
 		
 		//! Ctors
-		raw_codepoint_reference( typename Container::size_type raw_index , Container* instance ) :
+		raw_codepoint_reference( typename Container::size_type raw_index , Container* instance ) noexcept :
 			t_raw_index( raw_index )
 			, t_instance( instance )
 		{}
 		template<bool RC>
-		explicit raw_codepoint_reference( const codepoint_reference<Container, RC>& reference ) :
+		explicit raw_codepoint_reference( const codepoint_reference<Container, RC>& reference ) noexcept :
 			t_raw_index( reference.t_instance->get_num_bytes_from_start( reference.t_index ) )
 			, t_instance( reference.t_instance )
 		{}
 		
 		//! Cast to wide char
-		operator typename Container::value_type() const {
+		operator typename Container::value_type() const noexcept( TINY_UTF8_NOEXCEPT || RangeCheck == false ) {
 			if TINY_UTF8_CPP17(constexpr) ( RangeCheck )
 				return static_cast<const Container*>(t_instance)->raw_at( t_raw_index );
 			else
@@ -230,14 +241,14 @@ namespace tiny_utf8
 		}
 		
 		//! Dereference operator to act as pointer type
-		raw_codepoint_reference& operator*() const { return *this; }
+		raw_codepoint_reference& operator*() const noexcept { return *this; }
 		
 		//! Cast to normal (non-raw) code point reference
 		template<bool RC>
-		explicit operator codepoint_reference<Container, RC>() const { return { t_instance->get_num_codepoints( 0 , t_raw_index ) , t_instance }; }
+		explicit operator codepoint_reference<Container, RC>() const noexcept { return { t_instance->get_num_codepoints( 0 , t_raw_index ) , t_instance }; }
 		
 		//! Assignment operator
-		raw_codepoint_reference& operator=( typename Container::value_type cp ){
+		raw_codepoint_reference& operator=( typename Container::value_type cp ) noexcept {
 			t_instance->raw_replace( t_raw_index , t_instance->get_index_bytes( t_raw_index ) , Container( cp ) );
 			return *this;
 		}
@@ -257,23 +268,23 @@ namespace tiny_utf8
 		typedef void*										pointer;
 		typedef std::bidirectional_iterator_tag				iterator_category;
 		
-		bool operator==( const iterator_base& it ) const { return t_raw_index == it.t_raw_index; }
-		bool operator!=( const iterator_base& it ) const { return t_raw_index != it.t_raw_index; }
+		bool operator==( const iterator_base& it ) const noexcept { return t_raw_index == it.t_raw_index; }
+		bool operator!=( const iterator_base& it ) const noexcept { return t_raw_index != it.t_raw_index; }
 		
 		//! Ctor
-		iterator_base( difference_type raw_index , Container* instance ) :
+		iterator_base( difference_type raw_index , Container* instance ) noexcept :
 			t_raw_index( raw_index )
 			, t_instance( instance )
 		{}
 		
 		//! Default function
-		iterator_base() = default;
-		iterator_base( const iterator_base& ) = default;
-		iterator_base& operator=( const iterator_base& ) = default;
+		iterator_base() noexcept = default;
+		iterator_base( const iterator_base& ) noexcept = default;
+		iterator_base& operator=( const iterator_base& ) noexcept = default;
 		
 		// Getter for the iterator index
-		difference_type get_index() const { return t_raw_index; }
-		Container* get_instance() const { return t_instance; }
+		difference_type get_index() const noexcept { return t_raw_index; }
+		Container* get_instance() const noexcept { return t_instance; }
 		
 	protected:
 		
@@ -283,7 +294,7 @@ namespace tiny_utf8
 	protected:
 		
 		//! Advance the iterator n times (negative values allowed!)
-		void advance( difference_type n ){
+		void advance( difference_type n ) noexcept {
 			if( n > 0 )
 				do
 					increment();
@@ -294,19 +305,19 @@ namespace tiny_utf8
 		}
 		
 		//! Move the iterator one codepoint ahead
-		void increment(){ t_raw_index += t_instance->get_index_bytes( t_raw_index ); }
+		void increment() noexcept { t_raw_index += t_instance->get_index_bytes( t_raw_index ); }
 		
 		//! Move the iterator one codepoint backwards
-		void decrement(){ t_raw_index -= t_instance->get_index_pre_bytes( t_raw_index ); }
+		void decrement() noexcept { t_raw_index -= t_instance->get_index_pre_bytes( t_raw_index ); }
 		
 		//! Get a reference to the codepoint the iterator points to
-		reference get_reference() const { return t_instance->raw_at( t_raw_index , std::nothrow ); }
+		reference get_reference() const noexcept { return t_instance->raw_at( t_raw_index , std::nothrow ); }
 		
 		//! Get the value that the iterator points to
-		value_type get_value() const { return static_cast<const Container*>(t_instance)->raw_at( t_raw_index ); }
+		value_type get_value() const noexcept { return static_cast<const Container*>(t_instance)->raw_at( t_raw_index ); }
 		
 		//! Get the index of the codepoint the iterator points to
-		difference_type get_raw_index() const { return t_raw_index; }
+		difference_type get_raw_index() const noexcept { return t_raw_index; }
 	};
 	
 	template<typename Container> struct iterator;
@@ -318,237 +329,237 @@ namespace tiny_utf8
 	struct iterator : iterator_base<Container>
 	{
 		//! Ctor
-		iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) :
+		iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) noexcept :
 			iterator_base<Container>( raw_index , instance )
 		{}
 		
 		//! Default Functions
-		iterator() = default;
-		iterator( const iterator& ) = default;
-		iterator& operator=( const iterator& ) = default;
+		iterator() noexcept = default;
+		iterator( const iterator& ) noexcept = default;
+		iterator& operator=( const iterator& ) noexcept = default;
 		
 		//! Delete ctor from const iterator types
 		iterator( const const_iterator<Container>& ) = delete;
 		iterator( const const_reverse_iterator<Container>& ) = delete;
 		
 		//! Increase the Iterator by one
-		iterator& operator++(){ // prefix ++iter
+		iterator& operator++() noexcept { // prefix ++iter
 			this->increment();
 			return *this;
 		}
-		iterator operator++( int ){ // postfix iter++
+		iterator operator++( int ) noexcept { // postfix iter++
 			iterator tmp{ this->t_raw_index , this->t_instance };
 			this->increment();
 			return tmp;
 		}
 		
 		//! Decrease the iterator by one
-		iterator& operator--(){ // prefix --iter
+		iterator& operator--() noexcept { // prefix --iter
 			this->decrement();
 			return *this;
 		}
-		iterator operator--( int ){ // postfix iter--
+		iterator operator--( int ) noexcept { // postfix iter--
 			iterator tmp{ this->t_raw_index , this->t_instance };
 			this->decrement();
 			return tmp;
 		}
 		
 		//! Increase the Iterator n times
-		iterator operator+( typename iterator_base<Container>::difference_type n ) const {
+		iterator operator+( typename iterator_base<Container>::difference_type n ) const noexcept {
 			iterator it{*this};
 			it.advance( n );
 			return it;
 		}
-		iterator& operator+=( typename iterator_base<Container>::difference_type n ){
+		iterator& operator+=( typename iterator_base<Container>::difference_type n ) noexcept {
 			this->advance( n );
 			return *this;
 		}
 		
 		//! Decrease the Iterator n times
-		iterator operator-( typename iterator_base<Container>::difference_type n ) const {
+		iterator operator-( typename iterator_base<Container>::difference_type n ) const noexcept {
 			iterator it{*this};
 			it.advance( -n );
 			return it;
 		}
-		iterator& operator-=( typename iterator_base<Container>::difference_type n ){
+		iterator& operator-=( typename iterator_base<Container>::difference_type n ) noexcept {
 			this->advance( -n );
 			return *this;
 		}
 		
 		//! Returns the value of the code point behind the iterator
-		typename iterator::reference operator*() const { return this->get_reference(); }
+		typename iterator::reference operator*() const noexcept { return this->get_reference(); }
 	};
 
 	template<typename Container>
 	struct const_iterator : iterator<Container>
 	{
 		//! Ctor
-		const_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) :
+		const_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) noexcept :
 			iterator<Container>( raw_index , const_cast<Container*>(instance) )
 		{}
 		
 		//! Ctor from non const
-		const_iterator( const iterator<Container>& it ) :
+		const_iterator( const iterator<Container>& it ) noexcept :
 			iterator<Container>( it.get_index() , it.get_instance() )
 		{}
 		
 		//! Default Functions
-		const_iterator() = default;
-		const_iterator( const const_iterator& ) = default;
-		const_iterator& operator=( const const_iterator& ) = default;
+		const_iterator() noexcept = default;
+		const_iterator( const const_iterator& ) noexcept = default;
+		const_iterator& operator=( const const_iterator& ) noexcept = default;
 		
 		//! Returns the (raw) value behind the iterator
-		typename iterator<Container>::value_type operator*() const { return this->get_value(); }
+		typename iterator<Container>::value_type operator*() const noexcept { return this->get_value(); }
 	};
 
 	template<typename Container>
 	struct reverse_iterator : iterator_base<Container>
 	{
 		//! Ctor
-		reverse_iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) :
+		reverse_iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) noexcept :
 			iterator_base<Container>( raw_index , instance )
 		{}
 		
 		//! Ctor from normal iterator
-		reverse_iterator( const iterator<Container>& it ) :
+		reverse_iterator( const iterator<Container>& it ) noexcept :
 			iterator_base<Container>( it.get_index() , it.get_instance() )
 		{}
 		
 		//! Default Functions
-		reverse_iterator() = default;
-		reverse_iterator( const reverse_iterator& ) = default;
-		reverse_iterator& operator=( const reverse_iterator& ) = default;
+		reverse_iterator() noexcept = default;
+		reverse_iterator( const reverse_iterator& ) noexcept = default;
+		reverse_iterator& operator=( const reverse_iterator& ) noexcept = default;
 		
 		//! Delete ctor from const iterator types
 		reverse_iterator( const const_iterator<Container>& ) = delete;
 		reverse_iterator( const const_reverse_iterator<Container>& ) = delete;
 		
 		//! Increase the iterator by one
-		reverse_iterator& operator++(){ // prefix ++iter
+		reverse_iterator& operator++() noexcept { // prefix ++iter
 			this->decrement();
 			return *this;
 		}
-		reverse_iterator operator++( int ){ // postfix iter++
+		reverse_iterator operator++( int ) noexcept { // postfix iter++
 			reverse_iterator tmp{ this->t_raw_index , this->t_instance };
 			this->decrement();
 			return tmp;
 		}
 		
 		//! Decrease the Iterator by one
-		reverse_iterator& operator--(){ // prefix --iter
+		reverse_iterator& operator--() noexcept { // prefix --iter
 			this->increment();
 			return *this;
 		}
-		reverse_iterator operator--( int ){ // postfix iter--
+		reverse_iterator operator--( int ) noexcept { // postfix iter--
 			reverse_iterator tmp{ this->t_raw_index , this->t_instance };
 			this->increment();
 			return tmp;
 		}
 		
 		//! Increase the Iterator n times
-		reverse_iterator operator+( typename iterator_base<Container>::difference_type n ) const {
+		reverse_iterator operator+( typename iterator_base<Container>::difference_type n ) const noexcept {
 			reverse_iterator it{*this};
 			it.advance( -n );
 			return it;
 		}
-		reverse_iterator& operator+=( typename iterator_base<Container>::difference_type n ){
+		reverse_iterator& operator+=( typename iterator_base<Container>::difference_type n ) noexcept {
 			this->advance( -n );
 			return *this;
 		}
 		
 		//! Decrease the Iterator n times
-		reverse_iterator operator-( typename iterator_base<Container>::difference_type n ) const {
+		reverse_iterator operator-( typename iterator_base<Container>::difference_type n ) const noexcept {
 			reverse_iterator it{*this};
 			it.advance( n );
 			return it;
 		}
-		reverse_iterator& operator-=( typename iterator_base<Container>::difference_type n ){
+		reverse_iterator& operator-=( typename iterator_base<Container>::difference_type n ) noexcept {
 			this->advance( n );
 			return *this;
 		}
 		
 		//! Returns the value of the code point behind the iterator
-		typename iterator<Container>::reference operator*() const { return this->get_reference(); }
+		typename iterator<Container>::reference operator*() const noexcept { return this->get_reference(); }
 		
 		//! Get the underlying iterator instance
-		iterator<Container> base() const { return { this->t_raw_index , this->t_instance }; }
+		iterator<Container> base() const noexcept { return { this->t_raw_index , this->t_instance }; }
 	};
 
 	template<typename Container>
 	struct const_reverse_iterator : reverse_iterator<Container>
 	{
 		//! Ctor
-		const_reverse_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) :
+		const_reverse_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) noexcept :
 			reverse_iterator<Container>( raw_index , const_cast<Container*>(instance) )
 		{}
 		
 		//! Ctor from non const
-		const_reverse_iterator( const reverse_iterator<Container>& it ) :
+		const_reverse_iterator( const reverse_iterator<Container>& it ) noexcept :
 			reverse_iterator<Container>( it.get_index() , it.get_instance() )
 		{}
 		
 		//! Ctor from normal iterator
-		const_reverse_iterator( const const_iterator<Container>& it ) :
+		const_reverse_iterator( const const_iterator<Container>& it ) noexcept :
 			reverse_iterator<Container>( it.get_index() , it.get_instance() )
 		{}
 		
 		//! Default Functions
-		const_reverse_iterator() = default;
-		const_reverse_iterator( const const_reverse_iterator& ) = default;
-		const_reverse_iterator& operator=( const const_reverse_iterator& ) = default;
+		const_reverse_iterator() noexcept = default;
+		const_reverse_iterator( const const_reverse_iterator& ) noexcept = default;
+		const_reverse_iterator& operator=( const const_reverse_iterator& ) noexcept = default;
 		
 		//! Returns the (raw) value behind the iterator
-		typename iterator<Container>::value_type operator*() const { return this->get_value(); }
+		typename iterator<Container>::value_type operator*() const noexcept { return this->get_value(); }
 		
 		//! Get the underlying iterator instance
-		const_iterator<Container> base() const { return { this->t_raw_index , this->t_instance }; }
+		const_iterator<Container> base() const noexcept { return { this->t_raw_index , this->t_instance }; }
 	};
 	
 	
 	//! Compare two iterators
 	template<typename Container>
-	static inline bool operator>( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ){
+	static inline bool operator>( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() > rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator>( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ){
+	static inline bool operator>( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() < rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator>=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ){
+	static inline bool operator>=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() >= rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator>=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ){
+	static inline bool operator>=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() <= rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator<( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ){
+	static inline bool operator<( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() < rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator<( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ){
+	static inline bool operator<( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() > rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator<=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ){
+	static inline bool operator<=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() <= rhs.get_index();
 	}
 	template<typename Container>
-	static inline bool operator<=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ){
+	static inline bool operator<=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
 		return lhs.get_index() >= rhs.get_index();
 	}
 	
 	//! Iterator difference computation functions (difference is in terms of codepoints)
 	template<typename Container>
-	typename iterator<Container>::difference_type operator-( const iterator<Container>& lhs , const iterator<Container>& rhs ){
+	typename iterator<Container>::difference_type operator-( const iterator<Container>& lhs , const iterator<Container>& rhs ) noexcept {
 		typename iterator<Container>::difference_type minIndex = std::min( lhs.get_index() , rhs.get_index() );
 		typename iterator<Container>::difference_type max_index = std::max( lhs.get_index() , rhs.get_index() );
 		typename iterator<Container>::difference_type num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
 		return max_index == lhs.get_index() ? num_codepoints : -num_codepoints;
 	}
 	template<typename Container>
-	typename reverse_iterator<Container>::difference_type operator-( const reverse_iterator<Container>& lhs , const reverse_iterator<Container>& rhs ){
+	typename reverse_iterator<Container>::difference_type operator-( const reverse_iterator<Container>& lhs , const reverse_iterator<Container>& rhs ) noexcept {
 		typename reverse_iterator<Container>::difference_type	minIndex = std::min( lhs.get_index() , rhs.get_index() );
 		typename reverse_iterator<Container>::difference_type	max_index = std::max( lhs.get_index() , rhs.get_index() );
 		typename reverse_iterator<Container>::difference_type	num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
@@ -606,11 +617,11 @@ namespace tiny_utf8
 		{
 			data_type		data[sizeof(NON_SSO)-1];
 			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
-			SSO( unsigned char data_len , data_type value ) :
+			SSO( unsigned char data_len , data_type value ) noexcept :
 				data{ value }
 				, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 			{}
-			SSO( unsigned char data_len ) :
+			SSO( unsigned char data_len ) noexcept :
 				data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 			{}
 		};
@@ -625,7 +636,7 @@ namespace tiny_utf8
 	protected: //! Static helper methods
 		
 		//! Get the maximum number of bytes (excluding the trailing '\0') that can be stored within a basic_utf8_string object
-		static constexpr inline size_type	get_sso_capacity(){ return sizeof(SSO::data); }
+		static constexpr inline size_type	get_sso_capacity() noexcept { return sizeof(SSO::data); }
 		
 		//! Helpers for the constructors
 		template<size_type L>
@@ -649,29 +660,29 @@ namespace tiny_utf8
 		>::type;
 		
 		//! Check, if the lut is active using the lut base ptr
-		static inline bool					is_lut_active( const data_type* lut_base_ptr ){ return *((const unsigned char*)lut_base_ptr) & 0x1; }
+		static inline bool					is_lut_active( const data_type* lut_base_ptr ) noexcept { return *((const unsigned char*)lut_base_ptr) & 0x1; }
 		
 		//! Rounds the supplied value to a multiple of sizeof(size_type)
-		static inline size_type				round_up_to_align( size_type val ){
+		static inline size_type				round_up_to_align( size_type val ) noexcept {
 			return ( val + sizeof(size_type) - 1 ) & ~( sizeof(size_type) - 1 );
 		}
 		
 		//! Get the LUT base pointer from buffer and buffer size
-		static inline data_type*			get_lut_base_ptr( data_type* buffer , size_type buffer_size ){ return buffer + buffer_size; }
-		static inline const data_type*		get_lut_base_ptr( const data_type* buffer , size_type buffer_size ){ return buffer + buffer_size; }
+		static inline data_type*			get_lut_base_ptr( data_type* buffer , size_type buffer_size ) noexcept { return buffer + buffer_size; }
+		static inline const data_type*		get_lut_base_ptr( const data_type* buffer , size_type buffer_size ) noexcept { return buffer + buffer_size; }
 		
 		//! Construct the lut mode indicator
-		static inline void					set_lut_indiciator( data_type* lut_base_ptr , bool active , size_type lut_len = 0 ){
+		static inline void					set_lut_indiciator( data_type* lut_base_ptr , bool active , size_type lut_len = 0 ) noexcept {
 			*(indicator_type*)lut_base_ptr = active ? ( lut_len << 1 ) | 0x1 : 0;
 		}
 		//! Copy lut indicator
-		static inline void					copy_lut_indicator( data_type* dest , const data_type* source ){
+		static inline void					copy_lut_indicator( data_type* dest , const data_type* source ) noexcept {
 			*(indicator_type*)dest = *(indicator_type*)source;
 		}
 		
 		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
 		//! Returns the number of bytes of the destination data type
-		static inline width_type			get_lut_width( size_type buffer_size ){
+		static inline width_type			get_lut_width( size_type buffer_size ) noexcept {
 			return buffer_size <= (size_type)std::numeric_limits<std::uint8_t>::max() + 1
 				? sizeof(std::uint8_t)
 				: buffer_size <= (size_type)std::numeric_limits<std::uint16_t>::max() + 1
@@ -683,35 +694,35 @@ namespace tiny_utf8
 		}
 		
 		//! Determine, whether or not a LUT is worth to set up. General case: worth below 25%. If LUT present <33,3%, otherwise <16,7%
-		static inline bool					is_lut_worth( size_type pot_lut_len , size_type string_len , bool lut_present , bool biased = true ){
+		static inline bool					is_lut_worth( size_type pot_lut_len , size_type string_len , bool lut_present , bool biased = true ) noexcept {
 			size_type threshold = biased ? ( lut_present ? string_len / 3u : string_len / 6u ) : string_len / 4u;
 			// Note pot_lut_len is supposed to underflow at '0'
 			return size_type( pot_lut_len - 1 ) < threshold;
 		}
 		
 		//! Determine the needed buffer size and the needed lut width (excluding the trailling LUT indicator)
-		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ){
+		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type* lut_width ) noexcept {
 			size_type width_guess	= get_lut_width( ++data_len ); // Don't forget, we need a terminating '\0', distinct from the lut indicator
 			data_len += lut_len * width_guess; // Add the estimated number of bytes from the lut
 			data_len += lut_len * ( ( *lut_width = get_lut_width( data_len ) ) - width_guess ); // Adjust the added bytes from the lut
 			return round_up_to_align( data_len ); // Make the buffer size_type-aligned
 		}
 		//! Determine the needed buffer size if the lut width is known (excluding the trailling LUT indicator)
-		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ){
+		static inline size_type				determine_main_buffer_size( size_type data_len , size_type lut_len , width_type lut_width ) noexcept {
 			return round_up_to_align( data_len + 1 + lut_len * lut_width ); // Compute the size_type-aligned buffer size
 		}
 		//! Determine the needed buffer size if the lut is empty (excluding the trailling LUT indicator)
-		static inline size_type				determine_main_buffer_size( size_type data_len ){
+		static inline size_type				determine_main_buffer_size( size_type data_len ) noexcept {
 			return round_up_to_align( data_len + 1 ); // Make the buffer size_type-aligned
 		}
 		
 		//! Same as above but this time including the LUT indicator
-		static inline size_type				determine_total_buffer_size( size_type main_buffer_size ){
+		static inline size_type				determine_total_buffer_size( size_type main_buffer_size ) noexcept {
 			return main_buffer_size + sizeof(indicator_type); // Add the lut indicator
 		}
 		
 		//! Get the nth index within a multibyte index table
-		static inline size_type				get_lut( const data_type* iter , width_type lut_width ){
+		static inline size_type				get_lut( const data_type* iter , width_type lut_width ) noexcept {
 			switch( lut_width ){
 			case sizeof(std::uint8_t):	return *(const std::uint8_t*)iter;
 			case sizeof(std::uint16_t):	return *(const std::uint16_t*)iter;
@@ -719,7 +730,7 @@ namespace tiny_utf8
 			}
 			return (size_type)*(const std::uint64_t*)iter;
 		}
-		static inline void					set_lut( data_type* iter , width_type lut_width , size_type value ){
+		static inline void					set_lut( data_type* iter , width_type lut_width , size_type value ) noexcept {
 			switch( lut_width ){
 			case sizeof(std::uint8_t):	*(std::uint8_t*)iter = (std::uint8_t)value; break;
 			case sizeof(std::uint16_t):	*(std::uint16_t*)iter = (std::uint16_t)value; break;
@@ -729,7 +740,7 @@ namespace tiny_utf8
 		}
 		
 		//! Get the LUT size (given the lut is active!)
-		static inline size_type				get_lut_len( const data_type* lut_base_ptr ){
+		static inline size_type				get_lut_len( const data_type* lut_base_ptr ) noexcept {
 			return *(indicator_type*)lut_base_ptr >> 1;
 		}
 		
@@ -738,7 +749,7 @@ namespace tiny_utf8
 		 */
 		// Data left is the number of bytes left in the buffer INCLUDING this one
 		#if defined(TINY_UTF8_HAS_CLZ) && TINY_UTF8_HAS_CLZ == true
-		static inline width_type			get_codepoint_bytes( data_type first_byte , size_type data_left )
+		static inline width_type			get_codepoint_bytes( data_type first_byte , size_type data_left ) noexcept 
 		{
 			if( first_byte ){
 				// Before counting the leading one's we need to shift the byte into the most significant part of the integer
@@ -752,13 +763,13 @@ namespace tiny_utf8
 			return 1;
 		}
 		#else
-		static width_type					get_codepoint_bytes( data_type first_byte , size_type data_left ); // Defined in source file
+		static width_type					get_codepoint_bytes( data_type first_byte , size_type data_left ) noexcept ; // Defined in source file
 		#endif
 		
 		/**
 		 * Returns the number of code units (bytes) a code point will translate to in utf8
 		 */
-		static inline width_type			get_codepoint_bytes( value_type cp )
+		static inline width_type			get_codepoint_bytes( value_type cp ) noexcept
 		{
 			#if defined(TINY_UTF8_HAS_CLZ) && TINY_UTF8_HAS_CLZ == true
 				if( !cp )
@@ -787,10 +798,10 @@ namespace tiny_utf8
 		}
 		
 		//! Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
-		static width_type					get_num_bytes_of_utf8_char_before( const data_type* data_start , size_type index );
+		static width_type					get_num_bytes_of_utf8_char_before( const data_type* data_start , size_type index ) noexcept ;
 		
 		//! Decodes a given input of rle utf8 data to a unicode code point, given the number of bytes it's made of
-		static inline value_type			decode_utf8( const data_type* data , width_type num_bytes ){
+		static inline value_type			decode_utf8( const data_type* data , width_type num_bytes ) noexcept {
 			value_type cp = (unsigned char)*data;
 			if( num_bytes > 1 ){
 				cp &= 0x7F >> num_bytes; // Mask out the header bits
@@ -804,7 +815,7 @@ namespace tiny_utf8
 		 * Decodes a given input of rle utf8 data to a
 		 * unicode code point and returns the number of bytes it used
 		 */
-		static inline width_type			decode_utf8_and_len( const data_type* data , value_type& dest , size_type data_left ){
+		static inline width_type			decode_utf8_and_len( const data_type* data , value_type& dest , size_type data_left ) noexcept {
 			// See 'get_codepoint_bytes' for 'data_left'
 			width_type num_bytes = basic_utf8_string::get_codepoint_bytes( *data , data_left );
 			dest = decode_utf8( data , num_bytes );
@@ -815,7 +826,7 @@ namespace tiny_utf8
 		 * Encodes a given code point (expected to use 'cp_bytes') to a character
 		 * buffer capable of holding that many bytes.
 		 */
-		inline static void					encode_utf8( value_type cp , data_type* dest , width_type cp_bytes ){
+		inline static void					encode_utf8( value_type cp , data_type* dest , width_type cp_bytes ) noexcept {
 			switch( cp_bytes ){
 				case 7: dest[cp_bytes-6] = 0x80 | ((cp >> 30) & 0x3F); TINY_UTF8_FALLTHROUGH
 				case 6: dest[cp_bytes-5] = 0x80 | ((cp >> 24) & 0x3F); TINY_UTF8_FALLTHROUGH
@@ -835,7 +846,7 @@ namespace tiny_utf8
 		 * Encodes a given code point to a character buffer of at least 7 bytes
 		 * and returns the number of bytes it used
 		 */
-		inline static width_type			encode_utf8( value_type cp , data_type* dest ){
+		inline static width_type			encode_utf8( value_type cp , data_type* dest ) noexcept {
 			width_type width = get_codepoint_bytes( cp );
 			basic_utf8_string::encode_utf8( cp , dest , width );
 			return width;
@@ -844,7 +855,7 @@ namespace tiny_utf8
 	protected: //! Non-static helper methods
 		
 		//! Set the main buffer size (also disables SSO)
-		inline void			set_non_sso_string_len( size_type string_len )
+		inline void			set_non_sso_string_len( size_type string_len ) noexcept
 		{
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
 			if TINY_UTF8_CPP17(constexpr) ( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 ){
@@ -863,7 +874,7 @@ namespace tiny_utf8
 		}
 		
 		//! Get buffer size, if SSO is disabled
-		inline size_type	get_non_sso_string_len() const {
+		inline size_type	get_non_sso_string_len() const noexcept {
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
 			if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 )
 				return t_non_sso.string_len;
@@ -878,40 +889,40 @@ namespace tiny_utf8
 		}
 		
 		//! Set the data length (also enables SSO)
-		inline void			set_sso_data_len( unsigned char data_len = 0 ){
+		inline void			set_sso_data_len( unsigned char data_len = 0 ) noexcept {
 			t_sso.data_len = ( sizeof(SSO::data) - data_len ) << 1;
 		}
 		
 		//! Get the data length (when SSO is active)
-		inline size_type	get_sso_data_len() const { return get_sso_capacity() - ( t_sso.data_len >> 1 ); }
+		inline size_type	get_sso_data_len() const noexcept { return get_sso_capacity() - ( t_sso.data_len >> 1 ); }
 		
 		//! Return a good guess of how many codepoints the currently allocated buffer can hold
-		size_type			get_non_sso_capacity() const ;
+		size_type			get_non_sso_capacity() const noexcept ;
 		
 		//! Check, if sso is inactive (this operation doesn't require a negation and is faster)
-		inline bool			sso_inactive() const { return t_sso.data_len & 0x1; }
+		inline bool			sso_inactive() const noexcept { return t_sso.data_len & 0x1; }
 		
 		// Helper for requires_unicode_sso that generates masks of the form 10000000 10000000...
 		template<typename T>
-		static constexpr T get_msb_mask( width_type bytes = sizeof(T) ){ return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_msb_mask<T>( bytes - 1 ) : T(0); }
+		static constexpr T	get_msb_mask( width_type bytes = sizeof(T) ) noexcept { return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_msb_mask<T>( bytes - 1 ) : T(0); }
 		
 		//! Check, whether the string contains code points > 127
-		bool				requires_unicode_sso() const ;
+		bool				requires_unicode_sso() const noexcept ;
 		
 		//! Get buffer
-		inline const data_type*	get_buffer() const { return sso_inactive() ? t_non_sso.data : t_sso.data; }
-		inline data_type*		get_buffer(){ return sso_inactive() ? t_non_sso.data : t_sso.data; }
+		inline const data_type*	get_buffer() const noexcept { return sso_inactive() ? t_non_sso.data : t_sso.data; }
+		inline data_type*		get_buffer() noexcept { return sso_inactive() ? t_non_sso.data : t_sso.data; }
 		
 		//! Get buffer size (excluding the trailing LUT indicator)
-		inline size_type	get_buffer_size() const {
+		inline size_type	get_buffer_size() const noexcept {
 			return sso_inactive() ? t_non_sso.buffer_size : get_sso_capacity();
 		}
 		
 		//! Returns an std::string with the UTF-8 BOM prepended
-		std::basic_string<data_type> cpp_str_bom() const ;
+		std::basic_string<data_type> cpp_str_bom() const noexcept ;
 		
 		//! Allocates size_type-aligned storage (make sure, total_buffer_size is a multiple of sizeof(size_type)!)
-		inline data_type*		allocate( size_type total_buffer_size ) const {
+		inline data_type*		allocate( size_type total_buffer_size ) const noexcept {
 			using appropriate_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<size_type>;
 			appropriate_allocator	casted_allocator = (const Allocator&)*this;
 			return reinterpret_cast<data_type*>(
@@ -923,7 +934,7 @@ namespace tiny_utf8
 		}
 		
 		//! Allocates size_type-aligned storage (make sure, buffer_size is a multiple of sizeof(size_type)!)
-		inline void			deallocate( data_type* buffer , size_type buffer_size ) const {
+		inline void			deallocate( data_type* buffer , size_type buffer_size ) const noexcept {
 			using appropriate_allocator = typename std::allocator_traits<Allocator>::template rebind_alloc<size_type>;
 			appropriate_allocator	casted_allocator = (const Allocator&)*this;
 			std::allocator_traits<appropriate_allocator>::deallocate(
@@ -934,8 +945,8 @@ namespace tiny_utf8
 		}
 		
 		//! Constructs an basic_utf8_string from a character literal
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag );
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_bytes_tag );
+		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
+		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_bytes_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 	public:
 		
@@ -944,13 +955,20 @@ namespace tiny_utf8
 		 * 
 		 * @note Creates an Instance of type basic_utf8_string that is empty
 		 */
-		basic_utf8_string() : Allocator() , t_sso( 0 , '\0' ) {}
+		basic_utf8_string()
+			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_default_constructible<Allocator>())
+			: Allocator()
+			, t_sso( 0 , '\0' )
+		{}
 		/**
 		 * Ctor taking an alloc
 		 * 
 		 * @note Creates an Instance of type basic_utf8_string that is empty
 		 */
-		explicit basic_utf8_string( const allocator_type& alloc ) : Allocator( alloc ) {}
+		explicit basic_utf8_string( const allocator_type& alloc )
+			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
+			: Allocator( alloc )
+		{}
 		/**
 		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
 		 * 
@@ -960,11 +978,13 @@ namespace tiny_utf8
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<typename T>
-		inline basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, data_type>* = {} ) :
-			basic_utf8_string( str , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		inline basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, data_type>* = {} ) 
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
-		inline basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str , len , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		inline basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , len , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
 		/**
 		 * Constructor taking an utf8 char literal
@@ -974,7 +994,10 @@ namespace tiny_utf8
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<size_type LITLEN>
-		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_small_string<LITLEN> = {} ) : Allocator( alloc ) {
+		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_small_string<LITLEN> = {} )
+			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
+			: Allocator( alloc )
+		{
 			std::memcpy( t_sso.data , str , LITLEN );
 			if( str[LITLEN-1] ){
 				t_sso.data[LITLEN] = '\0';
@@ -984,8 +1007,9 @@ namespace tiny_utf8
 				set_sso_data_len( LITLEN - 1 );
 		}
 		template<size_type LITLEN>
-		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_not_small_string<LITLEN> = {} ) :
-			basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_bytes_tag() )
+		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_not_small_string<LITLEN> = {} )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
 		 * Constructor taking an std::string
@@ -995,8 +1019,9 @@ namespace tiny_utf8
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<typename C, typename A>
-		inline basic_utf8_string( std::basic_string<data_type, C, A> str , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str.c_str() , str.length() , alloc , tiny_utf8_detail::read_bytes_tag() )
+		inline basic_utf8_string( std::basic_string<data_type, C, A> str , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str.c_str() , str.length() , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
 		 * Constructor that fills the string with a certain amount of codepoints
@@ -1006,7 +1031,7 @@ namespace tiny_utf8
 		 * @param	cp		The code point that the whole buffer will be set to
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
-		basic_utf8_string( size_type n , value_type cp , const allocator_type& alloc = allocator_type() );
+		basic_utf8_string( size_type n , value_type cp , const allocator_type& alloc = allocator_type() ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		/**
 		 * Constructor that fills the string with a certain amount of characters
 		 * 
@@ -1015,7 +1040,7 @@ namespace tiny_utf8
 		 * @param	cp		The characters that the whole buffer will be set to
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
-		basic_utf8_string( size_type n , data_type cp , const allocator_type& alloc = allocator_type() );
+		basic_utf8_string( size_type n , data_type cp , const allocator_type& alloc = allocator_type() ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		/**
 		 * Constructs the string with a portion of the supplied string
 		 * 
@@ -1024,8 +1049,9 @@ namespace tiny_utf8
 		 * @param	count	The number of code points to be taken from 'str'
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
-		basic_utf8_string( const basic_utf8_string& str , size_type pos , size_type count = basic_utf8_string::npos , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str.substr( pos , count ) , alloc )
+		basic_utf8_string( const basic_utf8_string& str , size_type pos , size_type count = basic_utf8_string::npos , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str.substr( pos , count ) , alloc )
 		{}
 		/**
 		 * Constructs the string from the range of code points supplied. The resulting string will equal [first,last)
@@ -1036,8 +1062,9 @@ namespace tiny_utf8
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<typename InputIt>
-		basic_utf8_string( InputIt first , InputIt last , const allocator_type& alloc = allocator_type() ) :
-			Allocator( alloc ) 
+		basic_utf8_string( InputIt first , InputIt last , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: Allocator( alloc ) 
 			, t_sso( 0 ) 
 		{
 			while( first != last ) push_back( *first++ );
@@ -1048,8 +1075,9 @@ namespace tiny_utf8
 		 * @note	Creates an Instance of type basic_utf8_string that has the exact same data and allocator as 'str'
 		 * @param	str		The basic_utf8_string to copy from
 		 */
-		basic_utf8_string( const basic_utf8_string& str ) :
-			Allocator( (const allocator_type&)str )
+		basic_utf8_string( const basic_utf8_string& str )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: Allocator( (const allocator_type&)str )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			
@@ -1067,8 +1095,9 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to copy from
 		 * @param	alloc	The new allocator instance to use
 		 */
-		basic_utf8_string( const basic_utf8_string& str , const allocator_type& alloc ) :
-			Allocator( alloc )
+		basic_utf8_string( const basic_utf8_string& str , const allocator_type& alloc )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: Allocator( alloc )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			
@@ -1087,14 +1116,16 @@ namespace tiny_utf8
 		 * @param	str		The code point sequence to fill the basic_utf8_string with
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
-		basic_utf8_string( const value_type* str , size_type len , const allocator_type& alloc = allocator_type() );
+		basic_utf8_string( const value_type* str , size_type len , const allocator_type& alloc = allocator_type() ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		template<typename T>
-		basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, value_type>* = {} ) :
-			basic_utf8_string( str , basic_utf8_string::npos , alloc )
+		basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, value_type>* = {} )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , basic_utf8_string::npos , alloc )
 		{}
 		template<size_type LITLEN>
-		inline basic_utf8_string( const value_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc )
+		inline basic_utf8_string( const value_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc )
 		{}
 		/**
 		 * Constructor taking an initializer list of codepoints.
@@ -1102,8 +1133,9 @@ namespace tiny_utf8
 		 * @note	The initializer list is expected to contain code points (rather than code units, i.e. bytes)
 		 * @param	ilist	The initializer list with the contents to be applied to this string
 		 */
-		inline basic_utf8_string( std::initializer_list<value_type> ilist , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( ilist.begin() , ilist.end() , alloc )
+		inline basic_utf8_string( std::initializer_list<value_type> ilist , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( ilist.begin() , ilist.end() , alloc )
 		{}
 		/**
 		 * Constructor that fills the string with the supplied codepoint
@@ -1112,8 +1144,9 @@ namespace tiny_utf8
 		 * @param	n		The number of codepoints generated
 		 * @param	cp		The code point that the whole buffer will be set to
 		 */
-		explicit inline basic_utf8_string( value_type cp , const allocator_type& alloc = allocator_type() ) :
-			Allocator( alloc )
+		explicit inline basic_utf8_string( value_type cp , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: Allocator( alloc )
 			, t_sso( (unsigned char)( cp = encode_utf8( cp , t_sso.data ) ) )
 		{
 			t_sso.data[cp] = '\0';
@@ -1125,8 +1158,9 @@ namespace tiny_utf8
 		 * 			The supplied basic_utf8_string is invalid afterwards and may not be used anymore
 		 * @param	str		The basic_utf8_string to move from
 		 */
-		inline basic_utf8_string( basic_utf8_string&& str ) :
-			Allocator( (allocator_type&&)str )
+		inline basic_utf8_string( basic_utf8_string&& str )
+			noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_constructible<Allocator>())
+			: Allocator( (allocator_type&&)str )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			str.set_sso_data_len(0); // Reset old string
@@ -1138,8 +1172,9 @@ namespace tiny_utf8
 		 * 			The supplied basic_utf8_string is invalid afterwards and may not be used anymore
 		 * @param	str		The basic_utf8_string to move from
 		 */
-		inline basic_utf8_string( basic_utf8_string&& str , const allocator_type& alloc ) :
-			Allocator( alloc )
+		inline basic_utf8_string( basic_utf8_string&& str , const allocator_type& alloc )
+			noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_copy_constructible<Allocator>())
+			: Allocator( alloc )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			str.set_sso_data_len(0); // Reset old string
@@ -1151,7 +1186,7 @@ namespace tiny_utf8
 		 * 
 		 * @note	Destructs a basic_utf8_string at the end of its lifetime releasing all held memory
 		 */
-		inline ~basic_utf8_string(){ clear(); }
+		inline ~basic_utf8_string() noexcept { clear(); }
 		
 		
 		/**
@@ -1161,7 +1196,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to copy from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		basic_utf8_string& operator=( const basic_utf8_string& str );
+		basic_utf8_string& operator=( const basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		/**
 		 * Move Assignment operator that moves all data out of the supplied and into this basic_utf8_string
 		 * 
@@ -1170,7 +1205,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to move from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		inline basic_utf8_string& operator=( basic_utf8_string&& str ){
+		inline basic_utf8_string& operator=( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
 			if( &str != this ){
 				clear(); // Reset old data
 				(allocator_type&)*this = (allocator_type&&)str; // Move allocator
@@ -1186,7 +1221,7 @@ namespace tiny_utf8
 		 * 
 		 * @note	Resets the data to an empty string ("")
 		 */
-		inline void clear(){
+		inline void clear() noexcept {
 			if( sso_inactive() )
 				this->deallocate( t_non_sso.data , t_non_sso.buffer_size );
 			set_sso_data_len( 0 );
@@ -1199,13 +1234,13 @@ namespace tiny_utf8
 		 *
 		 * @return	A copy of the stored allocator instance
 		 */
-		allocator_type get_allocator() const { return (const allocator_type&)*this; }
+		allocator_type get_allocator() const noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_copy_constructible<Allocator>()) { return (const allocator_type&)*this; }
 		
 		
 		/**
 		 * Requests the removal of unused capacity.
 		 */
-		void shrink_to_fit();
+		void shrink_to_fit() noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 		
 		/**
@@ -1214,7 +1249,7 @@ namespace tiny_utf8
 		 * @note	Swaps all data with the supplied basic_utf8_string
 		 * @param	str		The basic_utf8_string to swap contents with
 		 */
-		inline void swap( basic_utf8_string& str ){
+		inline void swap( basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
 			if( &str != this ){
 				data_type tmp[sizeof(SSO)];
 				std::memcpy( &tmp , (void*)&str.t_sso , sizeof(SSO) );
@@ -1230,7 +1265,7 @@ namespace tiny_utf8
 		 * 
 		 * @return	The number of bytes currently allocated
 		 */
-		inline size_type capacity() const {
+		inline size_type capacity() const noexcept {
 			return sso_inactive() ? get_non_sso_capacity() : get_sso_capacity();
 		}
 		
@@ -1241,14 +1276,14 @@ namespace tiny_utf8
 		 * @param	n	The code point index of the code point to receive
 		 * @return	The code point at position 'n'
 		 */
-		inline value_type at( size_type n ) const {
+		inline value_type at( size_type n ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_at( get_num_bytes_from_start( n ) );
 		}
-		inline value_type at( size_type n , std::nothrow_t ) const {
+		inline value_type at( size_type n , std::nothrow_t ) const noexcept {
 			return raw_at( get_num_bytes_from_start( n ) , std::nothrow );
 		}
-		inline checked_reference at( size_type n ){ return { n , this }; }
-		inline reference at( size_type n , std::nothrow_t ){ return { n , this }; }
+		inline checked_reference at( size_type n ) noexcept(TINY_UTF8_NOEXCEPT) { return { n , this }; }
+		inline reference at( size_type n , std::nothrow_t ) noexcept { return { n , this }; }
 		/**
 		 * Returns the code point at the supplied byte position
 		 * 
@@ -1257,9 +1292,9 @@ namespace tiny_utf8
 		 * @param	byte_index	The byte position of the code point to receive
 		 * @return	The code point at the supplied position
 		 */
-		inline raw_checked_reference raw_at( size_type byte_index ){ return { byte_index , this }; }
-		inline raw_reference raw_at( size_type byte_index , std::nothrow_t ){ return { byte_index , this }; }
-		value_type raw_at( size_type byte_index ) const {
+		inline raw_checked_reference raw_at( size_type byte_index ) noexcept(TINY_UTF8_NOEXCEPT) { return { byte_index , this }; }
+		inline raw_reference raw_at( size_type byte_index , std::nothrow_t ) noexcept { return { byte_index , this }; }
+		value_type raw_at( size_type byte_index ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type size = this->size();
 			if( byte_index >= size ){
 				TINY_UTF8_THROW( "basic_utf8_string::(raw_)at" , byte_index >= size );
@@ -1268,7 +1303,7 @@ namespace tiny_utf8
 			const data_type* pos = get_buffer() + byte_index;
 			return *pos ? decode_utf8( pos , basic_utf8_string::get_codepoint_bytes( *pos , size - byte_index ) ) : 0;
 		}
-		value_type raw_at( size_type byte_index , std::nothrow_t ) const {
+		value_type raw_at( size_type byte_index , std::nothrow_t ) const noexcept {
 			const data_type* pos = get_buffer() + byte_index;
 			return *pos ? decode_utf8( pos , basic_utf8_string::get_codepoint_bytes( *pos , size() - byte_index ) ) : 0;
 		}
@@ -1280,8 +1315,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified code point index
 		 */
-		inline iterator get( size_type n ){ return iterator( get_num_bytes_from_start( n ) , this ); }
-		inline const_iterator get( size_type n ) const { return const_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline iterator get( size_type n ) noexcept { return iterator( get_num_bytes_from_start( n ) , this ); }
+		inline const_iterator get( size_type n ) const noexcept { return const_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns an iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1290,8 +1325,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
-		inline iterator raw_get( size_type n ){ return iterator( n , this ); }
-		inline const_iterator raw_get( size_type n ) const { return const_iterator( n , this ); }
+		inline iterator raw_get( size_type n ) noexcept { return iterator( n , this ); }
+		inline const_iterator raw_get( size_type n ) const noexcept { return const_iterator( n , this ); }
 		
 		
 		/**
@@ -1300,8 +1335,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified code point index
 		 */
-		inline reverse_iterator rget( size_type n ){ return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
-		inline const_reverse_iterator rget( size_type n ) const { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline reverse_iterator rget( size_type n ) noexcept { return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline const_reverse_iterator rget( size_type n ) const noexcept { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
 		/**
 		 * Returns a reverse iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1310,8 +1345,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
-		inline reverse_iterator raw_rget( size_type n ){ return reverse_iterator( n , this ); }
-		inline const_reverse_iterator raw_rget( size_type n ) const { return const_reverse_iterator( n , this ); }
+		inline reverse_iterator raw_rget( size_type n ) noexcept { return reverse_iterator( n , this ); }
+		inline const_reverse_iterator raw_rget( size_type n ) const noexcept { return const_reverse_iterator( n , this ); }
 		
 		
 		/**
@@ -1320,8 +1355,8 @@ namespace tiny_utf8
 		 * @param	n	The code point index of the code point to receive
 		 * @return	A reference wrapper to the code point at position 'n'
 		 */
-		inline reference operator[]( size_type n ){ return reference( n , this ); }
-		inline value_type operator[]( size_type n ) const { return at( n , std::nothrow ); }
+		inline reference operator[]( size_type n ) noexcept { return reference( n , this ); }
+		inline value_type operator[]( size_type n ) const noexcept { return at( n , std::nothrow ); }
 		/**
 		 * Returns a reference to the code point at the supplied byte position
 		 * 
@@ -1330,8 +1365,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to receive
 		 * @return	A reference wrapper to the code point at byte position 'n'
 		 */
-		inline raw_reference operator()( size_type n ){ return { n , this }; }
-		inline value_type operator()( size_type n ) const { return raw_at( n , std::nothrow ); }
+		inline raw_reference operator()( size_type n ) noexcept { return { n , this }; }
+		inline value_type operator()( size_type n ) const noexcept { return raw_at( n , std::nothrow ); }
 		
 		
 		/**
@@ -1340,9 +1375,9 @@ namespace tiny_utf8
 		 * @note	Returns the UTF-8 formatted content of this basic_utf8_string
 		 * @return	UTF-8 formatted data, trailled by a '\0'
 		 */
-		inline const data_type* c_str() const { return get_buffer(); }
-		inline const data_type* data() const { return get_buffer(); }
-		inline data_type* data(){ return get_buffer(); }
+		inline const data_type* c_str() const noexcept { return get_buffer(); }
+		inline const data_type* data() const noexcept { return get_buffer(); }
+		inline data_type* data() noexcept { return get_buffer(); }
 		
 		
 		/**
@@ -1352,7 +1387,7 @@ namespace tiny_utf8
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		inline size_type length() const { return sso_inactive() ? get_non_sso_string_len() : cend() - cbegin(); }
+		inline size_type length() const noexcept { return sso_inactive() ? get_non_sso_string_len() : cend() - cbegin(); }
 		
 		
 		/**
@@ -1362,7 +1397,7 @@ namespace tiny_utf8
 		 *			That is, without counting the trailling '\0'
 		 * @return	Number of bytes (not codepoints!)
 		 */
-		inline size_type size() const { return sso_inactive() ? t_non_sso.data_len : get_sso_data_len(); }
+		inline size_type size() const noexcept { return sso_inactive() ? t_non_sso.data_len : get_sso_data_len(); }
 		
 		
 		/**
@@ -1371,7 +1406,7 @@ namespace tiny_utf8
 		 * @note	Returns True, if this basic_utf8_string is empty, that also is comparing true with ""
 		 * @return	True, if this basic_utf8_string is empty, false if its length is >0
 		 */
-		inline bool empty() const { return sso_inactive() ? !t_non_sso.data_len : t_sso.data_len == (get_sso_capacity() << 1); }
+		inline bool empty() const noexcept { return sso_inactive() ? !t_non_sso.data_len : t_sso.data_len == (get_sso_capacity() << 1); }
 		
 		
 		
@@ -1382,15 +1417,15 @@ namespace tiny_utf8
 		 * 
 		 * @return	An iterator class pointing to the beginning of this basic_utf8_string
 		 */
-		inline iterator begin(){ return iterator( 0 , this ); }
-		inline const_iterator begin() const { return const_iterator( 0 , this ); }
+		inline iterator begin() noexcept { return iterator( 0 , this ); }
+		inline const_iterator begin() const noexcept { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the basic_utf8_string
 		 * 
 		 * @return	An iterator class pointing to the end of this basic_utf8_string, that is pointing behind the last code point
 		 */
-		inline iterator end(){ return iterator( size() , this ); }
-		inline const_iterator end() const { return const_iterator( size() , this ); }
+		inline iterator end() noexcept { return iterator( size() , this ); }
+		inline const_iterator end() const noexcept { return const_iterator( size() , this ); }
 		
 		
 		/**
@@ -1399,16 +1434,16 @@ namespace tiny_utf8
 		 * @return	A reverse iterator class pointing to the end of this basic_utf8_string,
 		 *			that is exactly to the last code point
 		 */
-		inline reverse_iterator rbegin(){ return reverse_iterator( back_index() , this ); }
-		inline const_reverse_iterator rbegin() const { return const_reverse_iterator( back_index() , this ); }
+		inline reverse_iterator rbegin() noexcept { return reverse_iterator( back_index() , this ); }
+		inline const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a reverse iterator to the beginning of this basic_utf8_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this basic_utf8_string,
 		 *			that is pointing before the first code point
 		 */
-		inline reverse_iterator rend(){ return reverse_iterator( -1 , this ); }
-		inline const_reverse_iterator rend() const { return const_reverse_iterator( -1 , this ); }
+		inline reverse_iterator rend() noexcept { return reverse_iterator( -1 , this ); }
+		inline const_reverse_iterator rend() const noexcept { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -1417,14 +1452,14 @@ namespace tiny_utf8
 		 * @return	A const iterator class pointing to the beginning of this basic_utf8_string,
 		 * 			which cannot alter things inside this basic_utf8_string
 		 */
-		inline const_iterator cbegin() const { return const_iterator( 0 , this ); }
+		inline const_iterator cbegin() const noexcept { return const_iterator( 0 , this ); }
 		/**
 		 * Get an iterator to the end of the basic_utf8_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this basic_utf8_string, pointing to
 		 *			the end of this basic_utf8_string, that is pointing behind the last code point
 		 */
-		inline const_iterator cend() const { return const_iterator( size() , this ); }
+		inline const_iterator cend() const noexcept { return const_iterator( size() , this ); }
 		
 		
 		/**
@@ -1433,14 +1468,14 @@ namespace tiny_utf8
 		 * @return	A const reverse iterator class, which cannot alter this basic_utf8_string, pointing to
 		 *			the end of this basic_utf8_string, that is exactly to the last code point
 		 */
-		inline const_reverse_iterator crbegin() const { return const_reverse_iterator( back_index() , this ); }
+		inline const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator( back_index() , this ); }
 		/**
 		 * Get a const reverse iterator to the beginning of this basic_utf8_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this basic_utf8_string, pointing to
 		 *			the end of this basic_utf8_string, that is pointing before the first code point
 		 */
-		inline const_reverse_iterator crend() const { return const_reverse_iterator( -1 , this ); }
+		inline const_reverse_iterator crend() const noexcept { return const_reverse_iterator( -1 , this ); }
 		
 		
 		/**
@@ -1448,15 +1483,15 @@ namespace tiny_utf8
 		 * 
 		 * @return	A reference wrapper to the first code point in the basic_utf8_string
 		 */
-		inline raw_reference front(){ return { 0 , this }; }
-		inline value_type front() const { return raw_at( 0 , std::nothrow ); }
+		inline raw_reference front() noexcept { return { 0 , this }; }
+		inline value_type front() const noexcept { return raw_at( 0 , std::nothrow ); }
 		/**
 		 * Returns a reference to the last code point in the basic_utf8_string
 		 * 
 		 * @return	A reference wrapper to the last code point in the basic_utf8_string
 		 */
-		inline raw_reference back(){ return { back_index() , this }; }
-		inline value_type back() const {
+		inline raw_reference back() noexcept { return { back_index() , this }; }
+		inline value_type back() const noexcept {
 			size_type	sz = size();
 			const data_type*	buffer = get_buffer();
 			width_type	bytes = get_num_bytes_of_utf8_char_before( buffer , sz );
@@ -1473,7 +1508,7 @@ namespace tiny_utf8
 		 *					instead of the one residing at position 'index'
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		inline basic_utf8_string& replace( size_type index , value_type repl , size_type n = 1 ){
+		inline basic_utf8_string& replace( size_type index , value_type repl , size_type n = 1 ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return replace( index , 1 , repl , n );
 		}
 		/**
@@ -1485,10 +1520,10 @@ namespace tiny_utf8
 		 * @param	n		The number of code point that will replace the old ones
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		inline basic_utf8_string& replace( size_type index , size_type len , value_type repl , size_type n ){
+		inline basic_utf8_string& replace( size_type index , size_type len , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return replace( index , len , basic_utf8_string( n , repl ) );
 		}
-		inline basic_utf8_string& replace( size_type index , size_type len , value_type repl ){
+		inline basic_utf8_string& replace( size_type index , size_type len , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return replace( index , len , basic_utf8_string( repl ) );
 		}
 		/**
@@ -1500,10 +1535,10 @@ namespace tiny_utf8
 		 * @param	n		The number of code point that will replace the old ones
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		inline basic_utf8_string& replace( iterator first , iterator last , value_type repl , size_type n ){
+		inline basic_utf8_string& replace( iterator first , iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , basic_utf8_string( n , repl ) );
 		}
-		inline basic_utf8_string& replace( iterator first , iterator last , value_type repl ){
+		inline basic_utf8_string& replace( iterator first , iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , basic_utf8_string( repl ) );
 		}
 		/**
@@ -1514,7 +1549,7 @@ namespace tiny_utf8
 		 * @param	repl	The basic_utf8_string to replace all codepoints in the range
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		inline basic_utf8_string& replace( iterator first , iterator last , const basic_utf8_string& repl ){
+		inline basic_utf8_string& replace( iterator first , iterator last , const basic_utf8_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , repl );
 		}
 		/**
@@ -1525,7 +1560,7 @@ namespace tiny_utf8
 		 * @param	repl	The basic_utf8_string to replace all codepoints in the range
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		inline basic_utf8_string& replace( size_type index , size_type count , const basic_utf8_string& repl ){
+		inline basic_utf8_string& replace( size_type index , size_type count , const basic_utf8_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type start_byte = get_num_bytes_from_start( index );
 			return raw_replace(
 				start_byte
@@ -1543,7 +1578,7 @@ namespace tiny_utf8
 		 * @param	repl		The basic_utf8_string to replace all bytes inside the range
 		 * @return	A reference to this basic_utf8_string, which now has the replaced part in it
 		 */
-		basic_utf8_string& raw_replace( size_type start_byte , size_type byte_count , const basic_utf8_string& repl );
+		basic_utf8_string& raw_replace( size_type start_byte , size_type byte_count , const basic_utf8_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 		
 		/**
@@ -1552,7 +1587,7 @@ namespace tiny_utf8
 		 * @param	prependix	The basic_utf8_string to be prepended
 		 * @return	A reference to this basic_utf8_string, which now has the supplied string prepended
 		 */
-		inline basic_utf8_string& prepend( const basic_utf8_string& prependix ){ return raw_insert( 0 , prependix ); }
+		inline basic_utf8_string& prepend( const basic_utf8_string& prependix ) noexcept(TINY_UTF8_NOEXCEPT) { return raw_insert( 0 , prependix ); }
 		
 		/**
 		 * Appends the supplied basic_utf8_string to the end of this basic_utf8_string
@@ -1560,8 +1595,8 @@ namespace tiny_utf8
 		 * @param	appendix	The basic_utf8_string to be appended
 		 * @return	A reference to this basic_utf8_string, which now has the supplied string appended
 		 */
-		basic_utf8_string& append( const basic_utf8_string& appendix );
-		inline basic_utf8_string& operator+=( const basic_utf8_string& appendix ){ return append( appendix ); }
+		basic_utf8_string& append( const basic_utf8_string& appendix ) noexcept(TINY_UTF8_NOEXCEPT) ;
+		inline basic_utf8_string& operator+=( const basic_utf8_string& appendix ) noexcept(TINY_UTF8_NOEXCEPT) { return append( appendix ); }
 		
 		
 		/**
@@ -1570,8 +1605,8 @@ namespace tiny_utf8
 		 * @param	cp	The code point to be appended
 		 * @return	A reference to this basic_utf8_string, which now has the supplied code point appended
 		 */
-		inline basic_utf8_string& push_back( value_type cp ){ return append( basic_utf8_string( cp ) ); }
-		inline basic_utf8_string& operator+=( value_type cp ){ return append( basic_utf8_string( cp ) ); }
+		inline basic_utf8_string& push_back( value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) { return append( basic_utf8_string( cp ) ); }
+		inline basic_utf8_string& operator+=( value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) { return append( basic_utf8_string( cp ) ); }
 		
 		
 		/**
@@ -1581,24 +1616,24 @@ namespace tiny_utf8
 		 * @return	The newly created basic_utf8_string, consisting of the concatenated parts.
 		 */
 		// with basic_utf8_string in both operands
-		inline basic_utf8_string operator+( basic_utf8_string summand ) const & { summand.prepend( *this ); return summand; }
-		inline basic_utf8_string operator+( const basic_utf8_string& summand ) && { append( summand ); return static_cast<basic_utf8_string&&>( *this ); }
+		inline basic_utf8_string operator+( basic_utf8_string summand ) const &  noexcept(TINY_UTF8_NOEXCEPT) { summand.prepend( *this ); return summand; }
+		inline basic_utf8_string operator+( const basic_utf8_string& summand ) && noexcept(TINY_UTF8_NOEXCEPT) { append( summand ); return static_cast<basic_utf8_string&&>( *this ); }
 		
 		// with basic_utf8_string as first operand
-		friend inline basic_utf8_string operator+( basic_utf8_string lhs , data_type rhs ){ lhs.push_back( rhs ); return lhs; }
-		friend inline basic_utf8_string operator+( basic_utf8_string lhs , value_type rhs ){ lhs.push_back( rhs ); return lhs; }
-		template<typename T> friend inline enable_if_ptr<T, data_type, basic_utf8_string> operator+( basic_utf8_string lhs , T&& rhs ){ lhs.append( basic_utf8_string( rhs ) ); return lhs; }
-		template<typename T> friend inline enable_if_ptr<T, value_type, basic_utf8_string> operator+( basic_utf8_string lhs , T&& rhs ){ lhs.append( basic_utf8_string( rhs ) ); return lhs; }
-		template<size_type LITLEN> friend inline basic_utf8_string operator+( basic_utf8_string lhs , const data_type (&rhs)[LITLEN] ){ lhs.append( basic_utf8_string( rhs ) ); return lhs; }
-		template<size_type LITLEN> friend inline basic_utf8_string operator+( basic_utf8_string lhs , const value_type (&rhs)[LITLEN] ){ lhs.append( basic_utf8_string( rhs ) ); return lhs; }
+		friend inline basic_utf8_string operator+( basic_utf8_string lhs , data_type rhs ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.push_back( rhs ); return lhs; }
+		friend inline basic_utf8_string operator+( basic_utf8_string lhs , value_type rhs ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.push_back( rhs ); return lhs; }
+		template<typename T> friend inline enable_if_ptr<T, data_type, basic_utf8_string> operator+( basic_utf8_string lhs , T&& rhs ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.append( basic_utf8_string( rhs ) ); return lhs; }
+		template<typename T> friend inline enable_if_ptr<T, value_type, basic_utf8_string> operator+( basic_utf8_string lhs , T&& rhs ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.append( basic_utf8_string( rhs ) ); return lhs; }
+		template<size_type LITLEN> friend inline basic_utf8_string operator+( basic_utf8_string lhs , const data_type (&rhs)[LITLEN] ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.append( basic_utf8_string( rhs ) ); return lhs; }
+		template<size_type LITLEN> friend inline basic_utf8_string operator+( basic_utf8_string lhs , const value_type (&rhs)[LITLEN] ) noexcept(TINY_UTF8_NOEXCEPT) { lhs.append( basic_utf8_string( rhs ) ); return lhs; }
 		
 		// With basic_utf8_string as second operand
-		friend inline basic_utf8_string operator+( data_type lhs , basic_utf8_string rhs ){ rhs.raw_insert( 0 , lhs ); return rhs; }
-		friend inline basic_utf8_string operator+( value_type lhs , basic_utf8_string rhs ){ rhs.raw_insert( 0 , lhs ); return rhs; }
-		template<typename T> friend inline enable_if_ptr<T, data_type, basic_utf8_string> operator+( T&& lhs , basic_utf8_string rhs ){ rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
-		template<typename T> friend inline enable_if_ptr<T, value_type, basic_utf8_string> operator+( T&& lhs , basic_utf8_string rhs ){ rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
-		template<size_type LITLEN> friend inline basic_utf8_string operator+( const data_type (&lhs)[LITLEN] , basic_utf8_string rhs ){ rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
-		template<size_type LITLEN> friend inline basic_utf8_string operator+( const value_type (&lhs)[LITLEN] , basic_utf8_string rhs ){ rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
+		friend inline basic_utf8_string operator+( data_type lhs , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.raw_insert( 0 , lhs ); return rhs; }
+		friend inline basic_utf8_string operator+( value_type lhs , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.raw_insert( 0 , lhs ); return rhs; }
+		template<typename T> friend inline enable_if_ptr<T, data_type, basic_utf8_string> operator+( T&& lhs , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
+		template<typename T> friend inline enable_if_ptr<T, value_type, basic_utf8_string> operator+( T&& lhs , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
+		template<size_type LITLEN> friend inline basic_utf8_string operator+( const data_type (&lhs)[LITLEN] , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
+		template<size_type LITLEN> friend inline basic_utf8_string operator+( const value_type (&lhs)[LITLEN] , basic_utf8_string rhs ) noexcept(TINY_UTF8_NOEXCEPT) { rhs.prepend( basic_utf8_string( lhs ) ); return rhs; }
 		
 		
 		/**
@@ -1608,7 +1643,7 @@ namespace tiny_utf8
 		 * @param	cp		The code point to repeat 'count' times
 		 * @return	A reference to this basic_utf8_string, updated to the new string
 		 */
-		inline basic_utf8_string& assign( size_type count , value_type cp ){
+		inline basic_utf8_string& assign( size_type count , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( count , cp );
 		}
 		/**
@@ -1617,7 +1652,7 @@ namespace tiny_utf8
 		 * @param	str	The basic_utf8_string this string shall be made a copy of
 		 * @return	A reference to this basic_utf8_string, updated to the new string
 		 */
-		inline basic_utf8_string& assign( const basic_utf8_string& str ){
+		inline basic_utf8_string& assign( const basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = str;
 		}
 		/**
@@ -1628,7 +1663,7 @@ namespace tiny_utf8
 		 * @param	cp	The number of code points to be taken from 'str'
 		 * @return	A reference to this basic_utf8_string, updated to the new string
 		 */
-		inline basic_utf8_string& assign( const basic_utf8_string& str , size_type pos , size_type count ){
+		inline basic_utf8_string& assign( const basic_utf8_string& str , size_type pos , size_type count ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str , pos , count );
 		}
 		/**
@@ -1637,7 +1672,7 @@ namespace tiny_utf8
 		 * @param	str	The basic_utf8_string this string shall move from
 		 * @return	A reference to this basic_utf8_string, updated to the new string
 		 */
-		inline basic_utf8_string& assign( basic_utf8_string&& str ){
+		inline basic_utf8_string& assign( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
 			return *this = std::move(str);
 		}
 		/**
@@ -1647,10 +1682,10 @@ namespace tiny_utf8
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		template<typename T>
-		inline basic_utf8_string& assign( T&& str , enable_if_ptr<T, data_type>* = {} ){
+		inline basic_utf8_string& assign( T&& str , enable_if_ptr<T, data_type>* = {} ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str );
 		}
-		inline basic_utf8_string& assign( const data_type* str , size_type len ){
+		inline basic_utf8_string& assign( const data_type* str , size_type len ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str , len );
 		}
 		/**
@@ -1659,7 +1694,7 @@ namespace tiny_utf8
 		 * @param	str		The UTF-8 literal to fill the basic_utf8_string with
 		 */
 		template<size_type LITLEN>
-		inline basic_utf8_string& assign( const data_type (&str)[LITLEN] ){
+		inline basic_utf8_string& assign( const data_type (&str)[LITLEN] ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str );
 		}
 		/**
@@ -1669,10 +1704,10 @@ namespace tiny_utf8
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		template<typename T>
-		inline basic_utf8_string& assign( T&& str , enable_if_ptr<T, value_type>* = {} ){
+		inline basic_utf8_string& assign( T&& str , enable_if_ptr<T, value_type>* = {} ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str );
 		}
-		inline basic_utf8_string& assign( const value_type* str , size_type len ){
+		inline basic_utf8_string& assign( const value_type* str , size_type len ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str , len );
 		}
 		/**
@@ -1681,7 +1716,7 @@ namespace tiny_utf8
 		 * @param	str		The UTF-32 literal to fill the basic_utf8_string with
 		 */
 		template<size_type LITLEN>
-		inline basic_utf8_string& assign( const value_type (&str)[LITLEN] ){
+		inline basic_utf8_string& assign( const value_type (&str)[LITLEN] ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( str );
 		}
 		/**
@@ -1692,7 +1727,7 @@ namespace tiny_utf8
 		 * @param	last	The end of the range
 		 */
 		template<typename InputIt>
-		inline basic_utf8_string& assign( InputIt first , InputIt last ){
+		inline basic_utf8_string& assign( InputIt first , InputIt last ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( first , last );
 		}
 		/**
@@ -1701,7 +1736,7 @@ namespace tiny_utf8
 		 * @note	The initializer list is expected to contain code points (rather than code units, i.e. bytes)
 		 * @param	ilist	The initializer list with the contents to be applied to this string
 		 */
-		inline basic_utf8_string& assign( std::initializer_list<value_type> ilist ){
+		inline basic_utf8_string& assign( std::initializer_list<value_type> ilist ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return *this = basic_utf8_string( std::move(ilist) );
 		}
 		
@@ -1713,7 +1748,7 @@ namespace tiny_utf8
 		 * @param	cp		The code point to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied code point inserted
 		 */
-		inline basic_utf8_string& insert( size_type pos , value_type cp ){
+		inline basic_utf8_string& insert( size_type pos , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( get_num_bytes_from_start( pos ) , cp );
 		}
 		/**
@@ -1723,7 +1758,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied basic_utf8_string inserted
 		 */
-		inline basic_utf8_string& insert( size_type pos , const basic_utf8_string& str ){
+		inline basic_utf8_string& insert( size_type pos , const basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( get_num_bytes_from_start( pos ) , str );
 		}
 		/**
@@ -1733,7 +1768,7 @@ namespace tiny_utf8
 		 * @param	cp	The code point to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied code point inserted
 		 */
-		inline basic_utf8_string& insert( iterator it , value_type cp ){
+		inline basic_utf8_string& insert( iterator it , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( it.t_raw_index , basic_utf8_string( cp ) );
 		}
 		/**
@@ -1743,7 +1778,7 @@ namespace tiny_utf8
 		 * @param	cp	The basic_utf8_string to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied code point inserted
 		 */
-		inline basic_utf8_string& insert( iterator it , const basic_utf8_string& str ){
+		inline basic_utf8_string& insert( iterator it , const basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( it.t_raw_index , str );
 		}
 		/**
@@ -1755,7 +1790,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied basic_utf8_string inserted
 		 */
-		basic_utf8_string& raw_insert( size_type pos , const basic_utf8_string& str );
+		basic_utf8_string& raw_insert( size_type pos , const basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		/**
 		 * Inserts a given code point into this basic_utf8_string at the supplied byte position
 		 * 
@@ -1765,13 +1800,13 @@ namespace tiny_utf8
 		 * @param	cp		The code point to be inserted
 		 * @return	A reference to this basic_utf8_string, with the supplied basic_utf8_string inserted
 		 */
-		inline basic_utf8_string& raw_insert( size_type pos , value_type cp ){
+		inline basic_utf8_string& raw_insert( size_type pos , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( pos , basic_utf8_string( cp ) );
 		}
 		
 		
 		//! Removes the last code point in the basic_utf8_string
-		inline basic_utf8_string& pop_back(){
+		inline basic_utf8_string& pop_back() noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type pos = back_index();
 			return raw_erase( pos , get_index_bytes( pos ) );
 		}
@@ -1783,7 +1818,7 @@ namespace tiny_utf8
 		 * @param	pos		The iterator pointing to the position being erased
 		 * @return	A reference to this basic_utf8_string, which now has the code point erased
 		 */
-		inline basic_utf8_string& erase( iterator pos ){
+		inline basic_utf8_string& erase( iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_erase( pos.t_raw_index , get_index_bytes( pos.t_raw_index ) );
 		}
 		/**
@@ -1793,7 +1828,7 @@ namespace tiny_utf8
 		 * @param	last	An iterator pointing to the code point behind the last code point to be erased
 		 * @return	A reference to this basic_utf8_string, which now has the codepoints erased
 		 */
-		inline basic_utf8_string& erase( iterator first , iterator last ){
+		inline basic_utf8_string& erase( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_erase( first.t_raw_index , last.t_raw_index - first.t_raw_index );
 		}
 		/**
@@ -1803,7 +1838,7 @@ namespace tiny_utf8
 		 * @param	len		The number of codepoints to be erased from this basic_utf8_string
 		 * @return	A reference to this basic_utf8_string, with the supplied portion erased
 		 */
-		inline basic_utf8_string& erase( size_type pos , size_type len = 1 ){
+		inline basic_utf8_string& erase( size_type pos , size_type len = 1 ) noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type start_byte = get_num_bytes_from_start( pos );
 			return raw_erase( start_byte , get_num_bytes( start_byte , len ) );
 		}
@@ -1816,7 +1851,7 @@ namespace tiny_utf8
 		 * @param	len		The number of bytes to be erased from the basic_utf8_string
 		 * @return	A reference to this basic_utf8_string, with the supplied bytes erased
 		 */
-		basic_utf8_string& raw_erase( size_type pos , size_type len );
+		basic_utf8_string& raw_erase( size_type pos , size_type len ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 		
 		/**
@@ -1826,7 +1861,7 @@ namespace tiny_utf8
 		 * @param	last	An iterator pointing to the code point behind the last code point in the substring
 		 * @return	The basic_utf8_string holding the specified range
 		 */
-		inline basic_utf8_string substr( iterator first , iterator last ) const {
+		inline basic_utf8_string substr( iterator first , iterator last ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type byte_count = last.t_raw_index - first.t_raw_index;
 			return raw_substr( first.t_raw_index , byte_count );
 		}
@@ -1837,7 +1872,7 @@ namespace tiny_utf8
 		 * @param	len		The number codepoints to be included within the substring
 		 * @return	The basic_utf8_string holding the specified codepoints
 		 */
-		basic_utf8_string substr( size_type pos , size_type len = basic_utf8_string::npos ) const {
+		basic_utf8_string substr( size_type pos , size_type len = basic_utf8_string::npos ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type byte_start = get_num_bytes_from_start( pos );
 			if( len == basic_utf8_string::npos )
 				return raw_substr( byte_start , basic_utf8_string::npos );
@@ -1853,7 +1888,7 @@ namespace tiny_utf8
 		 * @param	byte_count		The number of bytes that the substring shall have
 		 * @return	The basic_utf8_string holding the specified bytes
 		 */
-		basic_utf8_string raw_substr( size_type start_byte , size_type byte_count ) const ;
+		basic_utf8_string raw_substr( size_type start_byte , size_type byte_count ) const noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 		
 		/**
@@ -1863,7 +1898,7 @@ namespace tiny_utf8
 		 * @param	start_codepoint	The index of the first code point to start looking from
 		 * @return	The code point index where and if the code point was found or basic_utf8_string::npos
 		 */
-		size_type find( value_type cp , size_type start_codepoint = 0 ) const {
+		size_type find( value_type cp , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return basic_utf8_string::npos;
 			for( const_iterator it = get(start_codepoint) , end = cend() ; it != end ; ++it, ++start_codepoint )
@@ -1878,7 +1913,7 @@ namespace tiny_utf8
 		 * @param	start_codepoint	The index of the first code point to start looking from
 		 * @return	The code point index where and if the pattern was found or basic_utf8_string::npos
 		 */
-		size_type find( const basic_utf8_string& pattern , size_type start_codepoint = 0 ) const {
+		size_type find( const basic_utf8_string& pattern , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return basic_utf8_string::npos;
 			size_type actual_start = get_num_bytes_from_start( start_codepoint );
@@ -1895,7 +1930,7 @@ namespace tiny_utf8
 		 * @param	start_codepoint	The index of the first code point to start looking from
 		 * @return	The code point index where and if the pattern was found or basic_utf8_string::npos
 		 */
-		size_type find( const data_type* pattern , size_type start_codepoint = 0 ) const {
+		size_type find( const data_type* pattern , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
 				return basic_utf8_string::npos;
 			size_type actual_start = get_num_bytes_from_start( start_codepoint );
@@ -1912,7 +1947,7 @@ namespace tiny_utf8
 		 * @param	start_byte	The byte position of the first code point to start looking from
 		 * @return	The byte position where and if the code point was found or basic_utf8_string::npos
 		 */
-		size_type raw_find( value_type cp , size_type start_byte = 0 ) const {
+		size_type raw_find( value_type cp , size_type start_byte = 0 ) const noexcept {
 			size_type my_size = size();
 			if( start_byte >= my_size )
 				return basic_utf8_string::npos;
@@ -1928,7 +1963,7 @@ namespace tiny_utf8
 		 * @param	start_byte	The byte position of the first code point to start looking from
 		 * @return	The byte position where and if the pattern was found or basic_utf8_string::npos
 		 */
-		size_type raw_find( const basic_utf8_string& pattern , size_type start_byte = 0 ) const {
+		size_type raw_find( const basic_utf8_string& pattern , size_type start_byte = 0 ) const noexcept {
 			if( start_byte >= size() )
 				return basic_utf8_string::npos;
 			const data_type* buffer = get_buffer();
@@ -1944,7 +1979,7 @@ namespace tiny_utf8
 		 * @param	start_byte	The byte position of the first code point to start looking from
 		 * @return	The byte position where and if the pattern was found or basic_utf8_string::npos
 		 */
-		size_type raw_find( const data_type* pattern , size_type start_byte = 0 ) const {
+		size_type raw_find( const data_type* pattern , size_type start_byte = 0 ) const noexcept {
 			if( start_byte >= size() )
 				return basic_utf8_string::npos;
 			const data_type* buffer = get_buffer();
@@ -1962,7 +1997,7 @@ namespace tiny_utf8
 		 * @param	start_codepoint	The index of the first code point to start looking from (backwards)
 		 * @return	The code point index where and if the code point was found or basic_utf8_string::npos
 		 */
-		size_type rfind( value_type cp , size_type start_codepoint = basic_utf8_string::npos ) const {
+		size_type rfind( value_type cp , size_type start_codepoint = basic_utf8_string::npos ) const noexcept {
 			const_reverse_iterator  end = rend(), it;
 			size_type               string_len = length();
 			if( start_codepoint >= string_len )
@@ -1982,19 +2017,19 @@ namespace tiny_utf8
 		 * @param	start_codepoint	The byte index of the first code point to start looking from (backwards)
 		 * @return	The code point index where and if the code point was found or basic_utf8_string::npos
 		 */
-		size_type raw_rfind( value_type cp , size_type start_byte = basic_utf8_string::npos ) const ;
+		size_type raw_rfind( value_type cp , size_type start_byte = basic_utf8_string::npos ) const noexcept ;
 		
 		//! Find characters in string
-		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const ;
-		size_type raw_find_first_of( const value_type* str , size_type start_byte = 0 ) const ;
-		size_type find_last_of( const value_type* str , size_type start_codepoint = basic_utf8_string::npos ) const ;
-		size_type raw_find_last_of( const value_type* str , size_type start_byte = basic_utf8_string::npos ) const ;
+		size_type find_first_of( const value_type* str , size_type start_codepoint = 0 ) const noexcept ;
+		size_type raw_find_first_of( const value_type* str , size_type start_byte = 0 ) const noexcept ;
+		size_type find_last_of( const value_type* str , size_type start_codepoint = basic_utf8_string::npos ) const noexcept ;
+		size_type raw_find_last_of( const value_type* str , size_type start_byte = basic_utf8_string::npos ) const noexcept ;
 		
 		//! Find absence of characters in string
-		size_type find_first_not_of( const value_type* str , size_type start_codepoint = 0 ) const ;
-		size_type raw_find_first_not_of( const value_type* str , size_type start_byte = 0 ) const ;
-		size_type find_last_not_of( const value_type* str , size_type start_codepoint = basic_utf8_string::npos ) const ;
-		size_type raw_find_last_not_of( const value_type* str , size_type start_byte = basic_utf8_string::npos ) const ;
+		size_type find_first_not_of( const value_type* str , size_type start_codepoint = 0 ) const noexcept ;
+		size_type raw_find_first_not_of( const value_type* str , size_type start_byte = 0 ) const noexcept ;
+		size_type find_last_not_of( const value_type* str , size_type start_codepoint = basic_utf8_string::npos ) const noexcept ;
+		size_type raw_find_last_not_of( const value_type* str , size_type start_byte = basic_utf8_string::npos ) const noexcept ;
 		
 		
 		/**
@@ -2007,7 +2042,7 @@ namespace tiny_utf8
 		 *			>0	Either the value of the first character that does not match is greater in
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
-		inline int compare( const basic_utf8_string& str ) const {
+		inline int compare( const basic_utf8_string& str ) const noexcept {
 			size_type my_size = size(), str_size = str.size();
 			if( my_size != str_size )
 				return my_size < str_size ? -1 : 1;
@@ -2023,7 +2058,7 @@ namespace tiny_utf8
 		 *			>0	Either the value of the first character that does not match is greater in
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
-		inline int compare( const std::string& str ) const {
+		inline int compare( const std::string& str ) const noexcept {
 			size_type my_size = size(), str_size = str.size();
 			if( my_size != str_size )
 				return my_size < str_size ? -1 : 1;
@@ -2042,7 +2077,7 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		template<typename T>
-		int compare( T str , enable_if_ptr<T, data_type>* = {} ) const {
+		int compare( T str , enable_if_ptr<T, data_type>* = {} ) const noexcept {
 			const data_type* it = data(), *end = it + size();
 			while( it != end && *str ){
 				if( *it != *str )
@@ -2062,7 +2097,7 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		template<size_type LITLEN> 
-		int compare( const data_type (&str)[LITLEN] ) const {
+		int compare( const data_type (&str)[LITLEN] ) const noexcept {
 			const data_type* it = data(), *end = it + size();
 			size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 			while( it != end && index < length ){
@@ -2085,7 +2120,7 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		template<typename T>
-		int compare( T str , enable_if_ptr<T, value_type>* = {} ) const {
+		int compare( T str , enable_if_ptr<T, value_type>* = {} ) const noexcept {
 			const_iterator	it = cbegin(), end = cend();
 			while( it != end && *str ){
 				if( *it != *str )
@@ -2105,7 +2140,7 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		template<size_type LITLEN> 
-		int compare( const value_type (&str)[LITLEN] ) const {
+		int compare( const value_type (&str)[LITLEN] ) const noexcept {
 			const_iterator	it = cbegin(), end = cend();
 			size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 			while( it != end && index < length ){
@@ -2117,80 +2152,80 @@ namespace tiny_utf8
 		}
 		
 		//! Equality Comparison Operators
-		inline bool operator==( const basic_utf8_string& str ) const { return compare( str ) == 0; }
-		inline bool operator!=( const basic_utf8_string& str ) const { return compare( str ) != 0; }
-		inline bool operator==( const std::string& str ) const { return compare( str ) == 0; }
-		inline bool operator!=( const std::string& str ) const { return compare( str ) != 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator==( T&& str ) const { return compare( str ) == 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator!=( T&& str ) const { return compare( str ) != 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator==( T&& str ) const { return compare( str ) == 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator!=( T&& str ) const { return compare( str ) != 0; }
-		template<size_type LITLEN> inline bool operator==( const data_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
-		template<size_type LITLEN> inline bool operator!=( const data_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
-		template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const { return compare( str ) == 0; }
-		template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const { return compare( str ) != 0; }
+		inline bool operator==( const basic_utf8_string& str ) const noexcept { return compare( str ) == 0; }
+		inline bool operator!=( const basic_utf8_string& str ) const noexcept { return compare( str ) != 0; }
+		inline bool operator==( const std::string& str ) const noexcept { return compare( str ) == 0; }
+		inline bool operator!=( const std::string& str ) const noexcept { return compare( str ) != 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator==( T&& str ) const noexcept { return compare( str ) == 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator!=( T&& str ) const noexcept { return compare( str ) != 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator==( T&& str ) const noexcept { return compare( str ) == 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator!=( T&& str ) const noexcept { return compare( str ) != 0; }
+		template<size_type LITLEN> inline bool operator==( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) == 0; }
+		template<size_type LITLEN> inline bool operator!=( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) != 0; }
+		template<size_type LITLEN> inline bool operator==( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) == 0; }
+		template<size_type LITLEN> inline bool operator!=( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) != 0; }
 		
 		//! Lexicographical comparison Operators
-		inline bool operator>( const basic_utf8_string& str ) const { return compare( str ) > 0; }
-		inline bool operator>=( const basic_utf8_string& str ) const { return compare( str ) >= 0; }
-		inline bool operator<( const basic_utf8_string& str ) const { return compare( str ) < 0; }
-		inline bool operator<=( const basic_utf8_string& str ) const { return compare( str ) <= 0; }
-		inline bool operator>( const std::string& str ) const { return compare( str ) > 0; }
-		inline bool operator>=( const std::string& str ) const { return compare( str ) >= 0; }
-		inline bool operator<( const std::string& str ) const { return compare( str ) < 0; }
-		inline bool operator<=( const std::string& str ) const { return compare( str ) <= 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator>( T&& str ) const { return compare( str ) > 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator>=( T&& str ) const { return compare( str ) >= 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator<( T&& str ) const { return compare( str ) < 0; }
-		template<typename T> inline enable_if_ptr<T, data_type> operator<=( T&& str ) const { return compare( str ) <= 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator>( T&& str ) const { return compare( str ) > 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator>=( T&& str ) const { return compare( str ) >= 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator<( T&& str ) const { return compare( str ) < 0; }
-		template<typename T> inline enable_if_ptr<T, value_type> operator<=( T&& str ) const { return compare( str ) <= 0; }
-		template<size_type LITLEN> inline bool operator>( const data_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
-		template<size_type LITLEN> inline bool operator>=( const data_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
-		template<size_type LITLEN> inline bool operator<( const data_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
-		template<size_type LITLEN> inline bool operator<=( const data_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
-		template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const { return compare( str ) > 0; }
-		template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const { return compare( str ) >= 0; }
-		template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const { return compare( str ) < 0; }
-		template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const { return compare( str ) <= 0; }
+		inline bool operator>( const basic_utf8_string& str ) const noexcept { return compare( str ) > 0; }
+		inline bool operator>=( const basic_utf8_string& str ) const noexcept { return compare( str ) >= 0; }
+		inline bool operator<( const basic_utf8_string& str ) const noexcept { return compare( str ) < 0; }
+		inline bool operator<=( const basic_utf8_string& str ) const noexcept { return compare( str ) <= 0; }
+		inline bool operator>( const std::string& str ) const noexcept { return compare( str ) > 0; }
+		inline bool operator>=( const std::string& str ) const noexcept { return compare( str ) >= 0; }
+		inline bool operator<( const std::string& str ) const noexcept { return compare( str ) < 0; }
+		inline bool operator<=( const std::string& str ) const noexcept { return compare( str ) <= 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator>( T&& str ) const noexcept { return compare( str ) > 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator>=( T&& str ) const noexcept { return compare( str ) >= 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator<( T&& str ) const noexcept { return compare( str ) < 0; }
+		template<typename T> inline enable_if_ptr<T, data_type> operator<=( T&& str ) const noexcept { return compare( str ) <= 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator>( T&& str ) const noexcept { return compare( str ) > 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator>=( T&& str ) const noexcept { return compare( str ) >= 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator<( T&& str ) const noexcept { return compare( str ) < 0; }
+		template<typename T> inline enable_if_ptr<T, value_type> operator<=( T&& str ) const noexcept { return compare( str ) <= 0; }
+		template<size_type LITLEN> inline bool operator>( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) > 0; }
+		template<size_type LITLEN> inline bool operator>=( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) >= 0; }
+		template<size_type LITLEN> inline bool operator<( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) < 0; }
+		template<size_type LITLEN> inline bool operator<=( const data_type (&str)[LITLEN] ) const noexcept { return compare( str ) <= 0; }
+		template<size_type LITLEN> inline bool operator>( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) > 0; }
+		template<size_type LITLEN> inline bool operator>=( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) >= 0; }
+		template<size_type LITLEN> inline bool operator<( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) < 0; }
+		template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) <= 0; }
 		
 		
 		//! Get the number of bytes of code point in basic_utf8_string
-		inline width_type get_index_bytes( size_type byte_index ) const {
+		inline width_type get_index_bytes( size_type byte_index ) const noexcept {
 			return get_codepoint_bytes( get_buffer()[byte_index] , size() - byte_index );
 		}
-		inline width_type get_codepoint_bytes( size_type codepoint_index ) const {
+		inline width_type get_codepoint_bytes( size_type codepoint_index ) const noexcept {
 			return get_index_bytes( get_num_bytes_from_start( codepoint_index ) );
 		}
 		
 		
 		//! Get the number of bytes before a code point, that build up a new code point
-		inline width_type get_index_pre_bytes( size_type byte_index ) const {
+		inline width_type get_index_pre_bytes( size_type byte_index ) const noexcept {
 			const data_type* buffer = get_buffer();
 			return get_num_bytes_of_utf8_char_before( buffer , byte_index );
 		}
-		inline width_type get_codepoint_pre_bytes( size_type codepoint_index ) const {
+		inline width_type get_codepoint_pre_bytes( size_type codepoint_index ) const noexcept {
 			return get_index_pre_bytes( get_num_bytes_from_start( codepoint_index ) );
 		}
 		
 		
 		//! Get the byte index of the last code point
-		inline size_type	back_index() const { size_type s = size(); return s - get_index_pre_bytes( s ); }
+		inline size_type	back_index() const noexcept { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		
 		/**
 		 * Counts the number of codepoints
 		 * that are contained within the supplied range of bytes
 		 */
-		size_type			get_num_codepoints( size_type byte_start , size_type byte_count ) const ;
+		size_type			get_num_codepoints( size_type byte_start , size_type byte_count ) const noexcept ;
 		
 		/**
 		 * Counts the number of bytes required to hold the supplied amount of codepoints
 		 * starting at the supplied byte index (or '0' for the '_from_start' version)
 		 */
-		size_type			get_num_bytes( size_type byte_start , size_type cp_count ) const ;
-		size_type			get_num_bytes_from_start( size_type cp_count ) const ;
+		size_type			get_num_bytes( size_type byte_start , size_type cp_count ) const noexcept ;
+		size_type			get_num_bytes_from_start( size_type cp_count ) const noexcept ;
 		
 		
 	public: //! tinyutf8-specific features
@@ -2203,7 +2238,7 @@ namespace tiny_utf8
 		 * @return	True, if there are UTF-8 formatted byte sequences,
 		 *			false, if there are only ascii characters (<128) inside
 		 */
-		inline bool requires_unicode() const {
+		inline bool requires_unicode() const noexcept {
 			return sso_inactive() ? t_non_sso.data_len != get_non_sso_string_len() : requires_unicode_sso();
 		}
 		
@@ -2213,7 +2248,7 @@ namespace tiny_utf8
 		 * @return	True, if the utf8 data is stored within the basic_utf8_string object itself
 		 *			false, otherwise
 		 */
-		inline bool sso_active() const { return sso_inactive() == false; }
+		inline bool sso_active() const noexcept { return sso_inactive() == false; }
 		
 		
 		/**
@@ -2221,7 +2256,7 @@ namespace tiny_utf8
 		 * @return	True, if the utf8 data is stored within the basic_utf8_string object itself
 		 *			false, otherwise
 		 */
-		inline bool lut_active() const { return sso_inactive() && basic_utf8_string::is_lut_active( basic_utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size ) ); }
+		inline bool lut_active() const noexcept { return sso_inactive() && basic_utf8_string::is_lut_active( basic_utf8_string::get_lut_base_ptr( t_non_sso.data , t_non_sso.buffer_size ) ); }
 		
 		
 		/**
@@ -2230,7 +2265,7 @@ namespace tiny_utf8
 		 * @param	dest	A buffer capable of holding at least 'length()+1' elements of type 'value_type'
 		 * @return	void
 		 */
-		void to_wide_literal( value_type* dest ) const {
+		void to_wide_literal( value_type* dest ) const noexcept {
 			for( const data_type* data = get_buffer(), * data_end = data + size() ; data < data_end ; )
 				data += decode_utf8_and_len( data , *dest++ , data_end - data );
 			*dest = 0;
@@ -2243,7 +2278,7 @@ namespace tiny_utf8
 		 * @note	Returns the UTF-8 formatted content of this basic_utf8_string
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
-		inline std::basic_string<data_type> cpp_str( bool prepend_bom = false ) const { return prepend_bom ? cpp_str_bom() : std::basic_string<DataType>( c_str() , size() ); }
+		inline std::basic_string<data_type> cpp_str( bool prepend_bom = false ) const noexcept(TINY_UTF8_NOEXCEPT) { return prepend_bom ? cpp_str_bom() : std::basic_string<DataType>( c_str() , size() ); }
 	};
 } // Namespace 'tiny_utf8'
 
@@ -2254,7 +2289,7 @@ namespace std
 	template<typename V, typename D, typename A>
 	struct hash<tiny_utf8::basic_utf8_string<V, D, A> >
 	{
-		size_t operator()( const tiny_utf8::basic_utf8_string<V, D, A>& string ) const {
+		size_t operator()( const tiny_utf8::basic_utf8_string<V, D, A>& string ) const noexcept {
 			using data_type = typename tiny_utf8::basic_utf8_string<V, D, A>::data_type;
 			std::hash<data_type>	hasher;
 			size_t					size = string.size();
@@ -2271,9 +2306,9 @@ namespace std
 #if defined(TINY_UTF8_FORWARD_DECLARE_ONLY) && TINY_UTF8_FORWARD_DECLARE_ONLY == true
 	//! Stream Operations
 	template<typename V, typename D, typename A>
-	extern std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str );
+	extern std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
 	template<typename V, typename D, typename A>
-	extern std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str );
+	extern std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
 #else
 
 #include <ostream>
@@ -2282,8 +2317,9 @@ namespace std
 namespace tiny_utf8
 {
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , basic_utf8_string<V, D, A>::value_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc ) :
-		A( alloc )
+	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , basic_utf8_string<V, D, A>::value_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc )
+		noexcept(TINY_UTF8_NOEXCEPT)
+		: A( alloc )
 		, t_sso( 0 )
 	{
 		if( !count )
@@ -2298,7 +2334,12 @@ namespace tiny_utf8
 		{
 			// Determine the buffer size
 			size_type buffer_size	= determine_main_buffer_size( data_len );
-			buffer = t_non_sso.data = this->allocate( determine_total_buffer_size( buffer_size ) );
+			buffer = this->allocate( determine_total_buffer_size( buffer_size ) );
+		#if defined(TINY_UTF8_NOEXCEPT)
+			if( !buffer )
+				return;
+		#endif
+			t_non_sso.data = buffer;
 			
 			// Set Attributes
 			set_lut_indiciator( buffer + buffer_size , num_bytes_per_cp == 1 , 0 ); // Set lut indicator
@@ -2327,8 +2368,9 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , data_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc ) :
-		A( alloc )
+	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , data_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc )
+		noexcept(TINY_UTF8_NOEXCEPT)
+		: A( alloc )
 		, t_sso( 0 )
 	{
 		if( !count )
@@ -2340,7 +2382,12 @@ namespace tiny_utf8
 		if( count > basic_utf8_string::get_sso_capacity() )
 		{
 			size_type buffer_size = determine_main_buffer_size( count );
-			buffer = t_non_sso.data = this->allocate( determine_total_buffer_size( buffer_size ) );
+			buffer = this->allocate( determine_total_buffer_size( buffer_size ) );
+		#if defined(TINY_UTF8_NOEXCEPT)
+			if( !buffer )
+				return;
+		#endif
+			t_non_sso.data = buffer;
 			
 			// Set Attributes
 			set_lut_indiciator( buffer + buffer_size , true , 0 ); // Set lut indicator
@@ -2361,8 +2408,9 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag ) :
-		basic_utf8_string( alloc )
+	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag )
+		noexcept(TINY_UTF8_NOEXCEPT)
+		: basic_utf8_string( alloc )
 	{
 		if( !len )
 			return;
@@ -2391,7 +2439,12 @@ namespace tiny_utf8
 				// Determine the buffer size (excluding the lut indicator) and the lut width
 				width_type	lut_width;
 				size_type	buffer_size	= determine_main_buffer_size( data_len , num_multibytes , &lut_width );
-				buffer					= t_non_sso.data = this->allocate( determine_total_buffer_size( buffer_size ) ); // The LUT indicator is 
+				buffer = this->allocate( determine_total_buffer_size( buffer_size ) );
+			#if defined(TINY_UTF8_NOEXCEPT)
+				if( !buffer )
+					return;
+			#endif
+				t_non_sso.data = buffer;
 				
 				// Set up LUT
 				data_type*	lut_iter = basic_utf8_string::get_lut_base_ptr( buffer , buffer_size );
@@ -2458,8 +2511,9 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type data_len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_bytes_tag ) :
-		basic_utf8_string( alloc )
+	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type data_len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_bytes_tag )
+		noexcept(TINY_UTF8_NOEXCEPT)
+		: basic_utf8_string( alloc )
 	{
 		if( !data_len )
 			return;
@@ -2488,7 +2542,12 @@ namespace tiny_utf8
 				// Determine the buffer size (excluding the lut indicator) and the lut width
 				width_type	lut_width;
 				size_type	buffer_size	= determine_main_buffer_size( data_len , num_multibytes , &lut_width );
-				buffer					= t_non_sso.data = this->allocate( determine_total_buffer_size( buffer_size ) ); // The LUT indicator is 
+				buffer = this->allocate( determine_total_buffer_size( buffer_size ) );
+			#if defined(TINY_UTF8_NOEXCEPT)
+				if( !buffer )
+					return;
+			#endif
+				t_non_sso.data = buffer;
 				
 				// Set up LUT
 				data_type*	lut_iter = basic_utf8_string::get_lut_base_ptr( buffer , buffer_size );
@@ -2555,8 +2614,9 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const value_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc ) :
-		basic_utf8_string( alloc )
+	basic_utf8_string<V, D, A>::basic_utf8_string( const value_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc )
+		noexcept(TINY_UTF8_NOEXCEPT)
+		: basic_utf8_string( alloc )
 	{
 		if( !len )
 			return;
@@ -2586,7 +2646,12 @@ namespace tiny_utf8
 				// Determine the buffer size (excluding the lut indicator) and the lut width
 				width_type lut_width;
 				size_type buffer_size	= determine_main_buffer_size( data_len , num_multibytes , &lut_width );
-				buffer					= t_non_sso.data = this->allocate(  determine_total_buffer_size( buffer_size ) ); // The LUT indicator is 
+				buffer = this->allocate( determine_total_buffer_size( buffer_size ) );
+			#if defined(TINY_UTF8_NOEXCEPT)
+				if( !buffer )
+					return;
+			#endif
+				t_non_sso.data = buffer;
 				
 				//! Fill LUT
 				data_type* lut_iter		= basic_utf8_string::get_lut_base_ptr( buffer , buffer_size );
@@ -2649,7 +2714,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::width_type basic_utf8_string<V, D, A>::get_num_bytes_of_utf8_char_before( const data_type* data_start , size_type index )
+	typename basic_utf8_string<V, D, A>::width_type basic_utf8_string<V, D, A>::get_num_bytes_of_utf8_char_before( const data_type* data_start , size_type index ) noexcept
 	{
 		data_start += index;
 		// Only Check the possibilities, that could appear
@@ -2687,7 +2752,7 @@ namespace tiny_utf8
 
 	#if !defined(TINY_UTF8_HAS_CLZ) || TINY_UTF8_HAS_CLZ == false
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::width_type basic_utf8_string<V, D, A>::get_codepoint_bytes( typename basic_utf8_string<V, D, A>::data_type first_byte , typename basic_utf8_string<V, D, A>::size_type data_left )
+	typename basic_utf8_string<V, D, A>::width_type basic_utf8_string<V, D, A>::get_codepoint_bytes( typename basic_utf8_string<V, D, A>::data_type first_byte , typename basic_utf8_string<V, D, A>::size_type data_left ) noexcept
 	{
 		// Only Check the possibilities, that could appear
 		switch( data_left )
@@ -2718,7 +2783,7 @@ namespace tiny_utf8
 	#endif // !defined(TINY_UTF8_HAS_CLZ) || TINY_UTF8_HAS_CLZ == false
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::operator=( const basic_utf8_string<V, D, A>& str )
+	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::operator=( const basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Note: Self assignment is expected to be very rare. We tolerate overhead in this situation.
 		// Therefore, we right away check for sso states in 'this' and 'str'.
@@ -2804,7 +2869,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	void basic_utf8_string<V, D, A>::shrink_to_fit()
+	void basic_utf8_string<V, D, A>::shrink_to_fit() noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		if( sso_active() )
 			return;
@@ -2869,7 +2934,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_non_sso_capacity() const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_non_sso_capacity() const noexcept
 	{
 		size_type	data_len		= t_non_sso.data_len;
 		size_type	buffer_size		= t_non_sso.buffer_size;
@@ -2891,7 +2956,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	bool basic_utf8_string<V, D, A>::requires_unicode_sso() const
+	bool basic_utf8_string<V, D, A>::requires_unicode_sso() const noexcept
 	{
 		constexpr size_type mask = get_msb_mask<size_type>();
 		size_type			data_len = get_sso_data_len();
@@ -2912,7 +2977,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	std::basic_string<typename basic_utf8_string<V, D, A>::data_type> basic_utf8_string<V, D, A>::cpp_str_bom() const
+	std::basic_string<typename basic_utf8_string<V, D, A>::data_type> basic_utf8_string<V, D, A>::cpp_str_bom() const noexcept
 	{
 		// Create std::string
 		std::basic_string<data_type>	result = std::string( size() + 3 , ' ' );
@@ -2930,7 +2995,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_codepoints( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type byte_count ) const 
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_codepoints( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type byte_count ) const noexcept
 	{
 		const data_type*	buffer;
 		size_type			data_len;
@@ -2995,7 +3060,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_bytes_from_start( typename basic_utf8_string<V, D, A>::size_type cp_count ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_bytes_from_start( typename basic_utf8_string<V, D, A>::size_type cp_count ) const noexcept
 	{
 		const data_type*	buffer;
 		size_type			data_len;
@@ -3038,7 +3103,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_bytes( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type cp_count ) const 
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::get_num_bytes( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type cp_count ) const noexcept
 	{
 		size_type			potential_end_index = index + cp_count;
 		const data_type*	buffer;
@@ -3108,7 +3173,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A> basic_utf8_string<V, D, A>::raw_substr( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type byte_count ) const
+	basic_utf8_string<V, D, A> basic_utf8_string<V, D, A>::raw_substr( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type byte_count ) const noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Bound checks...
 		size_type data_len = size();
@@ -3247,7 +3312,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::append( const basic_utf8_string<V, D, A>& app )
+	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::append( const basic_utf8_string<V, D, A>& app ) noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Will add nothing?
 		bool app_sso_inactive = app.sso_inactive();
@@ -3511,7 +3576,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_insert( typename basic_utf8_string<V, D, A>::size_type index , const basic_utf8_string<V, D, A>& str )
+	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_insert( typename basic_utf8_string<V, D, A>::size_type index , const basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Bound checks...
 		size_type old_data_len = size();
@@ -3871,7 +3936,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_replace( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type replaced_len , const basic_utf8_string<V, D, A>& repl )
+	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_replace( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type replaced_len , const basic_utf8_string<V, D, A>& repl ) noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Bound checks...
 		size_type old_data_len = size();
@@ -4286,7 +4351,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_erase( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type len )
+	basic_utf8_string<V, D, A>& basic_utf8_string<V, D, A>::raw_erase( typename basic_utf8_string<V, D, A>::size_type index , typename basic_utf8_string<V, D, A>::size_type len ) noexcept(TINY_UTF8_NOEXCEPT)
 	{
 		// Bound checks...
 		size_type old_data_len = size();
@@ -4415,7 +4480,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_rfind( typename basic_utf8_string<V, D, A>::value_type cp , typename basic_utf8_string<V, D, A>::size_type index ) const {
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_rfind( typename basic_utf8_string<V, D, A>::value_type cp , typename basic_utf8_string<V, D, A>::size_type index ) const noexcept {
 		if( index >= size() )
 			index = back_index();
 		for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) )
@@ -4425,7 +4490,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_first_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_first_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const noexcept
 	{
 		if( start_pos >= length() )
 			return basic_utf8_string::npos;
@@ -4444,7 +4509,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_first_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_first_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const noexcept
 	{
 		if( index >= size() )
 			return basic_utf8_string::npos;
@@ -4463,7 +4528,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_last_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_last_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const noexcept
 	{
 		const_reverse_iterator  it;
 		size_type               string_len = length();
@@ -4487,7 +4552,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_last_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_last_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const noexcept
 	{
 		if( empty() )
 			return basic_utf8_string::npos;
@@ -4508,7 +4573,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_first_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_first_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const noexcept
 	{
 		if( start_pos >= length() )
 			return basic_utf8_string::npos;
@@ -4528,7 +4593,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_first_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_first_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const noexcept
 	{
 		if( index >= size() )
 			return basic_utf8_string::npos;
@@ -4549,7 +4614,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_last_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::find_last_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type start_pos ) const noexcept
 	{
 		if( empty() )
 			return basic_utf8_string::npos;
@@ -4578,7 +4643,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_last_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const
+	typename basic_utf8_string<V, D, A>::size_type basic_utf8_string<V, D, A>::raw_find_last_not_of( const typename basic_utf8_string<V, D, A>::value_type* str , typename basic_utf8_string<V, D, A>::size_type index ) const noexcept
 	{
 		if( empty() )
 			return basic_utf8_string::npos;
@@ -4607,11 +4672,11 @@ namespace tiny_utf8
 } // Namespace 'tiny_utf8'
 
 template<typename V, typename D, typename A>
-std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ){
+std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 	return stream << str.c_str();
 }
 template<typename V, typename D, typename A>
-std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ){
+std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 	std::string tmp;
 	stream >> tmp;
 	str = move(tmp);
