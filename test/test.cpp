@@ -16,13 +16,13 @@ int main()
 	stringstream  cout;
 	
 	// Prepend the UTF-8 Byte Order Mark
-	cout << utf8_string().cpp_str(true);
+	cout << tiny_utf8::utf8_string().cpp_str(true);
 	
 	// Test 1a
 	{
 		cout << "Test 1a: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"TEST: ツ♫" );
+		tiny_utf8::utf8_string str = U"TEST: ツ♫";
 		
 		cout << "String: " << str << endl;
 		cout << "Length: " << str.length() << endl;
@@ -38,7 +38,7 @@ int main()
 	{
 		cout << "Test 1b: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( 1 , U'ツ' );
+		tiny_utf8::utf8_string str = tiny_utf8::utf8_string( 1 , U'ツ' );
 		
 		cout << "String: " << str << endl;
 		cout << "Length: " << str.length() << endl;
@@ -54,7 +54,7 @@ int main()
 	{
 		cout << "Test 1c: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello  ツ  World" );
+		tiny_utf8::utf8_string str = U"Hello  ツ  World";
 		
 		cout << "String: " << str << endl;
 		cout << "Length: " << str.length() << endl;
@@ -71,7 +71,7 @@ int main()
 	{
 		cout << "Test 2: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ" );
+		tiny_utf8::utf8_string str = U"Hello ツ";
 		str.append( U" ♫ World" );
 		
 		cout << "String: " << str << endl;
@@ -81,7 +81,7 @@ int main()
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "LUTActive: "<< str.lut_active() << endl;
 		
-		utf8_string tmp = utf8_string( U"♫ World" );
+		tiny_utf8::utf8_string tmp = U"♫ World";
 		
 		str.append( tmp );
 		
@@ -99,7 +99,7 @@ int main()
 	{
 		cout << "Test 3: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( "Hello ツ World ♫" );
+		tiny_utf8::utf8_string str = "Hello ツ World ♫";
 		cout << "String: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
@@ -144,7 +144,7 @@ int main()
 	{
 		cout << "Test 4: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ World" );
+		tiny_utf8::utf8_string str = U"Hello ツ World";
 		cout << "String: " << str.c_str() << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "LUTActive: "<< str.lut_active() << endl;
@@ -183,7 +183,7 @@ int main()
 	{
 		cout << "Test 5: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello ツ World♫" );
+		tiny_utf8::utf8_string str = U"Hello ツ World♫";
 		
 		cout << "String: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
@@ -206,7 +206,7 @@ int main()
 		
 		std::ifstream in{ "input.txt" , ios::binary };
 		
-		utf8_string str = std::string( (std::istreambuf_iterator<char>(in)) , std::istreambuf_iterator<char>() );
+		tiny_utf8::utf8_string str = std::string( std::istreambuf_iterator<char>(in) , std::istreambuf_iterator<char>() );
 		
 		cout << "String (ANSI): " << str << endl;
 		cout << "RequiresUnicode: " << str.requires_unicode() << endl;
@@ -241,7 +241,7 @@ int main()
 		
 		std::unique_ptr<char32_t[]> ptr{ new char32_t[str.length()+1] };
 		str.to_wide_literal( ptr.get() );
-		utf8_string corrected{ ptr.get() , str.length() };
+		tiny_utf8::utf8_string corrected{ ptr.get() , str.length() };
 		
 		cout << "Converted to UTF-8: " << corrected << endl;
 		
@@ -252,7 +252,7 @@ int main()
 	{
 		cout << "Test 7: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"Hello World ツ♫" );
+		tiny_utf8::utf8_string str = U"Hello World ツ♫";
 		
 		cout << "Find Last Not of ツ:" << str.find_last_not_of( U"ツ♫" ) << endl;
 		cout << "Correct Result: " << string("Hello World *+") .find_last_not_of( "*+" ) << endl;
@@ -273,11 +273,11 @@ int main()
 	{
 		cout << "Test 8: " << endl << "-------" << endl;
 		
-		utf8_string fullstr = utf8_string( U"Hello ツ World rg rth rt he rh we gxgre" );
+		tiny_utf8::utf8_string fullstr = U"Hello ツ World rg rth rt he rh we gxgre";
 		
 		cout << "Full String: " << fullstr << endl;
 		
-		utf8_string str = fullstr.substr( 3 , 16 );
+		tiny_utf8::utf8_string str = fullstr.substr( 3 , 16 );
 		cout << "Substring 3[16]: " << str << endl;
 		cout << "SSOActive: " << str.sso_active() << endl;
 		cout << "LUTActive: "<< str.lut_active() << endl;
@@ -288,7 +288,7 @@ int main()
 	{
 		cout << "Test 9: " << endl << "-------" << endl;
 		
-		utf8_string str = utf8_string( U"TEST: ツ♫" );
+		tiny_utf8::utf8_string str = U"TEST: ツ♫";
 		
 		cout << "String: " << str << endl;
 		cout << "Capacity: " << str.capacity() << endl;

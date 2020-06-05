@@ -86,6 +86,11 @@
 	#define TINY_UTF8_CPP17( ... )
 #endif
 
+//! Want global declarations?
+#ifdef TINY_UTF8_GLOBAL_NAMESPACE
+inline
+#endif
+
 namespace tiny_utf8
 {
 	// Forward Declaration
@@ -103,16 +108,9 @@ namespace tiny_utf8
 	#if __cplusplus > 201703L
 		using u8string = basic_utf8_string<char32_t, char8_t>;
 	#endif
-}
-
-//! Want a global declaration?
-#ifndef TINY_UTF8_NAMESPACED
-	using utf8_string = tiny_utf8::utf8_string;
-#endif
-
-namespace tiny_utf8
-{	
-	namespace detail
+	
+	//! Implementation Detail
+	namespace tiny_utf8_detail
 	{
 		// Used for tag dispatching in constructor
 		struct read_codepoints_tag{};
@@ -744,7 +742,7 @@ namespace tiny_utf8
 		{
 			if( first_byte ){
 				// Before counting the leading one's we need to shift the byte into the most significant part of the integer
-				size_type codepoint_bytes = detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
+				size_type codepoint_bytes = tiny_utf8_detail::clz( ~((unsigned int)first_byte << (sizeof(unsigned int)-1)*8 ) );
 				
 				// The test below would actually be ( codepoint_bytes <= data_left && codepoint_bytes ),
 				// but codepoint_bytes is unsigned and thus wraps around zero, which makes the following faster:
@@ -769,7 +767,7 @@ namespace tiny_utf8
 					1 , 1 , 1 , 1 , 1 , 1 , 1 , 2 , 2 , 2 , 2 , 3 , 3 , 3 , 3 , 3
 					, 4 , 4 , 4 , 4 , 4 , 5 , 5 , 5 , 5 , 5 , 6 , 6 , 6 , 6 , 6 , 7
 				};
-				return lut[ 31 - detail::clz( cp ) ];
+				return lut[ 31 - tiny_utf8_detail::clz( cp ) ];
 			#else
 				if( cp <= 0x7F )
 					return 1;
@@ -853,8 +851,8 @@ namespace tiny_utf8
 				t_non_sso.string_len = string_len;
 				t_sso.data_len = 0x1; // Manually set flag to deactivate SSO
 			}
-			else if TINY_UTF8_CPP17(constexpr) ( detail::is_little_endian::value ){
-				detail::last_byte<size_type> lb;
+			else if TINY_UTF8_CPP17(constexpr) ( tiny_utf8_detail::is_little_endian::value ){
+				tiny_utf8_detail::last_byte<size_type> lb;
 				lb.number = string_len;
 				lb.bytes.last <<= 1;
 				lb.bytes.last |= 0x1;
@@ -869,8 +867,8 @@ namespace tiny_utf8
 			// Check, if NON_SSO is larger than its members, in which case it's not ambiguated by SSO::data_len
 			if( offsetof(SSO, data_len) > offsetof(NON_SSO, string_len) + sizeof(NON_SSO::string_len) - 1 )
 				return t_non_sso.string_len;
-			else if( detail::is_little_endian::value ){
-				detail::last_byte<size_type> lb;
+			else if( tiny_utf8_detail::is_little_endian::value ){
+				tiny_utf8_detail::last_byte<size_type> lb;
 				lb.number = t_non_sso.string_len;
 				lb.bytes.last >>= 1;
 				return lb.number;
@@ -936,8 +934,8 @@ namespace tiny_utf8
 		}
 		
 		//! Constructs an basic_utf8_string from a character literal
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , detail::read_codepoints_tag );
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , detail::read_bytes_tag );
+		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag );
+		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_bytes_tag );
 		
 	public:
 		
@@ -963,10 +961,10 @@ namespace tiny_utf8
 		 */
 		template<typename T>
 		inline basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, data_type>* = {} ) :
-			basic_utf8_string( str , basic_utf8_string::npos , alloc , detail::read_codepoints_tag() )
+			basic_utf8_string( str , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
 		inline basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str , len , alloc , detail::read_codepoints_tag() )
+			basic_utf8_string( str , len , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
 		/**
 		 * Constructor taking an utf8 char literal
@@ -987,7 +985,7 @@ namespace tiny_utf8
 		}
 		template<size_type LITLEN>
 		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_not_small_string<LITLEN> = {} ) :
-			basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , detail::read_bytes_tag() )
+			basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
 		 * Constructor taking an std::string
@@ -998,7 +996,7 @@ namespace tiny_utf8
 		 */
 		template<typename C, typename A>
 		inline basic_utf8_string( std::basic_string<data_type, C, A> str , const allocator_type& alloc = allocator_type() ) :
-			basic_utf8_string( str.c_str() , str.length() , alloc , detail::read_bytes_tag() )
+			basic_utf8_string( str.c_str() , str.length() , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
 		 * Constructor that fills the string with a certain amount of codepoints
@@ -2363,7 +2361,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , detail::read_codepoints_tag ) :
+	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag ) :
 		basic_utf8_string( alloc )
 	{
 		if( !len )
@@ -2460,7 +2458,7 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type data_len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , detail::read_bytes_tag ) :
+	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type data_len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_bytes_tag ) :
 		basic_utf8_string( alloc )
 	{
 		if( !data_len )
