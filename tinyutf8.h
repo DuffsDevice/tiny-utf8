@@ -79,7 +79,7 @@
 	#pragma warning(disable:26819) // Implicit Fallthrough
 #endif
 
-//! Determine if constexpr
+//! Create macro that yields its arguments, if C++17 or later is present (used for "if constexpr")
 #if __cplusplus >= 201700L
 	#define TINY_UTF8_CPP17( ... ) __VA_ARGS__
 #else
@@ -1052,7 +1052,7 @@ namespace tiny_utf8
 		basic_utf8_string( const basic_utf8_string& str ) :
 			Allocator( (const allocator_type&)str )
 		{
-			std::memcpy( (void*)this , (void*)&str , sizeof(basic_utf8_string) ); // Copy data
+			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			
 			// Create a new buffer, if sso is not active
 			if( str.sso_inactive() ){
@@ -1071,7 +1071,7 @@ namespace tiny_utf8
 		basic_utf8_string( const basic_utf8_string& str , const allocator_type& alloc ) :
 			Allocator( alloc )
 		{
-			std::memcpy( this , &str , sizeof(basic_utf8_string) ); // Copy data
+			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			
 			// Create a new buffer, if sso is not active
 			if( str.sso_inactive() ){
@@ -1129,7 +1129,7 @@ namespace tiny_utf8
 		inline basic_utf8_string( basic_utf8_string&& str ) :
 			Allocator( (allocator_type&&)str )
 		{
-			std::memcpy( (void*)this , (void*)&str , sizeof(basic_utf8_string) ); // Copy data
+			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			str.set_sso_data_len(0); // Reset old string
 		}
 		/**
@@ -1142,7 +1142,7 @@ namespace tiny_utf8
 		inline basic_utf8_string( basic_utf8_string&& str , const allocator_type& alloc ) :
 			Allocator( alloc )
 		{
-			std::memcpy( (void*)this , (void*)&str , sizeof(basic_utf8_string) ); // Copy data
+			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 			str.set_sso_data_len(0); // Reset old string
 		}
 		
@@ -1174,7 +1174,8 @@ namespace tiny_utf8
 		inline basic_utf8_string& operator=( basic_utf8_string&& str ){
 			if( &str != this ){
 				clear(); // Reset old data
-				std::memcpy( (void*)this , (void*)&str , sizeof(basic_utf8_string) ); // Copy data
+				(allocator_type&)*this = (allocator_type&&)str; // Move allocator
+				std::memcpy( (void*)this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 				str.set_sso_data_len(0); // Reset old string
 			}
 			return *this;
@@ -1195,6 +1196,14 @@ namespace tiny_utf8
 		
 		
 		/**
+		 * Returns a copy of the stored allocator
+		 *
+		 * @return	A copy of the stored allocator instance
+		 */
+		allocator_type get_allocator() const { return (const allocator_type&)*this; }
+		
+		
+		/**
 		 * Requests the removal of unused capacity.
 		 */
 		void shrink_to_fit();
@@ -1208,10 +1217,11 @@ namespace tiny_utf8
 		 */
 		inline void swap( basic_utf8_string& str ){
 			if( &str != this ){
-				data_type tmp[sizeof(basic_utf8_string)];
-				std::memcpy( &tmp , (void*)&str , sizeof(basic_utf8_string) );
-				std::memcpy( (void*)&str , this , sizeof(basic_utf8_string) );
-				std::memcpy( (void*)this , &tmp , sizeof(basic_utf8_string) );
+				data_type tmp[sizeof(SSO)];
+				std::memcpy( &tmp , (void*)&str.t_sso , sizeof(SSO) );
+				std::memcpy( (void*)&str , (void*)&this->t_sso , sizeof(SSO) );
+				std::memcpy( (void*)&this->t_sso , &tmp , sizeof(SSO) );
+				std::swap( (allocator_type&)*this , (allocator_type&)str ); // Swap Allocators
 			}
 		}
 		
@@ -2766,6 +2776,7 @@ namespace tiny_utf8
 				);
 				t_non_sso.data_len = str.t_non_sso.data_len;
 				t_non_sso.string_len = str.t_non_sso.string_len; // Copy the string_len bit pattern
+				(allocator_type&)*this = (const allocator_type&)str; // Copy allocator
 				return *this;
 				
 			lbl_replicate_whole_buffer: // Replicate the whole buffer
@@ -2773,6 +2784,7 @@ namespace tiny_utf8
 			}
 				TINY_UTF8_FALLTHROUGH
 			case 2: // [sso-active] = [sso-inactive]
+				(allocator_type&)*this = (const allocator_type&)str; // Copy allocator
 				t_non_sso.data = this->allocate(  basic_utf8_string::determine_total_buffer_size( str.t_non_sso.buffer_size ) );
 				std::memcpy( t_non_sso.data , str.t_non_sso.data , str.t_non_sso.buffer_size + sizeof(indicator_type) ); // Copy data
 				t_non_sso.buffer_size = str.t_non_sso.buffer_size;
@@ -2783,8 +2795,10 @@ namespace tiny_utf8
 				this->deallocate( t_non_sso.data , t_non_sso.buffer_size );
 				TINY_UTF8_FALLTHROUGH
 			case 0: // [sso-active] = [sso-active]
-				if( &str != this )
-					std::memcpy( (void*)this , &str , sizeof(basic_utf8_string) ); // Copy data
+				if( &str != this ){
+					(allocator_type&)*this = (const allocator_type&)str; // Copy allocator
+					std::memcpy( (void*)&this->t_sso , &str.t_sso , sizeof(basic_utf8_string::SSO) ); // Copy data
+				}
 				return *this;
 		}
 		return *this;
