@@ -1,4 +1,4 @@
-# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;">
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> Version 4.a
 
 [![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
@@ -6,6 +6,11 @@
 **Tiny-utf8** is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
+
+#### *CHANGES BETWEEN Version 4.a and 3.2.4*
+
+- **Class `utf8_string` is now defined inside `namespace tiny_utf8`**. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
+- ***NEW: Support for C++20***: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
 
 #### FEATURES
 - **Drop-in replacement for std::string**
@@ -20,10 +25,10 @@ Its implementation is successfully in the middle between small memory footprint 
 - **On-the-fly Conversion between UTF32 and UTF8**
 - Small Stack Size, i.e. `sizeof(utf8_string)` = 16 Bytes (32Bit) / 32 Bytes (64Bit)
 - Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but until now otherwise considered out of scope)
-- ***NEW:** Single Header File*
+- Single Header File
 - Straightforward C++11 Design
 - Possibility to prepend the UTF8 BOM (Byte Order Mark) to any string when converting it to an std::string
-- Supports raw (Byte-based) access for occasions where Speed is needed.
+- Supports raw (Byte-based) access for occasions where Speed is needed
 - Supports `shrink_to_fit()`
 - Malformed UTF8 sequences will **lead to defined behaviour**
 
@@ -59,7 +64,7 @@ using namespace std;
 
 int main()
 {
-    utf8_string str = u8"!🌍 olleH";
+    tiny_utf8::utf8_string str = u8"!🌍 olleH";
     for_each( str.rbegin() , str.rend() , []( char32_t codepoint ){
       cout << codepoint;
     } );
@@ -72,6 +77,16 @@ int main()
 Since Version 3, **tiny-utf8** is header-only, i.e. *tinyutf8.h* includes all definitions and one doesn't need to build *tinyutf8.cpp* separately. If you want to speed up your compilation time with a large number of source files, include *tinyutf8.hpp* instead, which `#define`s `TINY_UTF8_FORWARD_DECLARE_ONLY` and then includes *tinyutf8.h*, which now has all definitions removed.
 
 Subsequently, in order to build the definitions in *tinyutf8.h* in a separate source file, add *tinyutf8.cpp* to your source files, which only includes *tinyutf8.h* (instead of *tinyutf8.h**pp***).
+
+#### EXCEPTIONS
+
+- **Tiny-utf8** should automaticall detect, whether your build system allows the use of exceptions or not. This is done by checking for the feature test macro `__cpp_exceptions`.
+- If you would like **tiny-utf8** to be `noexcept` anyway, `#define` the macro `TINY_UTF8_NOEXCEPT`.
+- If you would like **tiny-utf8** to use a different exception strategy, `#define` the macro `TINY_UTF8_THROW( location , failing_predicate )`. For using assertions, you would write ``#define TINY_UTF8_THROW( _ , pred ) assert( pred )
+
+#### BACKWARDS-COMPATIBLE BUILD
+
+If you would like to stay compatible with 3.2.* and have `utf8_string` defined in the global namespace, `#define` the macro `TINY_UTF8_GLOBAL_NAMESPACE`.
 
 ## BUGS
 
