@@ -117,7 +117,11 @@ namespace tiny_utf8
 	
 	//! Typedef of u8string (data type char8_t)
 	#if __cplusplus > 201703L
-		using u8string = basic_utf8_string<char32_t, char8_t>;
+		#if defined(__cpp_char8_t)
+			using u8string = basic_utf8_string<char32_t, char8_t>;
+		#else
+			using u8string = utf8_string;
+		#endif
 	#endif
 	
 	//! Implementation Detail
