@@ -14,7 +14,7 @@ Its implementation is successfully in the middle between small memory footprint 
 
 #### FEATURES
 - **Drop-in replacement for std::string**
-- **Very Lightweight** (~2.5K SLOC)
+- **Lightweight and self-contained** (~3K SLOC)
 - **Very fast**, i.e. highly optimized decoder, encoder and traversal routines
 - **Advanced Memory Layout**, i.e. Random Access is
    - ***O(1) for ASCII-only strings (!)*** and
