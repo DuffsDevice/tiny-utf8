@@ -1213,7 +1213,7 @@ namespace tiny_utf8
 			if( &str != this ){
 				clear(); // Reset old data
 				(allocator_type&)*this = (allocator_type&&)str; // Move allocator
-				std::memcpy( (void*)this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
+				std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
 				str.set_sso_data_len(0); // Reset old string
 			}
 			return *this;
