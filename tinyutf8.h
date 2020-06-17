@@ -36,10 +36,10 @@
 #include <functional> // for std::hash
 #include <algorithm> // for std::min, std::max
 #include <type_traits> // for std::is_*
-#include <cstddef> // for ptrdiff_t, size_t and offsetof
-#include <cstdint> // for uint8_t, uint16_t, uint32_t, std::uint_least16_t, std::uint_fast32_t
+#include <cstddef> // for std::size_t and offsetof
+#include <cstdint> // for std::uint8_t, std::uint16_t, std::uint32_t, std::uint_least16_t, std::uint_fast32_t
 #include <initializer_list> // for std::initializer_list
-#include <iosfwd> // for ostream/istream forward declarations
+#include <iosfwd> // for std::ostream and std::istream forward declarations
 #ifdef _MSC_VER
 #include <intrin.h> // for _BitScanReverse, _BitScanReverse64
 #endif
@@ -155,10 +155,10 @@ namespace tiny_utf8
 				#endif
 				return sizeof(T) * 8 - value_log2 - 1;
 			}
-			static inline unsigned int clz( uint16_t value ) noexcept { return lzcnt( value ); }
-			static inline unsigned int clz( uint32_t value ) noexcept { return lzcnt( value ); }
+			static inline unsigned int clz( std::uint16_t value ) noexcept { return lzcnt( value ); }
+			static inline unsigned int clz( std::uint32_t value ) noexcept { return lzcnt( value ); }
 			#ifndef WIN32
-				static inline unsigned int clz( uint64_t value ) noexcept { return lzcnt( value ); }
+				static inline unsigned int clz( std::uint64_t value ) noexcept { return lzcnt( value ); }
 			#endif // WIN32
 			static inline unsigned int clz( char32_t value ) noexcept { return lzcnt( value ); }
 		#endif
@@ -166,19 +166,27 @@ namespace tiny_utf8
 		//! Helper to detect little endian
 		class is_little_endian
 		{
-			constexpr static uint32_t	u4 = 1;
-			constexpr static uint8_t	u1 = (const uint8_t &) u4;
+			constexpr static std::uint32_t	u4 = 1;
+			constexpr static std::uint8_t	u1 = (const std::uint8_t &) u4;
 		public:
 			constexpr static bool value = u1;
 		};
 		
 		//! Helper to modify the last (address-wise) byte of a little endian value of type 'T'
-		template<typename T>
+		template<typename T, std::size_t = sizeof(T)>
 		union last_byte
 		{
 			T			number;
 			struct{
 				char	dummy[sizeof(T)-1];
+				char	last;
+			} bytes;
+		};
+		template<typename T>
+		union last_byte<T, 1>
+		{
+			T			number;
+			struct{
 				char	last;
 			} bytes;
 		};
@@ -622,11 +630,12 @@ namespace tiny_utf8
 			data_type		data[sizeof(NON_SSO)-1];
 			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
 			SSO( unsigned char data_len , data_type value ) noexcept :
-				data{ value }
+				data{ value , '\0' }
 				, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 			{}
 			SSO( unsigned char data_len ) noexcept :
-				data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+				data{ '\0' }
+				, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
 			{}
 		};
 		
@@ -684,7 +693,7 @@ namespace tiny_utf8
 			*(indicator_type*)dest = *(indicator_type*)source;
 		}
 		
-		//! Determine, whether we will use a 'uint8_t', 'uint16_t', 'uint32_t' or 'uint64_t'-based index table.
+		//! Determine, whether we will use a 'std::uint8_t', 'std::uint16_t', 'std::uint32_t' or 'std::uint64_t'-based index table.
 		//! Returns the number of bytes of the destination data type
 		static inline width_type			get_lut_width( size_type buffer_size ) noexcept {
 			return buffer_size <= (size_type)std::numeric_limits<std::uint8_t>::max() + 1
@@ -949,8 +958,8 @@ namespace tiny_utf8
 		}
 		
 		//! Constructs an basic_utf8_string from a character literal
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
-		basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc , tiny_utf8_detail::read_bytes_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
+		basic_utf8_string( const data_type* str , size_type pos , size_type count , size_type data_left , const allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
+		basic_utf8_string( const data_type* str , size_type count , const allocator_type& alloc , tiny_utf8_detail::read_bytes_tag ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		
 	public:
 		
@@ -962,7 +971,7 @@ namespace tiny_utf8
 		basic_utf8_string()
 			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_default_constructible<Allocator>())
 			: Allocator()
-			, t_sso( 0 , '\0' )
+			, t_sso( 0 )
 		{}
 		/**
 		 * Ctor taking an alloc
@@ -972,30 +981,54 @@ namespace tiny_utf8
 		explicit basic_utf8_string( const allocator_type& alloc )
 			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
-			, t_sso( 0 , '\0' )
+			, t_sso( 0 )
 		{}
 		/**
 		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
 		 * 
 		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
 		 * @param	str		The UTF-8 sequence to fill the basic_utf8_string with
+		 * @param	pos		(Optional) The codepoint position of the first codepoint to read
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<typename T>
 		inline basic_utf8_string( T&& str , const allocator_type& alloc = allocator_type() , enable_if_ptr<T, data_type>* = {} ) 
 			noexcept(TINY_UTF8_NOEXCEPT)
-			: basic_utf8_string( str , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
+			: basic_utf8_string( str , 0 , basic_utf8_string::npos , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
+		/**
+		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
+		 * @param	str		The UTF-8 sequence to fill the basic_utf8_string with
+		 * @param	len		The maximum number of codepoints to read from the sequence
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
 		inline basic_utf8_string( const data_type* str , size_type len , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
-			: basic_utf8_string( str , len , alloc , tiny_utf8_detail::read_codepoints_tag() )
+			: basic_utf8_string( str , 0 , len , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		{}
+		/**
+		 * Constructor taking an utf8 sequence, a codepoint position to start reading from the sequence and the maximum length to read from it (in number of codepoints)
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
+		 * @param	str		The UTF-8 sequence to fill the basic_utf8_string with
+		 * @param	pos		The codepoint position of the first codepoint to read
+		 * @param	len		The maximum number of codepoints to read from the sequence
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
+		inline basic_utf8_string( const data_type* str , size_type pos , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , pos , len , basic_utf8_string::npos , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
 		/**
 		 * Constructor taking an utf8 char literal
 		 * 
 		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
 		 * @param	str		The UTF-8 literal to fill the basic_utf8_string with
+		 * @param	pos		(Optional) The position of the first codepoint to read (bounds-checked)
+		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<size_type LITLEN>
@@ -1017,16 +1050,61 @@ namespace tiny_utf8
 			: basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
+		 * Constructor taking an utf8 char literal and the maximum number of codepoints to read
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
+		 * @param	str		The UTF-8 literal to fill the basic_utf8_string with
+		 * @param	len		The maximum number of codepoints to read from the sequence
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
+		template<size_type LITLEN>
+		inline basic_utf8_string( const data_type (&str)[LITLEN] , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , 0 , len , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		{}
+		/**
+		 * Constructor taking an utf8 char literal, a codepoint position to start reading from the sequence and the maximum number of codepoints to read
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string that holds the given utf8 sequence
+		 * @param	str		The UTF-8 literal to fill the basic_utf8_string with
+		 * @param	pos		The codepoint position of the first codepoint to read (bounds-checked)
+		 * @param	len		The maximum number of codepoints to read from the sequence
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
+		template<size_type LITLEN>
+		inline basic_utf8_string( const data_type (&str)[LITLEN] , size_type pos , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str , pos , len , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		{}
+		/**
 		 * Constructor taking an std::string
 		 * 
-		 * @note	Creates an Instance of type basic_utf8_string that holds the given data sequence
-		 * @param	str		The byte data, that will be interpreted as UTF-8
+		 * @note	Creates an Instance of type basic_utf8_string copying the string data from the supplied std::basic_string
+		 * @param	str		The string object from which the data will be copied (interpreted as UTF-8)
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		template<typename C, typename A>
 		inline basic_utf8_string( std::basic_string<data_type, C, A> str , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
-			: basic_utf8_string( str.c_str() , str.length() , alloc , tiny_utf8_detail::read_bytes_tag() )
+			: basic_utf8_string( str.data() , str.size() , alloc , tiny_utf8_detail::read_bytes_tag() )
+		{}
+		/**
+		 * Constructor taking an std::string
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string copying the string data from the supplied std::basic_string
+		 * @param	str		The string object from which the data will be copied (interpreted as UTF-8)
+		 * @param	len		The maximum number of codepoints to read from 'str'
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
+		template<typename C, typename A>
+		inline basic_utf8_string( std::basic_string<data_type, C, A> str , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str.data() , 0 , len , str.size() , alloc , tiny_utf8_detail::read_codepoints_tag() )
+		{}
+		template<typename C, typename A>
+		inline basic_utf8_string( std::basic_string<data_type, C, A> str , size_type pos , size_type len , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string( str.data() , pos , len , str.size() , alloc , tiny_utf8_detail::read_codepoints_tag() )
 		{}
 		/**
 		 * Constructor that fills the string with a certain amount of codepoints
@@ -1070,7 +1148,7 @@ namespace tiny_utf8
 		basic_utf8_string( InputIt first , InputIt last , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
 			: Allocator( alloc ) 
-			, t_sso( 0 ) 
+			, t_sso( 0 )
 		{
 			while( first != last ) push_back( *first++ );
 		}
@@ -1146,8 +1224,7 @@ namespace tiny_utf8
 		 * Constructor that fills the string with the supplied codepoint
 		 * 
 		 * @note	Creates an Instance of type basic_utf8_string that gets filled with 'n' codepoints
-		 * @param	n		The number of codepoints generated
-		 * @param	cp		The code point that the whole buffer will be set to
+		 * @param	cp		The code point written at the beginning of the buffer
 		 */
 		explicit inline basic_utf8_string( value_type cp , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
@@ -1156,6 +1233,17 @@ namespace tiny_utf8
 		{
 			t_sso.data[cp] = '\0';
 		}
+		/**
+		 * Constructor that fills the string with the supplied character
+		 * 
+		 * @note	Creates an Instance of type basic_utf8_string that gets filled with 'n' codepoints
+		 * @param	ch		The code point written at the beginning of the buffer
+		 */
+		explicit inline basic_utf8_string( data_type ch , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: Allocator( alloc )
+			, t_sso( ch ? 1 : 0 , ch )
+		{}
 		/**
 		 * Move Constructor that moves the supplied basic_utf8_string content into the new basic_utf8_string
 		 * 
@@ -1923,7 +2011,7 @@ namespace tiny_utf8
 				return basic_utf8_string::npos;
 			size_type actual_start = get_num_bytes_from_start( start_codepoint );
 			const data_type* buffer = get_buffer();
-			const data_type* result = std::strstr( buffer + actual_start , pattern.c_str() );
+			const data_type* result = std::strstr( buffer + actual_start , pattern.data() );
 			if( !result )
 				return basic_utf8_string::npos;
 			return start_codepoint + get_num_codepoints( actual_start , result - ( buffer + actual_start ) );
@@ -1972,7 +2060,7 @@ namespace tiny_utf8
 			if( start_byte >= size() )
 				return basic_utf8_string::npos;
 			const data_type* buffer = get_buffer();
-			const data_type* result = std::strstr( buffer + start_byte , pattern.c_str() );
+			const data_type* result = std::strstr( buffer + start_byte , pattern.data() );
 			if( !result )
 				return basic_utf8_string::npos;
 			return result - buffer;
@@ -2294,13 +2382,13 @@ namespace std
 	template<typename V, typename D, typename A>
 	struct hash<tiny_utf8::basic_utf8_string<V, D, A> >
 	{
-		size_t operator()( const tiny_utf8::basic_utf8_string<V, D, A>& string ) const noexcept {
+		std::size_t operator()( const tiny_utf8::basic_utf8_string<V, D, A>& string ) const noexcept {
 			using data_type = typename tiny_utf8::basic_utf8_string<V, D, A>::data_type;
 			std::hash<data_type>	hasher;
-			size_t					size = string.size();
-			size_t					result = 0;
+			std::size_t				size = string.size();
+			std::size_t				result = 0;
 			const data_type*		buffer = string.data();
-			for( size_t iterator = 0 ; iterator < size ; ++iterator )
+			for( std::size_t iterator = 0 ; iterator < size ; ++iterator )
 				result = result * 31u + hasher( buffer[iterator] );
 			return result;
 		}
@@ -2413,28 +2501,37 @@ namespace tiny_utf8
 	}
 
 	template<typename V, typename D, typename A>
-	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type len , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag )
+	basic_utf8_string<V, D, A>::basic_utf8_string( const data_type* str , size_type pos , size_type count , size_type data_left , const typename basic_utf8_string<V, D, A>::allocator_type& alloc , tiny_utf8_detail::read_codepoints_tag )
 		noexcept(TINY_UTF8_NOEXCEPT)
 		: basic_utf8_string( alloc )
 	{
-		if( !len )
+		if( !count )
 			return;
 		
-		size_type		num_multibytes = 0;
-		size_type		data_len = 0;
-		size_type		string_len = 0;
+		size_type	num_multibytes = 0;
+		size_type	data_len = 0;
+		size_type	string_len = 0;
+		data_type*	buffer;
+		
+		// Iterate to the nth codepoint marking the start of the string to copy
+		while( *str && string_len < pos && data_left != 0u ){
+			width_type bytes = get_codepoint_bytes( str[data_len] , data_left ); // Read number of bytes of current code point
+			data_left		-= bytes;
+			str				+= bytes;
+			++string_len;
+		}
+		string_len = 0;
 		
 		// Count bytes, multibytes and string length
-		while( string_len < len && ( str[data_len] || len != basic_utf8_string::npos ) )
+		while( str[data_len] && string_len < count )
 		{
 			// Read number of bytes of current code point
-			width_type bytes = get_codepoint_bytes( str[data_len] , basic_utf8_string::npos );
-			data_len		+= bytes;		// Increase number of bytes
-			string_len		+= 1;			// Increase number of code points
-			num_multibytes	+= bytes > 1;	// Increase number of occoured multibytes?
+			width_type bytes = get_codepoint_bytes( str[data_len] , data_left );
+			data_len		+= bytes;				// Increase number of bytes
+			data_left		-= bytes;				// Decrease amount of bytes left
+			string_len		+= 1;					// Increase number of code points
+			num_multibytes	+= bytes > 1 ? 1 : 0;	// Increase number of occoured multibytes?
 		}
-		
-		data_type*	buffer;
 		
 		// Need heap memory?
 		if( data_len > basic_utf8_string::get_sso_capacity() )
@@ -2532,9 +2629,9 @@ namespace tiny_utf8
 		{
 			// Read number of bytes of current code point
 			width_type bytes = get_codepoint_bytes( str[index] , basic_utf8_string::npos );
-			index			+= bytes;		// Increase number of bytes
-			string_len		+= 1;			// Increase number of code points
-			num_multibytes	+= bytes > 1;	// Increase number of occoured multibytes?
+			index			+= bytes;				// Increase number of bytes
+			string_len		+= 1;					// Increase number of code points
+			num_multibytes	+= bytes > 1 ? 1 : 0;	// Increase number of occoured multibytes?
 		}
 		
 		data_type*	buffer;
@@ -4678,7 +4775,7 @@ namespace tiny_utf8
 
 template<typename V, typename D, typename A>
 std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
-	return stream << str.c_str();
+	return stream << str.cpp_str();
 }
 template<typename V, typename D, typename A>
 std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
