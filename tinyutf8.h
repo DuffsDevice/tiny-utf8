@@ -972,6 +972,7 @@ namespace tiny_utf8
 		explicit basic_utf8_string( const allocator_type& alloc )
 			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
+			, t_sso( 0 , '\0' )
 		{}
 		/**
 		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
