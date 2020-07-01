@@ -1,4 +1,4 @@
-# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> Version 4.a
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> Version 4.0
 
 [![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
@@ -7,7 +7,7 @@
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
 
-#### *CHANGES BETWEEN Version 4.a and 3.2.4*
+#### *CHANGES BETWEEN Version 4.0 and 3.2.4*
 
 - **Class `utf8_string` is now defined inside `namespace tiny_utf8`**. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
 - ***NEW: Support for C++20***: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
