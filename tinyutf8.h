@@ -136,10 +136,10 @@ namespace tiny_utf8
 			#ifndef TINY_UTF8_HAS_CLZ
 				#define TINY_UTF8_HAS_CLZ true
 			#endif
-			static inline unsigned int clz( unsigned int value ) noexcept { return __builtin_clz( value ); }
-			static inline unsigned int clz( unsigned long int value ) noexcept { return __builtin_clzl( value ); }
+			static inline unsigned int clz( unsigned int value ) noexcept { return (unsigned int)__builtin_clz( value ); }
+			static inline unsigned int clz( unsigned long int value ) noexcept { return (unsigned int)__builtin_clzl( value ); }
 			static inline unsigned int clz( char32_t value ) noexcept {
-				return sizeof(char32_t) == sizeof(unsigned long int) ? __builtin_clzl( value ) : __builtin_clz( value );
+				return sizeof(char32_t) == sizeof(unsigned long int) ? (unsigned int)__builtin_clzl( value ) : (unsigned int)__builtin_clz( value );
 			}
 		#elif defined(_MSC_VER)
 			#ifndef TINY_UTF8_HAS_CLZ
@@ -903,7 +903,7 @@ namespace tiny_utf8
 		
 		//! Set the data length (also enables SSO)
 		inline void			set_sso_data_len( unsigned char data_len = 0 ) noexcept {
-			t_sso.data_len = ( sizeof(SSO::data) - data_len ) << 1;
+			t_sso.data_len = (unsigned char)( ( sizeof(SSO::data) - data_len ) << 1 );
 		}
 		
 		//! Get the data length (when SSO is active)
