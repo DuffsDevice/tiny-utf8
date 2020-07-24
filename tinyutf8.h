@@ -629,13 +629,20 @@ namespace tiny_utf8
 		{
 			data_type		data[sizeof(NON_SSO)-1];
 			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
-			SSO( unsigned char data_len , data_type value ) noexcept :
+			
+			SSO( data_type value ) noexcept :
 				data{ value , '\0' }
-				, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+				, data_len( (unsigned char)( sizeof(SSO::data) - 1u ) << 1 )
 			{}
-			SSO( unsigned char data_len ) noexcept :
+			SSO( size_type data_len ) noexcept :
+				// Note: No initialization of .data (important for the constructor of basic_utf8_string(value_type)...)
+				data_len( (unsigned char)( ( sizeof(SSO::data) - data_len ) << 1 ) )
+			{
+				data[data_len] = '\0'; // Add delimiter to actual data
+			}
+			SSO() noexcept :
 				data{ '\0' }
-				, data_len( ( sizeof(SSO::data) - data_len ) << 1 )
+				, data_len( (unsigned char)( sizeof(SSO::data) - 0 ) << 1 )
 			{}
 		};
 		
@@ -903,7 +910,7 @@ namespace tiny_utf8
 		
 		//! Set the data length (also enables SSO)
 		inline void			set_sso_data_len( unsigned char data_len = 0 ) noexcept {
-			t_sso.data_len = (unsigned char)( ( sizeof(SSO::data) - data_len ) << 1 );
+			t_sso.data_len = (unsigned char)( sizeof(SSO::data) - data_len ) << 1;
 		}
 		
 		//! Get the data length (when SSO is active)
@@ -971,7 +978,7 @@ namespace tiny_utf8
 		basic_utf8_string()
 			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_default_constructible<Allocator>())
 			: Allocator()
-			, t_sso( 0 )
+			, t_sso()
 		{}
 		/**
 		 * Ctor taking an alloc
@@ -981,7 +988,7 @@ namespace tiny_utf8
 		explicit basic_utf8_string( const allocator_type& alloc )
 			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
-			, t_sso( 0 )
+			, t_sso()
 		{}
 		/**
 		 * Constructor taking an utf8 sequence and the maximum length to read from it (in number of codepoints)
@@ -1148,7 +1155,7 @@ namespace tiny_utf8
 		basic_utf8_string( InputIt first , InputIt last , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
 			: Allocator( alloc ) 
-			, t_sso( 0 )
+			, t_sso()
 		{
 			while( first != last ) push_back( *first++ );
 		}
@@ -1229,10 +1236,8 @@ namespace tiny_utf8
 		explicit inline basic_utf8_string( value_type cp , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
 			: Allocator( alloc )
-			, t_sso( (unsigned char)( cp = encode_utf8( cp , t_sso.data ) ) )
-		{
-			t_sso.data[cp] = '\0';
-		}
+			, t_sso( (size_type)encode_utf8( cp , t_sso.data ) )
+		{}
 		/**
 		 * Constructor that fills the string with the supplied character
 		 * 
@@ -1242,7 +1247,7 @@ namespace tiny_utf8
 		explicit inline basic_utf8_string( data_type ch , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
 			: Allocator( alloc )
-			, t_sso( ch ? 1 : 0 , ch )
+			, t_sso( ch )
 		{}
 		/**
 		 * Move Constructor that moves the supplied basic_utf8_string content into the new basic_utf8_string
@@ -1256,7 +1261,7 @@ namespace tiny_utf8
 			: Allocator( (allocator_type&&)str )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
-			str.set_sso_data_len(0); // Reset old string
+			str.set_sso_data_len( 0u ); // Reset old string and enable its SSO-mode (which makes it not care about the buffer anymore)
 		}
 		/**
 		 * Move Constructor that moves the supplied basic_utf8_string content into the new basic_utf8_string
@@ -1270,7 +1275,7 @@ namespace tiny_utf8
 			: Allocator( alloc )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
-			str.set_sso_data_len(0); // Reset old string
+			str.set_sso_data_len( 0u ); // Reset old string and enable its SSO-mode (which makes it not care about the buffer anymore)
 		}
 		
 		
@@ -1303,7 +1308,7 @@ namespace tiny_utf8
 				clear(); // Reset old data
 				(allocator_type&)*this = (allocator_type&&)str; // Move allocator
 				std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
-				str.set_sso_data_len(0); // Reset old string
+				str.set_sso_data_len(0); // Reset old string and enable its SSO-mode (which makes it not care about the buffer anymore)
 			}
 			return *this;
 		}
@@ -2413,7 +2418,7 @@ namespace tiny_utf8
 	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , basic_utf8_string<V, D, A>::value_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc )
 		noexcept(TINY_UTF8_NOEXCEPT)
 		: A( alloc )
-		, t_sso( 0 )
+		, t_sso()
 	{
 		if( !count )
 			return;
@@ -2464,7 +2469,7 @@ namespace tiny_utf8
 	basic_utf8_string<V, D, A>::basic_utf8_string( basic_utf8_string<V, D, A>::size_type count , data_type cp , const typename basic_utf8_string<V, D, A>::allocator_type& alloc )
 		noexcept(TINY_UTF8_NOEXCEPT)
 		: A( alloc )
-		, t_sso( 0 )
+		, t_sso()
 	{
 		if( !count )
 			return;
@@ -3429,7 +3434,7 @@ namespace tiny_utf8
 		// Will be sso string?
 		if( new_data_len <= basic_utf8_string::get_sso_capacity() ){
 			std::memcpy( t_sso.data + old_data_len , app.t_sso.data , app_data_len ); // Copy APPENDIX (must have sso active as well)
-			t_sso.data[new_data_len] = 0; // Trailing '\0'
+			t_sso.data[new_data_len] = '\0'; // Trailing '\0'
 			set_sso_data_len( (unsigned char)new_data_len ); // Adjust size
 			return *this;
 		}
@@ -3577,7 +3582,7 @@ namespace tiny_utf8
 			
 			// Update buffer and data_len
 			std::memcpy( old_buffer + old_data_len , app_buffer , app_data_len ); // Copy BUFFER of the insertion
-			old_buffer[new_data_len] = 0; // Trailing '\0'
+			old_buffer[new_data_len] = '\0'; // Trailing '\0'
 		}
 		else // No, apparently we have to allocate a new buffer...
 		{
@@ -3588,7 +3593,7 @@ namespace tiny_utf8
 			// Write NEW BUFFER
 			std::memcpy( new_buffer , old_buffer , old_data_len ); // Copy current BUFFER
 			std::memcpy( new_buffer + old_data_len , app_buffer , app_data_len ); // Copy BUFFER of appendix
-			new_buffer[new_data_len] = 0; // Trailing '\0'
+			new_buffer[new_data_len] = '\0'; // Trailing '\0'
 			
 			// Need to fill the lut? (see [2])
 			if( new_lut_width )
@@ -3705,7 +3710,7 @@ namespace tiny_utf8
 			std::memcpy( t_sso.data + index , str.t_sso.data , str_data_len );
 			
 			// Finish the new string object
-			t_sso.data[new_data_len] = 0; // Trailing '\0'
+			t_sso.data[new_data_len] = '\0'; // Trailing '\0'
 			set_sso_data_len( (unsigned char)new_data_len );
 			
 			return *this;
@@ -3907,7 +3912,7 @@ namespace tiny_utf8
 			
 			// Move BUFFER from AFTER the insertion (Note: We don't need to copy before it, because the buffer hasn't changed)
 			std::memmove( old_buffer + index + str_data_len , old_buffer + index , old_data_len - index );
-			old_buffer[new_data_len] = 0; // Trailing '\0'
+			old_buffer[new_data_len] = '\0'; // Trailing '\0'
 			
 			// Copy BUFFER of the insertion
 			std::memcpy( old_buffer + index , str_buffer , str_data_len );
@@ -3926,7 +3931,7 @@ namespace tiny_utf8
 			
 			// Copy BUFFER from AFTER the insertion
 			std::memcpy( new_buffer + index + str_data_len , old_buffer + index , old_data_len - index );
-			new_buffer[new_data_len] = 0; // Trailing '\0'
+			new_buffer[new_data_len] = '\0'; // Trailing '\0'
 			
 			// Need to fill the lut? (see [2])
 			if( new_lut_width )
@@ -4091,7 +4096,7 @@ namespace tiny_utf8
 			std::memcpy( t_sso.data + index , repl.t_sso.data , repl_data_len );
 			
 			// Finish the new string object
-			t_sso.data[new_data_len] = 0; // Trailing '\0'
+			t_sso.data[new_data_len] = '\0'; // Trailing '\0'
 			set_sso_data_len( (unsigned char)new_data_len );
 			
 			return *this;
@@ -4311,7 +4316,7 @@ namespace tiny_utf8
 			if( new_data_len != old_data_len ){
 				std::memmove( old_buffer + index + repl_data_len , old_buffer + end_index , old_data_len - end_index );
 				t_non_sso.data_len = new_data_len;
-				old_buffer[new_data_len] = 0; // Trailing '\0'
+				old_buffer[new_data_len] = '\0'; // Trailing '\0'
 			}
 			
 			// Copy BUFFER of the replacement
@@ -4331,7 +4336,7 @@ namespace tiny_utf8
 			
 			// Copy BUFFER from AFTER the replacement
 			std::memcpy( new_buffer + index + repl_data_len , old_buffer + end_index , old_data_len - end_index );
-			new_buffer[new_data_len] = 0; // Trailing '\0'
+			new_buffer[new_data_len] = '\0'; // Trailing '\0'
 			
 			// Need to fill the lut? (see [2])
 			if( new_lut_width )
@@ -4501,7 +4506,7 @@ namespace tiny_utf8
 				std::memmove( t_sso.data + index , t_sso.data + index + len , old_data_len - index );
 			
 			// Finish the new string object
-			t_sso.data[new_data_len] = 0; // Trailing '\0'
+			t_sso.data[new_data_len] = '\0'; // Trailing '\0'
 			set_sso_data_len( (unsigned char)new_data_len );
 			
 			return *this;
