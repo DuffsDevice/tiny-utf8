@@ -2142,9 +2142,10 @@ namespace tiny_utf8
 		 */
 		inline int compare( const basic_utf8_string& str ) const noexcept {
 			size_type my_size = size(), str_size = str.size();
-			if( my_size != str_size )
-				return my_size < str_size ? -1 : 1;
-			return std::memcmp( data() , str.data() , my_size );
+			int result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
+			if( !result && my_size != str_size )
+				result = my_size < str_size ? -1 : 1;
+			return result;
 		}
 		/**
 		 * Compare this string with the supplied one.
@@ -2158,9 +2159,10 @@ namespace tiny_utf8
 		 */
 		inline int compare( const std::string& str ) const noexcept {
 			size_type my_size = size(), str_size = str.size();
-			if( my_size != str_size )
-				return my_size < str_size ? -1 : 1;
-			return std::memcmp( data() , str.data() , my_size );
+			int result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
+			if( !result && my_size != str_size )
+				result = my_size < str_size ? -1 : 1;
+			return result;
 		}
 		/**
 		 * Compares this string with the supplied one.
