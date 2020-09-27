@@ -1,18 +1,59 @@
-language: cpp
-
 os:
   - linux
   - osx
   - windows
+  
+language: cpp
+
+dist: focal
 
 compiler:
   - gcc
   - clang
 
+addons:
+  apt:
+    update: true
+    packages:
+      - libgtest-dev
+  homebrew: 
+    update: true
+    packages:
+      # Force the install of GoogleTest via the "Install" step...
+
+install:
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      brew install gtest --HEAD;
+    fi
+
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+      export VCPKG_DEFAULT_TRIPLET=x64-windows
+      mkdir -p vcpkg
+      cd vcpkg
+      git init
+      git remote add origin https://github.com/microsoft/vcpkg.git
+      git fetch origin
+      git checkout -b master --track origin/master
+      ./bootstrap-vcpkg.bat
+      ./vcpkg integrate install
+      travis_wait 30 ./vcpkg install gtest
+      cd ..
+    fi
+
+cache:
+  directories:
+    - vcpkg/installed
+
 script:
-  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I. test/test.cpp
-  
-jobs:
-  exclude:
-  - os: windows
-    compiler: clang
+  - mkdir build
+  - cd build
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+      cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
+    else
+      cmake ..
+    fi
+  - make
+  - make test
