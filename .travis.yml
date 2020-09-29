@@ -32,10 +32,10 @@ cache:
 script:
   - mkdir build
   - cd build
-  - |
+  - |-
       case $TRAVIS_OS_NAME in
         "windows")
-          cmake -DCMAKE_TOOLCHAIN_FILE="..\vcpkg\scripts\buildsystems\vcpkg.cmake" ..
+          cmake -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
           ;;
         "linux"|"osx")
           cmake .. 
@@ -49,6 +49,6 @@ jobs:
     - os: linux
       dist: focal
     - os: osx
-      osx_image: xcode9.4
+      osx_image: xcode12
     - os: windows
       dist: server-2016
