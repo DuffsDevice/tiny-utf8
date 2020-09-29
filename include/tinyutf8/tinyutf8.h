@@ -1053,7 +1053,7 @@ namespace tiny_utf8
 		}
 		template<size_type LITLEN>
 		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_not_small_string<LITLEN> = {} )
-			noexcept(TINY_UTF8_NOEXCEPT)
+			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
 			: basic_utf8_string( str , LITLEN - ( str[LITLEN-1] ? 0 : 1 ) , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
