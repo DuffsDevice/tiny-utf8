@@ -5,42 +5,23 @@ os:
   
 language: cpp
 
-dist: focal
-
 compiler:
   - gcc
   - clang
 
-addons:
-  apt:
-    update: true
-    packages:
-      - libgtest-dev
-  homebrew: 
-    update: true
-    packages:
-      # Force the install of GoogleTest via the "Install" step...
-
 install:
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      brew install gtest --HEAD;
-    fi
-
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-      export VCPKG_DEFAULT_TRIPLET=x64-windows
-      mkdir -p vcpkg
-      cd vcpkg
-      git init
-      git remote add origin https://github.com/microsoft/vcpkg.git
-      git fetch origin
-      git checkout -b master --track origin/master
-      ./bootstrap-vcpkg.bat
-      ./vcpkg integrate install
-      travis_wait 30 ./vcpkg install gtest
-      cd ..
-    fi
+  - |-
+      case $TRAVIS_OS_NAME in
+        "windows")
+          ./deps/install-deps-win32.bat
+          ;;
+        "linux")
+          ./deps/install-deps-linux.sh
+          ;;
+        "osx")
+          ./deps/install-deps-osx.sh
+          ;;
+      esac
 
 cache:
   directories:
@@ -50,10 +31,22 @@ script:
   - mkdir build
   - cd build
   - |
-    if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
-      cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
-    else
-      cmake ..
-    fi
+      case $TRAVIS_OS_NAME in
+        "windows")
+          cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
+          ;;
+        "linux"|"osx")
+          cmake .. 
+          ;;
+      esac
   - make
   - make test
+
+jobs:
+  include:
+    - os: linux
+      dist: focal
+    - os: osx
+      osx_image: xcode9.4
+    - os: windows
+      dist: server-2016
