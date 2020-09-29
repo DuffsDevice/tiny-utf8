@@ -35,20 +35,21 @@ script:
   - |-
       case $TRAVIS_OS_NAME in
         "windows")
-          cmake -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
+          cmake -G "Visual Studio 15 2017" -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
+          cmake --build . --target ALL_BUILD --config Release
           ;;
         "linux"|"osx")
           cmake .. 
+          make
+          make test
           ;;
       esac
-  - make
-  - make test
 
 jobs:
   include:
     - os: linux
       dist: focal
     - os: osx
-      osx_image: xcode12
+      osx_image: xcode9.4
     - os: windows
       dist: server-2016
