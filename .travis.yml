@@ -2,6 +2,8 @@ os:
   - linux
   - osx
   - windows
+
+dist: focal
   
 language: cpp
 
@@ -33,7 +35,7 @@ script:
   - |
       case $TRAVIS_OS_NAME in
         "windows")
-          cmake -DCMAKE_TOOLCHAIN_FILE=../vcpkg/scripts/buildsystems/vcpkg.cmake ..
+          cmake -DCMAKE_TOOLCHAIN_FILE="..\vcpkg\scripts\buildsystems\vcpkg.cmake" ..
           ;;
         "linux"|"osx")
           cmake .. 

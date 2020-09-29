@@ -1,4 +1,4 @@
 #!/bin/bash
 echo "Installing dependencies..."
-apt update
-apt -y install googletest libgtest-dev doxygen graphviz
+sudo apt update
+sudo apt -y install googletest libgtest-dev doxygen graphviz
