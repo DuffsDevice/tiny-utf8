@@ -35,8 +35,9 @@ script:
   - |-
       case $TRAVIS_OS_NAME in
         "windows")
-          cmake -G "Visual Studio 15 2017" -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
+          cmake -G "Visual Studio 15 2017" -T v141 -A x64 -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
           cmake --build . --target ALL_BUILD --config Release
+          cmake --build . --target RUN_TESTS --config Release
           ;;
         "linux"|"osx")
           cmake .. 
