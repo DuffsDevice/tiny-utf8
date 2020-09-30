@@ -12,8 +12,11 @@ target_sources(
 		src/test_conversion.cpp
 		src/test_iterators.cpp	 
 		src/test_manipulation.cpp	
+		src/test_noexceptions.cpp
 		src/test_search.cpp
- )
+		src/mocks/mock_nothrowallocator.cpp
+		src/mocks/mock_throwallocator.cpp
+)
  
 target_include_directories(
 	tinyutf8_test

@@ -976,7 +976,7 @@ namespace tiny_utf8
 		 * @note Creates an Instance of type basic_utf8_string that is empty
 		 */
 		basic_utf8_string()
-			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_default_constructible<Allocator>())
+			noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_default_constructible<Allocator>())
 			: Allocator()
 			, t_sso()
 		{}
@@ -986,7 +986,7 @@ namespace tiny_utf8
 		 * @note Creates an Instance of type basic_utf8_string that is empty
 		 */
 		explicit basic_utf8_string( const allocator_type& alloc )
-			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
+			noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
 			, t_sso()
 		{}
@@ -1040,7 +1040,7 @@ namespace tiny_utf8
 		 */
 		template<size_type LITLEN>
 		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_small_string<LITLEN> = {} )
-			noexcept(TINY_UTF8_NOEXCEPT||std::is_nothrow_copy_constructible<Allocator>())
+			noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
 		{
 			std::memcpy( t_sso.data , str , LITLEN );
@@ -1051,7 +1051,6 @@ namespace tiny_utf8
 			else
 				set_sso_data_len( LITLEN - 1 );
 		}
-		inline basic_utf8_string( const data_type (&str)[LITLEN] , const allocator_type& alloc = allocator_type() , enable_if_not_small_string<LITLEN> = {} )
 		/**
 		 * Constructor taking an utf8 char literal and the maximum number of codepoints to read
 		 * 
@@ -1253,7 +1252,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to move from
 		 */
 		inline basic_utf8_string( basic_utf8_string&& str )
-			noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_constructible<Allocator>())
+			noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_move_constructible<Allocator>())
 			: Allocator( (allocator_type&&)str )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
@@ -1267,7 +1266,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to move from
 		 */
 		inline basic_utf8_string( basic_utf8_string&& str , const allocator_type& alloc )
-			noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_copy_constructible<Allocator>())
+			noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_copy_constructible<Allocator>())
 			: Allocator( alloc )
 		{
 			std::memcpy( (void*)&this->t_sso , (void*)&str.t_sso , sizeof(SSO) ); // Copy data
@@ -1299,7 +1298,7 @@ namespace tiny_utf8
 		 * @param	str		The basic_utf8_string to move from
 		 * @return	A reference to the string now holding the data (*this)
 		 */
-		inline basic_utf8_string& operator=( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
+		inline basic_utf8_string& operator=( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_move_assignable<Allocator>()) {
 			if( &str != this ){
 				clear(); // Reset old data
 				(allocator_type&)*this = (allocator_type&&)str; // Move allocator
@@ -1328,7 +1327,7 @@ namespace tiny_utf8
 		 *
 		 * @return	A copy of the stored allocator instance
 		 */
-		allocator_type get_allocator() const noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_copy_constructible<Allocator>()) { return (const allocator_type&)*this; }
+		allocator_type get_allocator() const noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_copy_constructible<Allocator>()) { return (const allocator_type&)*this; }
 		
 		
 		/**
@@ -1343,7 +1342,7 @@ namespace tiny_utf8
 		 * @note	Swaps all data with the supplied basic_utf8_string
 		 * @param	str		The basic_utf8_string to swap contents with
 		 */
-		inline void swap( basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
+		inline void swap( basic_utf8_string& str ) noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_move_assignable<Allocator>()) {
 			if( &str != this ){
 				data_type tmp[sizeof(SSO)];
 				std::memcpy( &tmp , (void*)&str.t_sso , sizeof(SSO) );
@@ -1766,7 +1765,7 @@ namespace tiny_utf8
 		 * @param	str	The basic_utf8_string this string shall move from
 		 * @return	A reference to this basic_utf8_string, updated to the new string
 		 */
-		inline basic_utf8_string& assign( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT || std::is_nothrow_move_assignable<Allocator>()) {
+		inline basic_utf8_string& assign( basic_utf8_string&& str ) noexcept(TINY_UTF8_NOEXCEPT && std::is_nothrow_move_assignable<Allocator>()) {
 			return *this = std::move(str);
 		}
 		/**
