@@ -2,7 +2,8 @@
 #define MOCK_THROWALLOCATOR_H_
 
 #include <cstddef>
-#include <exception>
+#include <exception> // For std::bad_alloc (Linux and Windows)
+#include <new>		 // For std::bad_alloc (MacOS)
 
 template<typename T = char>
 class ThrowAllocator
