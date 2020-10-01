@@ -2,6 +2,7 @@
 #define MOCK_THROWALLOCATOR_H_
 
 #include <cstddef>
+#include <exception>
 
 template<typename T = char>
 class ThrowAllocator

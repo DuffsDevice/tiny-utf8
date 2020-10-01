@@ -30,15 +30,15 @@ TEST(TinyUTF8, CTor_TakeALiteralWithMaxCodePoints)
 
 TEST(TinyUTF8, CTor_TakeAnAnsiString)
 {
-	const std::string ansi_str("Löwen, Bären, Vögel und Käfer sind Tiere.");
+	const std::string ansi_str("Loewen, Boeren, Voegel und Koefer sind Tiere.");
 	tiny_utf8::utf8_string str(ansi_str);
 
-	EXPECT_EQ(ansi_str.length(), 41);
-	EXPECT_EQ(ansi_str.size(), 41);
-	EXPECT_EQ(str.length(), 31);
-	EXPECT_EQ(str.size(), 41);
+	EXPECT_EQ(ansi_str.length(), 45);
+	EXPECT_EQ(ansi_str.size(), 45);
+	EXPECT_EQ(str.length(), 45);
+	EXPECT_EQ(str.size(), 45);
 
-	EXPECT_TRUE(str.requires_unicode());
+	EXPECT_FALSE(str.requires_unicode());
 	EXPECT_FALSE(str.sso_active());
 	EXPECT_TRUE(str.lut_active());
 }
