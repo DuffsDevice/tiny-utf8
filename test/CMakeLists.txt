@@ -34,6 +34,15 @@ target_link_libraries(
 		GTest::GTest 
 		GTest::Main)
 
+
+set_target_properties(
+    tinyutf8_test
+    PROPERTIES
+        CXX_STANDARD 11
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+)
+
 enable_testing()
 
 gtest_discover_tests(tinyutf8_test)

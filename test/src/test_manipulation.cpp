@@ -157,7 +157,7 @@ TEST(TinyUTF8, ReplaceString)
 
 	str.replace(5, 3, " ");
 	EXPECT_TRUE(
-		std::equal(str.begin(), str.end(), str_repl1.begin(), str_repl1.end(),
+		std::equal(str.begin(), str.end(), str_repl1.begin(),
 			[](const tiny_utf8::utf8_string::value_type& a, const tiny_utf8::utf8_string::value_type& b) -> bool
 			{
 				return ((static_cast<uint64_t>(a)) == (static_cast<uint64_t>(b)));
@@ -169,7 +169,7 @@ TEST(TinyUTF8, ReplaceString)
 
 	str.replace(str.begin() + 5, str.begin() + 6, U"~ 🤝 ~"); // Orig: 
 	EXPECT_TRUE(
-		std::equal(str.begin(), str.end(), str_repl2.begin(), str_repl2.end(),
+		std::equal(str.begin(), str.end(), str_repl2.begin(),
 			[](const tiny_utf8::utf8_string::value_type& a, const tiny_utf8::utf8_string::value_type& b) -> bool
 			{
 				return ((static_cast<uint64_t>(a)) == (static_cast<uint64_t>(b)));

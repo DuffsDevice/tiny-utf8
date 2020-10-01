@@ -24,6 +24,11 @@ endif()
 option(TINYUTF8_BUILD_TESTING "Build and run TinyUTF8 tests " ${IS_TOPLEVEL_PROJECT})
 option(TINYUTF8_BUILD_DOC "Generate TinyUTF8 documentation" ${IS_TOPLEVEL_PROJECT})
 
+# Set conformance with C++11 (with no compiler/vendor extensions)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 ##############################################
 # Create target and set properties
 

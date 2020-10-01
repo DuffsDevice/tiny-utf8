@@ -18,7 +18,7 @@ TEST(TinyUTF8, IteratorAccess)
 	std::copy(str.rbegin(), str.rend(), str_rev.begin());	// Copy using reverse iterators
 
 	EXPECT_TRUE(
-		std::equal(str.begin(), str.end(), str_fwd.begin(), str_fwd.end(),
+		std::equal(str.begin(), str.end(), str_fwd.begin(),
 			[](const tiny_utf8::utf8_string::value_type& a, const tiny_utf8::utf8_string::value_type& b) -> bool
 			{
 				return ((static_cast<uint64_t>(a)) == (static_cast<uint64_t>(b)));
