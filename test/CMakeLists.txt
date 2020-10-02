@@ -16,6 +16,7 @@ target_sources(
 		src/test_search.cpp
 		src/mocks/mock_nothrowallocator.cpp
 		src/mocks/mock_throwallocator.cpp
+		src/helpers/helpers_ssotestutils.cpp
 )
  
 target_include_directories(

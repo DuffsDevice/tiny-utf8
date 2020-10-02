@@ -1051,6 +1051,11 @@ namespace tiny_utf8
 			else
 				set_sso_data_len( LITLEN - 1 );
 		}
+		template<size_type LITLEN>
+		inline basic_utf8_string(const data_type(&str)[LITLEN], const allocator_type& alloc = allocator_type(), enable_if_not_small_string<LITLEN> = {})
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_utf8_string(str, LITLEN - (str[LITLEN - 1] ? 0 : 1), alloc, tiny_utf8_detail::read_bytes_tag())
+		{}
 		/**
 		 * Constructor taking an utf8 char literal and the maximum number of codepoints to read
 		 * 
