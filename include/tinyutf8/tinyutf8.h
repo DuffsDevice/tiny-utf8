@@ -660,9 +660,9 @@ namespace tiny_utf8
 		
 		//! Helpers for the constructors
 		template<size_type L>
-		using enable_if_small_string = typename std::enable_if<( L <= basic_utf8_string::get_sso_capacity() ), bool>::type;
+		using enable_if_small_string = typename std::enable_if<( L <= get_sso_capacity() ), bool>::type;
 		template<size_type L>
-		using enable_if_not_small_string = typename std::enable_if<( L > basic_utf8_string::get_sso_capacity() ), bool>::type;
+		using enable_if_not_small_string = typename std::enable_if<( L > get_sso_capacity() ), bool>::type;
 		// Template to enable overloads, if the supplied type T is a character array without known bounds
 		template<typename T, typename CharType, typename _DataType = bool>
 		using enable_if_ptr = typename std::enable_if<

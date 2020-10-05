@@ -21,14 +21,14 @@ TEST(TinyUTF8, CTor_TakeALiteral)
 
 TEST(TinyUTF8, CTor_TakeALiteral_SSOAndNoSSO)
 {
+	using test_utf8_string = tiny_utf8::basic_utf8_string<char32_t, char, std::allocator<char>>;
+
 	constexpr uint32_t TEST_LITERAL_U_LENGTH = 1;
 	constexpr uint32_t TEST_STRING_LENGTH = 100;
 
 	const char TEST_LITERAL_T = 'T';
 	const char TEST_LITERAL_U[TEST_LITERAL_U_LENGTH] = { 'U' };
 	const char TEST_STRING[TEST_STRING_LENGTH] = "This is a test string...This is a test string...This is a test string...This is a test string...";
-
-	using test_utf8_string = tiny_utf8::basic_utf8_string<char32_t, char, std::allocator<char>>;
 
 	// Calls -> Constructor that fills the string with the supplied character
 	test_utf8_string str_literal(TEST_LITERAL_T, std::allocator<char>());
