@@ -1,18 +1,56 @@
-language: cpp
-
 os:
   - linux
   - osx
   - windows
 
+dist: focal
+  
+language: cpp
+
 compiler:
   - gcc
   - clang
 
+install:
+  - |-
+      case $TRAVIS_OS_NAME in
+        "windows")
+          ./deps/install-deps-win32.bat
+          ;;
+        "linux")
+          ./deps/install-deps-linux.sh
+          ;;
+        "osx")
+          ./deps/install-deps-osx.sh
+          ;;
+      esac
+
+cache:
+  directories:
+    - vcpkg/installed
+
 script:
-  - $CXX -std=c++11 -Wall -Wextra -pedantic -Wno-attributes -I. test/test.cpp
-  
+  - mkdir build
+  - cd build
+  - |-
+      case $TRAVIS_OS_NAME in
+        "windows")
+          cmake -G "Visual Studio 15 2017" -T v141 -A x64 -DCMAKE_TOOLCHAIN_FILE=..\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake ..
+          cmake --build . --target ALL_BUILD --config Release
+          cmake --build . --target RUN_TESTS --config Release
+          ;;
+        "linux"|"osx")
+          cmake .. 
+          make
+          make test
+          ;;
+      esac
+
 jobs:
-  exclude:
-  - os: windows
-    compiler: clang
+  include:
+    - os: linux
+      dist: focal
+    - os: osx
+      osx_image: xcode9.4
+    - os: windows
+      dist: server-2016
