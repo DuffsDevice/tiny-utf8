@@ -1,4 +1,4 @@
-# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.0
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.1
 
 [![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
@@ -6,6 +6,10 @@
 **Tiny-utf8** is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
+
+#### *CHANGES BETWEEN Version 4.1 and 4.0.x*
+
+- **`tinyutf8.h` has been moved into the folder `include/tinyutf8/` in order to mimic the structuring of many other C++-based open source projects**
 
 #### *CHANGES BETWEEN Version 4.0 and 3.2.4*
 
@@ -60,7 +64,7 @@ Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 ```cpp
 #include <iostream>
 #include <algorithm>
-#include <tinyutf8.h>
+#include <tinyutf8/tinyutf8.h>
 using namespace std;
 using namespace tiny_utf8;
 
