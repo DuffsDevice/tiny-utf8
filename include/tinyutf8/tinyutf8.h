@@ -2402,18 +2402,21 @@ namespace std
 	};
 }
 
-// Want only Declarations?
-#if defined(TINY_UTF8_FORWARD_DECLARE_ONLY) && TINY_UTF8_FORWARD_DECLARE_ONLY == true
-	//! Stream Operations
-	template<typename V, typename D, typename A>
-	extern std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
-	template<typename V, typename D, typename A>
-	extern std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
-#else
+//! Stream Operations
+template<typename V, typename D, typename A>
+std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
+	return stream << str.cpp_str();
+}
+template<typename V, typename D, typename A>
+std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
+	std::string tmp;
+	stream >> tmp;
+	str = move(tmp);
+	return stream;
+}
 
-#include <ostream>
-#include <istream>
-#include <algorithm>
+
+// Implementation
 namespace tiny_utf8
 {
 	template<typename V, typename D, typename A>
@@ -4779,20 +4782,6 @@ namespace tiny_utf8
 	}
 
 } // Namespace 'tiny_utf8'
-
-template<typename V, typename D, typename A>
-std::ostream& operator<<( std::ostream& stream , const tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
-	return stream << str.cpp_str();
-}
-template<typename V, typename D, typename A>
-std::istream& operator>>( std::istream& stream , tiny_utf8::basic_utf8_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT) {
-	std::string tmp;
-	stream >> tmp;
-	str = move(tmp);
-	return stream;
-}
-
-#endif // TINY_UTF8_FORWARD_DECLARE_ONLY
 
 #if defined (__clang__)
 #pragma clang diagnostic pop

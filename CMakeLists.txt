@@ -58,7 +58,7 @@ if(BUILD_TESTING AND TINYUTF8_BUILD_TESTING)
 endif()
 
 ##############################################
-## Add test
+## Add documentation
 
 if(TINYUTF8_BUILD_DOC)
   add_subdirectory(docs)
