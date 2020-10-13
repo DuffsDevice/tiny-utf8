@@ -16,7 +16,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Class `utf8_string` is now defined inside `namespace tiny_utf8`**. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
 - ***NEW: Support for C++20***: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
 
-#### FEATURES
+### FEATURES
 - **Drop-in replacement for std::string**
 - **Lightweight and self-contained** (~3K SLOC)
 - **Very fast**, i.e. highly optimized decoder, encoder and traversal routines
