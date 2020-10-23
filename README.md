@@ -95,3 +95,16 @@ If you encounter any bugs, please file a bug report through the "Issues" tab.
 I'll try to answer it soon!
 
 Jakob
+
+## THANK YOU
+
+- @iainchesworth
+- @vadim-berman
+- @MattHarrington
+- @evanmoran
+- @bakerstu
+- @revel8n
+- @githubuser0xFFFF
+- @marekfoltyn
+- @Megaxela
+- @vfiksdal
