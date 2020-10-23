@@ -24,7 +24,7 @@ TEST(TinyUTF8, StartsEndsWith)
 	const char32_t* ends_with_positive = U"ツ♫";
 	const char32_t* ends_with_negative = U"e";
 	const char32_t* starts_with_positive = U"Hello ";
-	const char32_t* starts_with_negative = U"Hell";
+	const char32_t* starts_with_negative = U"Hell ";
 
 	EXPECT_EQ(str.ends_with(ends_with_positive), true);
 	EXPECT_EQ(str.ends_with(ends_with_negative), false);
