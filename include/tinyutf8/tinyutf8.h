@@ -190,6 +190,11 @@ namespace tiny_utf8
 				char	last;
 			} bytes;
 		};
+
+		//! strlen for different character types
+		template<typename T>
+		inline std::size_t strlen( const T* str ){ std::size_t len = 0u; while( *str++ ) ++len; return len; }
+		template<> inline std::size_t strlen<char>( const char* str ){ return std::strlen( str ); }
 	}
 
 
@@ -301,7 +306,7 @@ namespace tiny_utf8
 	protected:
 		
 		difference_type		t_raw_index;
-		Container*			t_instance;
+		Container*			t_instance = nullptr;
 		
 	protected:
 		
@@ -1590,10 +1595,10 @@ namespace tiny_utf8
 		 */
 		inline raw_reference back() noexcept { return { back_index() , this }; }
 		inline value_type back() const noexcept {
-			size_type	sz = size();
+			size_type			my_size = size();
 			const data_type*	buffer = get_buffer();
-			width_type	bytes = get_num_bytes_of_utf8_char_before( buffer , sz );
-			return decode_utf8( buffer + sz - bytes , bytes );
+			width_type			bytes = get_num_bytes_of_utf8_char_before( buffer , my_size );
+			return decode_utf8( buffer + my_size - bytes , bytes );
 		}
 		
 		
@@ -2131,6 +2136,177 @@ namespace tiny_utf8
 		
 		
 		/**
+		 * Check, whether this string ends with the supplied character sequence
+		 *
+		 * @param	str		The string to compare the end of this string with
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		inline bool starts_with( const basic_utf8_string& str ) const noexcept {
+			size_type my_size = size(), str_size = str.size();
+			return my_size >= str_size && std::memcmp( data() , str.data() , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied character sequence
+		 *
+		 * @param	str		The string to compare the end of this string with
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		inline bool starts_with( const std::string& str ) const noexcept {
+			size_type my_size = size(), str_size = str.size();
+			return my_size >= str_size && std::memcmp( data() , str.data() , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint
+		 *
+		 * @param	str		The codepoint to compare the end of this string with
+		 * @return	true, if this string ends with the codepoint 'cp', false otherwise.
+		 */
+		inline bool starts_with( value_type cp ) const noexcept {
+			return !empty() && front() == cp;
+		}
+		/**
+		 * Check, whether this string ends with the supplied UTF-8 sequence.
+		 *
+		 * @param	str		Null-terminated string literal, interpreted as UTF-8. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<typename T>
+		bool starts_with( T str , enable_if_ptr<T, data_type>* = {} ) const noexcept {
+			size_type my_size = size(), str_size = std::strlen( str );
+			if( my_size < str_size )
+				return false;
+			for( const data_type* my_data = data() ; *str && *str == *my_data ; ++str, ++my_data );
+			return !*str;
+		}
+		/**
+		 * Check, whether this string ends with the supplied UTF-8 sequence.
+		 *
+		 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-8. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<size_type LITLEN>
+		bool starts_with( const data_type (&str)[LITLEN] ) const noexcept {
+			size_type my_size = size(), str_size = str[LITLEN-1] ? LITLEN : LITLEN-1;
+			return my_size >= str_size && std::memcmp( data() , str , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint sequence.
+		 *
+		 * @param	str		Pointer to a null-terminated string literal, interpreted as UTF-32. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<typename T>
+		bool starts_with( T str , enable_if_ptr<T, value_type>* = {} ) const noexcept {
+			for( const_iterator it = cbegin(), end = cend() ; *str && it != end && *str == *it ; ++str, ++it );
+			return !*str;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint sequence.
+		 *
+		 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-32. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<size_type LITLEN>
+		bool starts_with( const value_type (&str)[LITLEN] ) const noexcept {
+			size_type		str_len = str[LITLEN-1] ? LITLEN : LITLEN-1;
+			const_iterator	it = cbegin(), end = cend();
+			while( it != end && str_len ){
+				if( *it != *str )
+					return false;
+				++it, ++str, --str_len;
+			}
+			return !str_len;
+		}
+
+
+		/**
+		 * Check, whether this string ends with the supplied character sequence
+		 *
+		 * @param	str		The string to compare the end of this string with
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		inline bool ends_with( const basic_utf8_string& str ) const noexcept {
+			size_type my_size = size(), str_size = str.size();
+			return my_size >= str_size && std::memcmp( data() + my_size - str_size , str.data() , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied character sequence
+		 *
+		 * @param	str		The string to compare the end of this string with
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		inline bool ends_with( const std::string& str ) const noexcept {
+			size_type my_size = size(), str_size = str.size();
+			return my_size >= str_size && std::memcmp( data() + my_size - str_size , str.data() , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint
+		 *
+		 * @param	str		The codepoint to compare the end of this string with
+		 * @return	true, if this string ends with the codepoint 'cp', false otherwise.
+		 */
+		inline bool ends_with( value_type cp ) const noexcept {
+			return !empty() && back() == cp;
+		}
+		/**
+		 * Check, whether this string ends with the supplied UTF-8 sequence.
+		 *
+		 * @param	str		Null-terminated string literal, interpreted as UTF-8. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<typename T>
+		bool ends_with( T str , enable_if_ptr<T, data_type>* = {} ) const noexcept {
+			size_type my_size = size(), str_size = std::strlen(str);
+			return my_size >= str_size && std::memcmp( data() + my_size - str_size , str , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied UTF-8 sequence.
+		 *
+		 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-8. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<size_type LITLEN>
+		bool ends_with( const data_type (&str)[LITLEN] ) const noexcept {
+			size_type my_size = size(), str_size = str[LITLEN-1] ? LITLEN : LITLEN-1;
+			return my_size >= str_size && std::memcmp( data() + my_size - str_size , str , str_size ) == 0;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint sequence.
+		 *
+		 * @param	str		Pointer to a null-terminated string literal, interpreted as UTF-32. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<typename T>
+		bool ends_with( T str , enable_if_ptr<T, value_type>* = {} ) const noexcept {
+			size_type				str_len = tiny_utf8_detail::strlen( str );
+			const_reverse_iterator	it = crbegin(), end = crend();
+			while( it != end && str_len ){
+				if( *it != str[--str_len] )
+					return false;
+				++it;
+			}
+			return !str_len;
+		}
+		/**
+		 * Check, whether this string ends with the supplied codepoint sequence.
+		 *
+		 * @param	str		Pointer to a string literal with possibly embedded zeros, interpreted as UTF-32. The pointer is expected to be valid
+		 * @return	true, if this string ends with the sequence 'str', false otherwise.
+		 */
+		template<size_type LITLEN>
+		bool ends_with( const value_type (&str)[LITLEN] ) const noexcept {
+			size_type				str_len = str[LITLEN-1] ? LITLEN : LITLEN-1;
+			const_reverse_iterator	it = crbegin(), end = crend();
+			while( it != end && str_len ){
+				if( *it != str[--str_len] )
+					return false;
+				++it;
+			}
+			return !str_len;
+		}
+
+
+		/**
 		 * Compare this string with the supplied one.
 		 *
 		 * @param	str		The string to compare this one with
@@ -2141,8 +2317,8 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		inline int compare( const basic_utf8_string& str ) const noexcept {
-			size_type my_size = size(), str_size = str.size();
-			int result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
+			size_type	my_size = size(), str_size = str.size();
+			int			result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
 			if( !result && my_size != str_size )
 				result = my_size < str_size ? -1 : 1;
 			return result;
@@ -2158,15 +2334,15 @@ namespace tiny_utf8
 		 *			the compared string, or all compared characters match but the compared string is longer.
 		 */
 		inline int compare( const std::string& str ) const noexcept {
-			size_type my_size = size(), str_size = str.size();
-			int result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
+			size_type	my_size = size(), str_size = str.size();
+			int			result = std::memcmp( data() , str.data() , my_size < str_size ? my_size : str_size );
 			if( !result && my_size != str_size )
 				result = my_size < str_size ? -1 : 1;
 			return result;
 		}
 		/**
 		 * Compares this string with the supplied one.
-		 * Thes supplied string literal is considered to end with the trailling '\0'.
+		 * The supplied string literal is assumed to end at the (possibly trailling) '\0'.
 		 * This is especially important, if this utf8 string contains embedded zeros.
 		 *
 		 * @param	str		Null-terminated string literal, interpreted as UTF-8. The pointer is expected to be valid
@@ -2209,7 +2385,7 @@ namespace tiny_utf8
 		}
 		/**
 		 * Compares this string with the supplied one.
-		 * Thes supplied string literal is considered to end with the trailling '\0'.
+		 * Thes supplied string literal is assumed to end at the (possibly trailling) '\0'.
 		 * This is especially important, if this utf8 string contains embedded zeros.
 		 *
 		 * @param	str		Pointer to a null-terminated string literal, interpreted as UTF-32. The pointer is expected to be valid
@@ -2242,7 +2418,7 @@ namespace tiny_utf8
 		template<size_type LITLEN> 
 		int compare( const value_type (&str)[LITLEN] ) const noexcept {
 			const_iterator	it = cbegin(), end = cend();
-			size_type index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
+			size_type		index = 0, length = str[LITLEN-1] ? LITLEN : LITLEN-1;
 			while( it != end && index < length ){
 				if( *it != str[index] )
 					return *it < str[index] ? -1 : 1;
