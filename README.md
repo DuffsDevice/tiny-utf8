@@ -94,8 +94,6 @@ If you would like to stay compatible with 3.2.* and have `utf8_string` defined i
 If you encounter any bugs, please file a bug report through the "Issues" tab.
 I'll try to answer it soon!
 
-Jakob
-
 ## THANK YOU
 
 - @iainchesworth
@@ -108,3 +106,8 @@ Jakob
 - @marekfoltyn
 - @Megaxela
 - @vfiksdal
+
+for taking your time to improve **tiny-utf8**.
+
+Cheers,
+Jakob
