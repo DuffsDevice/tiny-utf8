@@ -9,7 +9,7 @@ Its implementation is successfully in the middle between small memory footprint 
 
 #### *CHANGES BETWEEN Version 4.1 and 4.0.x*
 
-- **`tinyutf8.h` has been moved into the folder `include/tinyutf8/`** in order to mimic the structuring of many other C++-based open source projects.
+- **!!! `tinyutf8.h` has been moved into the folder `include/tinyutf8/`** in order to mimic the structuring of many other C++-based open source projects.
 
 #### *CHANGES BETWEEN Version 4.0 and 3.2.4*
 
