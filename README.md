@@ -1,4 +1,4 @@
-# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/docs/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.1
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/docs/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.2
 
 [![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
