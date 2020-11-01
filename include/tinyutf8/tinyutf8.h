@@ -663,11 +663,12 @@ namespace tiny_utf8
 		//! Get the maximum number of bytes (excluding the trailing '\0') that can be stored within a basic_utf8_string object
 		static constexpr inline size_type	get_sso_capacity() noexcept { return sizeof(SSO::data); }
 		
-		//! Helpers for the constructors
+		//! SFINAE helpers for constructors
 		template<size_type L>
-		using enable_if_small_string = typename std::enable_if<( L <= get_sso_capacity() ), bool>::type;
+		using enable_if_small_string = typename std::enable_if<( L <= sizeof(SSO::data) ), bool>::type;
 		template<size_type L>
-		using enable_if_not_small_string = typename std::enable_if<( L > get_sso_capacity() ), bool>::type;
+		using enable_if_not_small_string = typename std::enable_if<( L > sizeof(SSO::data) ), bool>::type;
+		
 		// Template to enable overloads, if the supplied type T is a character array without known bounds
 		template<typename T, typename CharType, typename _DataType = bool>
 		using enable_if_ptr = typename std::enable_if<
