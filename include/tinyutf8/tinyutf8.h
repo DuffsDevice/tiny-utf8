@@ -632,22 +632,23 @@ namespace tiny_utf8
 		// Layout used, if sso is active
 		struct SSO
 		{
-			data_type		data[sizeof(NON_SSO)-1];
-			unsigned char	data_len; // This field holds ( sizeof(SSO::data) - num_characters ) << 1
+			enum : size_type{	size = sizeof(NON_SSO)-1 };
+			data_type			data[size];
+			unsigned char		data_len; // This field holds ( size - num_characters ) << 1
 			
 			SSO( data_type value ) noexcept :
 				data{ value , '\0' }
-				, data_len( (unsigned char)( sizeof(SSO::data) - 1u ) << 1 )
+				, data_len( (unsigned char)( size - 1u ) << 1 )
 			{}
 			SSO( size_type data_len ) noexcept :
 				// Note: No initialization of .data (important for the constructor of basic_utf8_string(value_type)...)
-				data_len( (unsigned char)( ( sizeof(SSO::data) - data_len ) << 1 ) )
+				data_len( (unsigned char)( ( size - data_len ) << 1 ) )
 			{
 				data[data_len] = '\0'; // Add delimiter to actual data
 			}
 			SSO() noexcept :
 				data{ '\0' }
-				, data_len( (unsigned char)( sizeof(SSO::data) - 0 ) << 1 )
+				, data_len( (unsigned char)( size - 0 ) << 1 )
 			{}
 		};
 		
@@ -661,13 +662,13 @@ namespace tiny_utf8
 	protected: //! Static helper methods
 		
 		//! Get the maximum number of bytes (excluding the trailing '\0') that can be stored within a basic_utf8_string object
-		static constexpr inline size_type	get_sso_capacity() noexcept { return sizeof(SSO::data); }
+		static constexpr inline size_type	get_sso_capacity() noexcept { return SSO::size; }
 		
 		//! SFINAE helpers for constructors
 		template<size_type L>
-		using enable_if_small_string = typename std::enable_if<( L <= sizeof(SSO::data) ), bool>::type;
+		using enable_if_small_string = typename std::enable_if<( L <= SSO::size ), bool>::type;
 		template<size_type L>
-		using enable_if_not_small_string = typename std::enable_if<( L > sizeof(SSO::data) ), bool>::type;
+		using enable_if_not_small_string = typename std::enable_if<( L > SSO::size ), bool>::type;
 		
 		// Template to enable overloads, if the supplied type T is a character array without known bounds
 		template<typename T, typename CharType, typename _DataType = bool>
@@ -916,7 +917,7 @@ namespace tiny_utf8
 		
 		//! Set the data length (also enables SSO)
 		inline void			set_sso_data_len( unsigned char data_len = 0 ) noexcept {
-			t_sso.data_len = (unsigned char)( sizeof(SSO::data) - data_len ) << 1;
+			t_sso.data_len = (unsigned char)( SSO::size - data_len ) << 1;
 		}
 		
 		//! Get the data length (when SSO is active)
