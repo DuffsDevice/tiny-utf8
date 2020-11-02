@@ -148,7 +148,7 @@ namespace tiny_utf8
 			template<typename T>
 			static inline unsigned int lzcnt( T value ) noexcept {
 				unsigned long value_log2;
-				#ifndef WIN32
+				#if !defined( WIN32 ) && !defined( _WIN32 ) && !defined( __WIN32__ )
 					_BitScanReverse64( &value_log2 , value );
 				#else
 					_BitScanReverse( &value_log2 , value );
