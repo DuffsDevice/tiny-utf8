@@ -106,6 +106,7 @@ I'll try to answer it soon!
 - @marekfoltyn
 - @Megaxela
 - @vfiksdal
+- @maddouri
 
 for taking your time to improve **tiny-utf8**.
 
