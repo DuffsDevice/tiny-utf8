@@ -66,11 +66,10 @@ Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 #include <algorithm>
 #include <tinyutf8/tinyutf8.h>
 using namespace std;
-using namespace tiny_utf8;
 
 int main()
 {
-    utf8_string str = u8"!🌍 olleH";
+    tiny_utf8::string str = u8"!🌍 olleH";
     for_each( str.rbegin() , str.rend() , []( char32_t codepoint ){
       cout << codepoint;
     } );
