@@ -7,14 +7,18 @@
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
 
-#### *CHANGES BETWEEN Version 4.1 and 4.0.x*
+#### *CHANGES BETWEEN Version 4.3 and 4.2*
 
-- **!!! `tinyutf8.h` has been moved into the folder `include/tinyutf8/`** in order to mimic the structuring of many other C++-based open source projects.
+- Class `tiny_utf8::basic_utf8_string` has been renamed to `basic_string`, which better resembles its drop-in-capabilities for `std::string`.
+
+#### *CHANGES BETWEEN Version 4.1 and 4.0*
+
+- `tinyutf8.h` has been moved into the folder `include/tinyutf8/` in order to mimic the structuring of many other C++-based open source projects.
 
 #### *CHANGES BETWEEN Version 4.0 and 3.2.4*
 
-- **Class `utf8_string` is now defined inside `namespace tiny_utf8`**. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
-- ***NEW: Support for C++20***: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
+- Class `utf8_string` is now defined inside `namespace tiny_utf8`. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
+- Support for C++20: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
 
 ### FEATURES
 - **Drop-in replacement for std::string**
