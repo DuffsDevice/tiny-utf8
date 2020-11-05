@@ -112,8 +112,11 @@ namespace tiny_utf8
 	>
 	class basic_utf8_string;
 	
+	//! Typedef of string (data type: char)
+	using string = basic_utf8_string<char32_t, char>;
+	
 	//! Typedef of utf8_string (data type: char)
-	using utf8_string = basic_utf8_string<char32_t, char>;
+	using utf8_string = basic_utf8_string<char32_t, char>; // For backwards compatibility
 	
 	//! Typedef of u8string (data type char8_t)
 	#if __cplusplus > 201703L
