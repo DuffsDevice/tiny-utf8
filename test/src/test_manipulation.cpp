@@ -8,7 +8,7 @@
 TEST(TinyUTF8, AppendString)
 {
 	// Test 2
-	tiny_utf8::utf8_string str = U"Hello ツ";
+	tiny_utf8::string str = U"Hello ツ";
 	str.append(U" ♫ World");
 
 	EXPECT_EQ(str.length(), 15);
@@ -17,7 +17,7 @@ TEST(TinyUTF8, AppendString)
 	EXPECT_TRUE(str.sso_active());
 	EXPECT_FALSE(str.lut_active());
 
-	tiny_utf8::utf8_string tmp = U" ♫ World";
+	tiny_utf8::string tmp = U" ♫ World";
 	str.append(tmp);
 
 	EXPECT_EQ(str.length(), 23);
@@ -29,7 +29,7 @@ TEST(TinyUTF8, AppendString)
 
 TEST(TinyUTF8, AppendAndShrinkString)
 {
-	tiny_utf8::utf8_string str(U"TEST: ツ♫");
+	tiny_utf8::string str(U"TEST: ツ♫");
 
 	EXPECT_EQ(str.capacity(), 31);
 
@@ -88,7 +88,7 @@ TEST(TinyUTF8, AppendAndShrinkString)
 
 TEST(TinyUTF8, EraseString)
 {
-	tiny_utf8::utf8_string str = U"Hello ツ World ♫";
+	tiny_utf8::string str = U"Hello ツ World ♫";
 
 	EXPECT_EQ(str.length(), 15);
 	EXPECT_EQ(str.size(), 19);
@@ -113,13 +113,13 @@ TEST(TinyUTF8, EraseString)
 
 TEST(TinyUTF8, SubString)
 {
-	const tiny_utf8::utf8_string fullstr(U"Hello ツ World rg rth rt he rh we gxgre");
+	const tiny_utf8::string fullstr(U"Hello ツ World rg rth rt he rh we gxgre");
 
-	const tiny_utf8::utf8_string str = fullstr.substr(3, 16);
-	const tiny_utf8::utf8_string substr(U"lo ツ World rg rt");
+	const tiny_utf8::string str = fullstr.substr(3, 16);
+	const tiny_utf8::string substr(U"lo ツ World rg rt");
 		
-	tiny_utf8::utf8_string::const_iterator it_str = str.begin();
-	tiny_utf8::utf8_string::const_iterator it_sub = substr.begin();
+	tiny_utf8::string::const_iterator it_str = str.begin();
+	tiny_utf8::string::const_iterator it_sub = substr.begin();
 	for ( /* NOTHING HERE */; it_sub != substr.end(); /* NOTHING HERE */)
 	{
 		EXPECT_TRUE((static_cast<uint64_t>(*it_str)) == (static_cast<uint64_t>(*it_sub)));
@@ -136,10 +136,10 @@ TEST(TinyUTF8, SubString)
 
 TEST(TinyUTF8, ReplaceString)
 {
-	tiny_utf8::utf8_string str(U"Hello ツ World");
+	tiny_utf8::string str(U"Hello ツ World");
 
 	const std::string str_repl1("Hello World");
-	const tiny_utf8::utf8_string str_repl2(U"Hello~ 🤝 ~World");
+	const tiny_utf8::string str_repl2(U"Hello~ 🤝 ~World");
 
 	const char32_t ch_repl1 = U'ツ';
 	const char32_t ch_repl2 = U'🤝';
@@ -158,7 +158,7 @@ TEST(TinyUTF8, ReplaceString)
 	str.replace(5, 3, " ");
 	EXPECT_TRUE(
 		std::equal(str.begin(), str.end(), str_repl1.begin(),
-			[](const tiny_utf8::utf8_string::value_type& a, const tiny_utf8::utf8_string::value_type& b) -> bool
+			[](const tiny_utf8::string::value_type& a, const tiny_utf8::string::value_type& b) -> bool
 			{
 				return ((static_cast<uint64_t>(a)) == (static_cast<uint64_t>(b)));
 			}
@@ -170,7 +170,7 @@ TEST(TinyUTF8, ReplaceString)
 	str.replace(str.begin() + 5, str.begin() + 6, U"~ 🤝 ~"); // Orig: 
 	EXPECT_TRUE(
 		std::equal(str.begin(), str.end(), str_repl2.begin(),
-			[](const tiny_utf8::utf8_string::value_type& a, const tiny_utf8::utf8_string::value_type& b) -> bool
+			[](const tiny_utf8::string::value_type& a, const tiny_utf8::string::value_type& b) -> bool
 			{
 				return ((static_cast<uint64_t>(a)) == (static_cast<uint64_t>(b)));
 			}

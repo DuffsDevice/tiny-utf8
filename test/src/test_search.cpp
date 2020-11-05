@@ -4,7 +4,7 @@
 
 TEST(TinyUTF8, FindSubstr)
 {
-	tiny_utf8::utf8_string str = U"Hello World ツ♫";
+	tiny_utf8::string str = U"Hello World ツ♫";
 
 	const char32_t* find_last_not_of = U"ツ♫";
 	const char32_t* find_last_of = U"e";
@@ -19,7 +19,7 @@ TEST(TinyUTF8, FindSubstr)
 
 TEST(TinyUTF8, StartsEndsWith)
 {
-	tiny_utf8::utf8_string str = U"Hello World ツ♫";
+	tiny_utf8::string str = U"Hello World ツ♫";
 
 	const char32_t* ends_with_positive = U"ツ♫";
 	const char32_t* ends_with_negative = U"e";
@@ -28,10 +28,10 @@ TEST(TinyUTF8, StartsEndsWith)
 
 	EXPECT_EQ(str.ends_with(ends_with_positive), true);
 	EXPECT_EQ(str.ends_with(ends_with_negative), false);
-	EXPECT_EQ(str.ends_with(tiny_utf8::utf8_string(ends_with_positive)), true);
-	EXPECT_EQ(str.ends_with(tiny_utf8::utf8_string(ends_with_negative)), false);
+	EXPECT_EQ(str.ends_with(tiny_utf8::string(ends_with_positive)), true);
+	EXPECT_EQ(str.ends_with(tiny_utf8::string(ends_with_negative)), false);
 	EXPECT_EQ(str.starts_with(starts_with_positive), true);
 	EXPECT_EQ(str.starts_with(starts_with_negative), false);
-	EXPECT_EQ(str.starts_with(tiny_utf8::utf8_string(starts_with_positive)), true);
-	EXPECT_EQ(str.starts_with(tiny_utf8::utf8_string(starts_with_negative)), false);
+	EXPECT_EQ(str.starts_with(tiny_utf8::string(starts_with_positive)), true);
+	EXPECT_EQ(str.starts_with(tiny_utf8::string(starts_with_negative)), false);
 }

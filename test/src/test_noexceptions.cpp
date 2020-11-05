@@ -17,7 +17,7 @@ TEST(TinyUTF8, CTor_TakeALiteral_WithAllocator_Throw)
 	ASSERT_FALSE(std::is_nothrow_copy_constructible<ThrowAllocator<char>>::value);
 	ASSERT_FALSE(std::is_nothrow_move_constructible<ThrowAllocator<char>>::value);
 
-	using alloc_utf8_string = tiny_utf8::basic_utf8_string<char32_t, char, ThrowAllocator<char>>;
+	using alloc_utf8_string = tiny_utf8::basic_string<char32_t, char, ThrowAllocator<char>>;
 
 	const char TEST_LITERAL[1] = { 'R' };
 	const char TEST_STRING[29] = "This Is A Const Char* String";
@@ -41,7 +41,7 @@ TEST(TinyUTF8, CTor_TakeALiteral_WithAllocator_NoThrow)
 	ASSERT_TRUE(std::is_nothrow_copy_constructible<NoThrowAllocator<char>>::value);
 	ASSERT_TRUE(std::is_nothrow_move_constructible<NoThrowAllocator<char>>::value);
 
-	using alloc_utf8_string = tiny_utf8::basic_utf8_string<char32_t, char, NoThrowAllocator<char>>;
+	using alloc_utf8_string = tiny_utf8::basic_string<char32_t, char, NoThrowAllocator<char>>;
 
 	const char TEST_LITERAL[1] = { 'R' };
 	const char TEST_STRING[29] = "This Is A Const Char* String";

@@ -10,13 +10,13 @@
 namespace Helpers_SSOTestUtils
 {
 
-template<class BASIC_UTF8_STRING>
-class SSO_Capacity : public BASIC_UTF8_STRING
+template<class BASIC_STRING>
+class SSO_Capacity : public BASIC_STRING
 {
 public:
-	static constexpr typename BASIC_UTF8_STRING::size_type get_sso_capacity() noexcept
+	static constexpr typename BASIC_STRING::size_type get_sso_capacity() noexcept
 	{
-		return BASIC_UTF8_STRING::get_sso_capacity();
+		return BASIC_STRING::get_sso_capacity();
 	}
 };
 

@@ -1405,7 +1405,7 @@ namespace tiny_utf8
 		value_type raw_at( size_type byte_index ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type size = this->size();
 			if( byte_index >= size ){
-				TINY_UTF8_THROW( "basic_utf8_string::(raw_)at" , byte_index >= size );
+				TINY_UTF8_THROW( "tiny_utf8::basic_string::(raw_)at" , byte_index >= size );
 				return 0;
 			}
 			const data_type* pos = get_buffer() + byte_index;
@@ -3471,7 +3471,7 @@ namespace tiny_utf8
 		// Bound checks...
 		size_type data_len = size();
 		if( index > data_len ){
-			TINY_UTF8_THROW( "basic_utf8_string::(raw_)substr" , index > data_len );
+			TINY_UTF8_THROW( "tiny_utf8::basic_string::(raw_)substr" , index > data_len );
 			return {};
 		}
 		size_type		end_index = index + byte_count;
@@ -3874,7 +3874,7 @@ namespace tiny_utf8
 		// Bound checks...
 		size_type old_data_len = size();
 		if( index > old_data_len ){
-			TINY_UTF8_THROW( "basic_utf8_string::(raw_)insert" , index > old_data_len );
+			TINY_UTF8_THROW( "tiny_utf8::basic_string::(raw_)insert" , index > old_data_len );
 			return *this;
 		}
 		
@@ -4234,7 +4234,7 @@ namespace tiny_utf8
 		// Bound checks...
 		size_type old_data_len = size();
 		if( index > old_data_len ){
-			TINY_UTF8_THROW( "basic_utf8_string::(raw_)replace" , index > old_data_len );
+			TINY_UTF8_THROW( "tiny_utf8::basic_string::(raw_)replace" , index > old_data_len );
 			return *this;
 		}
 		size_type end_index = index + replaced_len;
@@ -4649,7 +4649,7 @@ namespace tiny_utf8
 		// Bound checks...
 		size_type old_data_len = size();
 		if( index > old_data_len ){
-			TINY_UTF8_THROW( "basic_utf8_string::(raw_)erase" , index > old_data_len );
+			TINY_UTF8_THROW( "tiny_utf8::basic_string::(raw_)erase" , index > old_data_len );
 			return *this;
 		}
 		if( !len )
