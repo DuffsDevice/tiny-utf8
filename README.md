@@ -43,7 +43,7 @@ Its implementation is successfully in the middle between small memory footprint 
 ## THE PURPOSE OF TINY-UTF8
 Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, does it?
 
-The opinion shared by many "experienced Unicode programmers" (e.g. published on [UTF-8 Everywhere](utf8everywhere.org)) is that "non-experienced" programmers both *under* and *over*estimate the need for Unicode- and encoding-specific treatment: This need is...
+The opinion shared by many "experienced Unicode programmers" (e.g. published on [UTF-8 Everywhere](https://www.utf8everywhere.org)) is that "non-experienced" programmers both *under* and *over*estimate the need for Unicode- and encoding-specific treatment: This need is...
   1. **overestimated**, because many times we really should care less about codepoint/grapheme borders within string data;
   2. **underestimated**, because if we really want to "support" unicode, we need to think about *normalizations*, *visual character comparisons*, *reserved codepoint values*, *illegal code unit sequences* and so on and so forth.
 
