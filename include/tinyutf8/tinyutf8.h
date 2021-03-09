@@ -643,12 +643,6 @@ namespace tiny_utf8
 				data{ value , '\0' }
 				, data_len( (unsigned char)( size - 1u ) << 1 )
 			{}
-			SSO( size_type data_len ) noexcept :
-				// Note: No initialization of .data (important for the constructor of basic_string(value_type)...)
-				data_len( (unsigned char)( ( size - data_len ) << 1 ) )
-			{
-				data[data_len] = '\0'; // Add delimiter to actual data
-			}
 			SSO() noexcept :
 				data{ '\0' }
 				, data_len( (unsigned char)( size - 0 ) << 1 )
@@ -1246,8 +1240,10 @@ namespace tiny_utf8
 		explicit inline basic_string( value_type cp , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
 			: Allocator( alloc )
-			, t_sso( (size_type)encode_utf8( cp , t_sso.data ) )
-		{}
+		{
+			t_sso.data[ cp = encode_utf8( cp , t_sso.data ) ] = '\0';
+			set_sso_data_len( cp );
+		}
 		/**
 		 * Constructor that fills the string with the supplied character
 		 * 
