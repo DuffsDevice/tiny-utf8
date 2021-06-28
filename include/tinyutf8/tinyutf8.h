@@ -229,6 +229,7 @@ namespace tiny_utf8
 			t_instance->replace( t_index , cp );
 			return *this;
 		}
+		codepoint_reference& operator=( const codepoint_reference& ref ) noexcept(TINY_UTF8_NOEXCEPT) { return *this = (typename Container::value_type)ref; }
 	};
 
 	template<typename Container, bool RangeCheck>
@@ -266,10 +267,11 @@ namespace tiny_utf8
 		explicit operator codepoint_reference<Container, RC>() const noexcept { return { t_instance->get_num_codepoints( 0 , t_raw_index ) , t_instance }; }
 		
 		//! Assignment operator
-		raw_codepoint_reference& operator=( typename Container::value_type cp ) noexcept {
+		raw_codepoint_reference& operator=( typename Container::value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			t_instance->raw_replace( t_raw_index , t_instance->get_index_bytes( t_raw_index ) , Container( cp ) );
 			return *this;
 		}
+		raw_codepoint_reference& operator=( const raw_codepoint_reference& ref ) noexcept(TINY_UTF8_NOEXCEPT) { return *this = (typename Container::value_type)ref; }
 	};
 
 	template<typename Container>
