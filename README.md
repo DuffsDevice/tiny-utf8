@@ -12,7 +12,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - **tiny-utf8** used to only work with byte-index-based iterator types. The set of iterator types has now been completed with codepoint-based versions and
 - the **default has been changed**. That means (`c`)(`r`)`begin`/`end` now return codepoint-based iterators, while `raw_`(`c`)(`r`)`begin`/`end` now return byte-based iterators.
 - The upside with byte-based iterators is: they are usually quicker than code-point-based iterators. The downside is: They get invalidated **very quickly**. Example:
-`str.erase( std::remove_if( str.begin() , str.end() , U'W' ) , str.end() )` will work, but `str.erase( std::remove_if( str.raw_begin() , str.raw_end() , U'W' ) , str.raw_end() )` will not. The reason is: after the call to `std::remove_if`, the size of the underlying data might have been changed and `str.raw_end()` would have been invalidated.
+`str.erase( std::remove_if( str.begin() , str.end() , U'W' ) , str.end() )` will work, but `str.erase( std::remove_if(`**`str.raw_begin()`**`,`**`str.raw_end()`**`, U'W' ) ,`**`str.raw_end()`**`)` will not (at least not always). The reason is: after the call to `std::remove_if`, the size of the underlying data might have been changed and `str.raw_end()` would have been invalidated.
 
 ### FEATURES
 - **Drop-in replacement for std::string**
