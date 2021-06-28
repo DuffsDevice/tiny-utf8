@@ -235,28 +235,28 @@ namespace tiny_utf8
 	template<typename Container, bool RangeCheck>
 	struct raw_codepoint_reference
 	{
-		typename Container::size_type	t_raw_index;
+		typename Container::size_type	t_index;
 		Container*						t_instance;
 		
 	public:
 		
 		//! Ctors
 		raw_codepoint_reference( typename Container::size_type raw_index , Container* instance ) noexcept :
-			t_raw_index( raw_index )
+			t_index( raw_index )
 			, t_instance( instance )
 		{}
 		template<bool RC>
 		explicit raw_codepoint_reference( const codepoint_reference<Container, RC>& reference ) noexcept :
-			t_raw_index( reference.t_instance->get_num_bytes_from_start( reference.t_index ) )
+			t_index( reference.t_instance->get_num_bytes_from_start( reference.t_index ) )
 			, t_instance( reference.t_instance )
 		{}
 		
 		//! Cast to wide char
 		operator typename Container::value_type() const noexcept( TINY_UTF8_NOEXCEPT || RangeCheck == false ) {
 			if TINY_UTF8_CPP17(constexpr) ( RangeCheck )
-				return static_cast<const Container*>(t_instance)->raw_at( t_raw_index );
+				return static_cast<const Container*>(t_instance)->raw_at( t_index );
 			else
-				return static_cast<const Container*>(t_instance)->raw_at( t_raw_index , std::nothrow );
+				return static_cast<const Container*>(t_instance)->raw_at( t_index , std::nothrow );
 		}
 		
 		//! Dereference operator to act as pointer type
@@ -264,18 +264,80 @@ namespace tiny_utf8
 		
 		//! Cast to normal (non-raw) code point reference
 		template<bool RC>
-		explicit operator codepoint_reference<Container, RC>() const noexcept { return { t_instance->get_num_codepoints( 0 , t_raw_index ) , t_instance }; }
+		explicit operator codepoint_reference<Container, RC>() const noexcept { return { t_instance->get_num_codepoints( 0 , t_index ) , t_instance }; }
 		
 		//! Assignment operator
 		raw_codepoint_reference& operator=( typename Container::value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
-			t_instance->raw_replace( t_raw_index , t_instance->get_index_bytes( t_raw_index ) , Container( cp ) );
+			t_instance->raw_replace( t_index , t_instance->get_index_bytes( t_index ) , Container( cp ) );
 			return *this;
 		}
 		raw_codepoint_reference& operator=( const raw_codepoint_reference& ref ) noexcept(TINY_UTF8_NOEXCEPT) { return *this = (typename Container::value_type)ref; }
 	};
 
-	template<typename Container>
+	// Codepoint-based iterator base
+	template<typename Container, bool Raw>
 	struct iterator_base
+	{
+		template<typename, typename, typename>
+		friend class basic_string;
+
+	public:
+
+		typedef typename Container::value_type			value_type;
+		typedef typename Container::difference_type		difference_type;
+		typedef codepoint_reference<Container, false>	reference;
+		typedef void*									pointer;
+		typedef std::random_access_iterator_tag			iterator_category;
+
+		bool operator==( const iterator_base& it ) const noexcept { return t_index == it.t_index; }
+		bool operator!=( const iterator_base& it ) const noexcept { return t_index != it.t_index; }
+
+		//! Ctor
+		iterator_base( difference_type index , Container* instance ) noexcept :
+			t_index( index )
+			, t_instance( instance )
+		{}
+
+		//! Default function
+		iterator_base() noexcept = default;
+		iterator_base( const iterator_base& ) noexcept = default;
+		iterator_base& operator=( const iterator_base& ) noexcept = default;
+
+		//! Getter for the instance
+		Container* get_instance() const noexcept { return t_instance; }
+
+		// Getter for the iterator index
+		difference_type get_index() const noexcept { return t_index; }
+
+		//! Get the index of the codepoint the iterator points to
+		difference_type get_raw_index() const noexcept { return t_instance->get_num_bytes_from_start( t_index ); }
+
+		//! Get a reference to the codepoint the iterator points to
+		reference get_reference() const noexcept { return t_instance->at( t_index , std::nothrow ); }
+
+		//! Get the value that the iterator points to
+		value_type get_value() const noexcept { return static_cast<const Container*>(t_instance)->at( t_index ); }
+
+	protected:
+
+		difference_type		t_index;
+		Container*			t_instance = nullptr;
+
+	protected:
+
+		//! Advance the iterator n times (negative values allowed!)
+		void advance( difference_type n ) noexcept { t_index += n; }
+
+		//! Move the iterator one codepoint ahead
+		void increment() noexcept { t_index++; }
+
+		//! Move the iterator one codepoint backwards
+		void decrement() noexcept { t_index--; }
+	};
+
+	// (Raw) Byte-based iterator base
+	template<typename Container>
+	struct iterator_base<Container, true>
 	{
 		template<typename, typename, typename>
 		friend class basic_string;
@@ -288,12 +350,12 @@ namespace tiny_utf8
 		typedef void*										pointer;
 		typedef std::bidirectional_iterator_tag				iterator_category;
 		
-		bool operator==( const iterator_base& it ) const noexcept { return t_raw_index == it.t_raw_index; }
-		bool operator!=( const iterator_base& it ) const noexcept { return t_raw_index != it.t_raw_index; }
+		bool operator==( const iterator_base& it ) const noexcept { return t_index == it.t_index; }
+		bool operator!=( const iterator_base& it ) const noexcept { return t_index != it.t_index; }
 		
 		//! Ctor
-		iterator_base( difference_type raw_index , Container* instance ) noexcept :
-			t_raw_index( raw_index )
+		iterator_base( difference_type index , Container* instance ) noexcept :
+			t_index( index )
 			, t_instance( instance )
 		{}
 		
@@ -302,17 +364,37 @@ namespace tiny_utf8
 		iterator_base( const iterator_base& ) noexcept = default;
 		iterator_base& operator=( const iterator_base& ) noexcept = default;
 		
-		// Getter for the iterator index
-		difference_type get_index() const noexcept { return t_raw_index; }
+		//! Getter for the instance
 		Container* get_instance() const noexcept { return t_instance; }
-		
+
+		//! Constructor from non-raw iterator
+		iterator_base( iterator_base<Container, false> other ) noexcept :
+			t_index( other.get_raw_index() )
+			, t_instance( other.get_instance() )
+		{}
+
+		//! Cast to non-raw iterator
+		operator iterator_base<Container, false>() const noexcept { return { this->get_index() , t_instance }; }
+
+		// Getter for the iterator index
+		difference_type get_index() const noexcept { return t_instance->get_num_codepoints( 0 , t_index ); }
+
+		//! Get the index of the codepoint the iterator points to
+		difference_type get_raw_index() const noexcept { return t_index; }
+
+		//! Get a reference to the codepoint the iterator points to
+		reference get_reference() const noexcept { return t_instance->raw_at( t_index , std::nothrow ); }
+
+		//! Get the value that the iterator points to
+		value_type get_value() const noexcept { return static_cast<const Container*>(t_instance)->raw_at( t_index ); }
+
 	protected:
 		
-		difference_type		t_raw_index;
+		difference_type		t_index;
 		Container*			t_instance = nullptr;
 		
 	protected:
-		
+
 		//! Advance the iterator n times (negative values allowed!)
 		void advance( difference_type n ) noexcept {
 			if( n > 0 )
@@ -325,32 +407,26 @@ namespace tiny_utf8
 		}
 		
 		//! Move the iterator one codepoint ahead
-		void increment() noexcept { t_raw_index += t_instance->get_index_bytes( t_raw_index ); }
-		
+		void increment() noexcept { t_index += t_instance->get_index_bytes( t_index ); }
+
 		//! Move the iterator one codepoint backwards
-		void decrement() noexcept { t_raw_index -= t_instance->get_index_pre_bytes( t_raw_index ); }
-		
-		//! Get a reference to the codepoint the iterator points to
-		reference get_reference() const noexcept { return t_instance->raw_at( t_raw_index , std::nothrow ); }
-		
-		//! Get the value that the iterator points to
-		value_type get_value() const noexcept { return static_cast<const Container*>(t_instance)->raw_at( t_raw_index ); }
-		
-		//! Get the index of the codepoint the iterator points to
-		difference_type get_raw_index() const noexcept { return t_raw_index; }
+		void decrement() noexcept { t_index -= t_instance->get_index_pre_bytes( t_index ); }
 	};
 	
-	template<typename Container> struct iterator;
-	template<typename Container> struct const_iterator;
-	template<typename Container> struct reverse_iterator;
-	template<typename Container> struct const_reverse_iterator;
+	template<typename Container, bool Raw> struct iterator;
+	template<typename Container, bool Raw> struct const_iterator;
+	template<typename Container, bool Raw> struct reverse_iterator;
+	template<typename Container, bool Raw> struct const_reverse_iterator;
 	
-	template<typename Container>
-	struct iterator : iterator_base<Container>
+	template<typename Container, bool Raw = false>
+	struct iterator : iterator_base<Container, Raw>
 	{
 		//! Ctor
-		iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) noexcept :
-			iterator_base<Container>( raw_index , instance )
+		iterator( typename iterator_base<Container, Raw>::difference_type index , Container* instance ) noexcept :
+			iterator_base<Container, Raw>( index , instance )
+		{}
+		iterator( const iterator<Container, !Raw>& other ) noexcept :
+			iterator_base<Container, Raw>( other )
 		{}
 		
 		//! Default Functions
@@ -359,8 +435,8 @@ namespace tiny_utf8
 		iterator& operator=( const iterator& ) noexcept = default;
 		
 		//! Delete ctor from const iterator types
-		iterator( const const_iterator<Container>& ) = delete;
-		iterator( const const_reverse_iterator<Container>& ) = delete;
+		iterator( const const_iterator<Container, Raw>& ) = delete;
+		iterator( const const_reverse_iterator<Container, Raw>& ) = delete;
 		
 		//! Increase the Iterator by one
 		iterator& operator++() noexcept { // prefix ++iter
@@ -368,7 +444,7 @@ namespace tiny_utf8
 			return *this;
 		}
 		iterator operator++( int ) noexcept { // postfix iter++
-			iterator tmp{ this->t_raw_index , this->t_instance };
+			iterator tmp{ this->t_index , this->t_instance };
 			this->increment();
 			return tmp;
 		}
@@ -379,29 +455,29 @@ namespace tiny_utf8
 			return *this;
 		}
 		iterator operator--( int ) noexcept { // postfix iter--
-			iterator tmp{ this->t_raw_index , this->t_instance };
+			iterator tmp{ this->t_index , this->t_instance };
 			this->decrement();
 			return tmp;
 		}
 		
 		//! Increase the Iterator n times
-		iterator operator+( typename iterator_base<Container>::difference_type n ) const noexcept {
+		iterator operator+( typename iterator_base<Container, Raw>::difference_type n ) const noexcept {
 			iterator it{*this};
 			it.advance( n );
 			return it;
 		}
-		iterator& operator+=( typename iterator_base<Container>::difference_type n ) noexcept {
+		iterator& operator+=( typename iterator_base<Container, Raw>::difference_type n ) noexcept {
 			this->advance( n );
 			return *this;
 		}
 		
 		//! Decrease the Iterator n times
-		iterator operator-( typename iterator_base<Container>::difference_type n ) const noexcept {
+		iterator operator-( typename iterator_base<Container, Raw>::difference_type n ) const noexcept {
 			iterator it{*this};
 			it.advance( -n );
 			return it;
 		}
-		iterator& operator-=( typename iterator_base<Container>::difference_type n ) noexcept {
+		iterator& operator-=( typename iterator_base<Container, Raw>::difference_type n ) noexcept {
 			this->advance( -n );
 			return *this;
 		}
@@ -410,17 +486,20 @@ namespace tiny_utf8
 		typename iterator::reference operator*() const noexcept { return this->get_reference(); }
 	};
 
-	template<typename Container>
-	struct const_iterator : iterator<Container>
+	template<typename Container, bool Raw>
+	struct const_iterator : iterator<Container, Raw>
 	{
 		//! Ctor
-		const_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) noexcept :
-			iterator<Container>( raw_index , const_cast<Container*>(instance) )
+		const_iterator( typename iterator_base<Container, Raw>::difference_type index , const Container* instance ) noexcept :
+			iterator<Container, Raw>( index , const_cast<Container*>(instance) )
 		{}
 		
 		//! Ctor from non const
-		const_iterator( const iterator<Container>& it ) noexcept :
-			iterator<Container>( it.get_index() , it.get_instance() )
+		const_iterator( const iterator<Container, Raw>& other ) noexcept :
+			iterator<Container, Raw>( other )
+		{}
+		const_iterator( const iterator<Container, !Raw>& other ) noexcept :
+			iterator<Container, Raw>( other )
 		{}
 		
 		//! Default Functions
@@ -429,20 +508,23 @@ namespace tiny_utf8
 		const_iterator& operator=( const const_iterator& ) noexcept = default;
 		
 		//! Returns the (raw) value behind the iterator
-		typename iterator<Container>::value_type operator*() const noexcept { return this->get_value(); }
+		typename iterator<Container, Raw>::value_type operator*() const noexcept { return this->get_value(); }
 	};
 
-	template<typename Container>
-	struct reverse_iterator : iterator_base<Container>
+	template<typename Container, bool Raw>
+	struct reverse_iterator : iterator_base<Container, Raw>
 	{
 		//! Ctor
-		reverse_iterator( typename iterator_base<Container>::difference_type raw_index , Container* instance ) noexcept :
-			iterator_base<Container>( raw_index , instance )
+		reverse_iterator( typename iterator_base<Container, Raw>::difference_type index , Container* instance ) noexcept :
+			iterator_base<Container, Raw>( index , instance )
 		{}
 		
 		//! Ctor from normal iterator
-		reverse_iterator( const iterator<Container>& it ) noexcept :
-			iterator_base<Container>( it.get_index() , it.get_instance() )
+		reverse_iterator( const iterator<Container, Raw>& other ) noexcept :
+			iterator_base<Container, Raw>( other )
+		{}
+		reverse_iterator( const iterator<Container, !Raw>& other ) noexcept :
+			iterator_base<Container, Raw>( other )
 		{}
 		
 		//! Default Functions
@@ -451,8 +533,8 @@ namespace tiny_utf8
 		reverse_iterator& operator=( const reverse_iterator& ) noexcept = default;
 		
 		//! Delete ctor from const iterator types
-		reverse_iterator( const const_iterator<Container>& ) = delete;
-		reverse_iterator( const const_reverse_iterator<Container>& ) = delete;
+		reverse_iterator( const const_iterator<Container, Raw>& ) = delete;
+		reverse_iterator( const const_reverse_iterator<Container, Raw>& ) = delete;
 		
 		//! Increase the iterator by one
 		reverse_iterator& operator++() noexcept { // prefix ++iter
@@ -460,7 +542,7 @@ namespace tiny_utf8
 			return *this;
 		}
 		reverse_iterator operator++( int ) noexcept { // postfix iter++
-			reverse_iterator tmp{ this->t_raw_index , this->t_instance };
+			reverse_iterator tmp{ this->t_index , this->t_instance };
 			this->decrement();
 			return tmp;
 		}
@@ -471,56 +553,62 @@ namespace tiny_utf8
 			return *this;
 		}
 		reverse_iterator operator--( int ) noexcept { // postfix iter--
-			reverse_iterator tmp{ this->t_raw_index , this->t_instance };
+			reverse_iterator tmp{ this->t_index , this->t_instance };
 			this->increment();
 			return tmp;
 		}
 		
 		//! Increase the Iterator n times
-		reverse_iterator operator+( typename iterator_base<Container>::difference_type n ) const noexcept {
+		reverse_iterator operator+( typename iterator_base<Container, Raw>::difference_type n ) const noexcept {
 			reverse_iterator it{*this};
 			it.advance( -n );
 			return it;
 		}
-		reverse_iterator& operator+=( typename iterator_base<Container>::difference_type n ) noexcept {
+		reverse_iterator& operator+=( typename iterator_base<Container, Raw>::difference_type n ) noexcept {
 			this->advance( -n );
 			return *this;
 		}
 		
 		//! Decrease the Iterator n times
-		reverse_iterator operator-( typename iterator_base<Container>::difference_type n ) const noexcept {
+		reverse_iterator operator-( typename iterator_base<Container, Raw>::difference_type n ) const noexcept {
 			reverse_iterator it{*this};
 			it.advance( n );
 			return it;
 		}
-		reverse_iterator& operator-=( typename iterator_base<Container>::difference_type n ) noexcept {
+		reverse_iterator& operator-=( typename iterator_base<Container, Raw>::difference_type n ) noexcept {
 			this->advance( n );
 			return *this;
 		}
 		
 		//! Returns the value of the code point behind the iterator
-		typename iterator<Container>::reference operator*() const noexcept { return this->get_reference(); }
+		typename iterator<Container, Raw>::reference operator*() const noexcept { return this->get_reference(); }
 		
 		//! Get the underlying iterator instance
-		iterator<Container> base() const noexcept { return { this->t_raw_index , this->t_instance }; }
+		iterator<Container, Raw> base() const noexcept { return { this->t_index , this->t_instance }; }
 	};
 
-	template<typename Container>
-	struct const_reverse_iterator : reverse_iterator<Container>
+	template<typename Container, bool Raw>
+	struct const_reverse_iterator : reverse_iterator<Container, Raw>
 	{
 		//! Ctor
-		const_reverse_iterator( typename iterator_base<Container>::difference_type raw_index , const Container* instance ) noexcept :
-			reverse_iterator<Container>( raw_index , const_cast<Container*>(instance) )
+		const_reverse_iterator( typename iterator_base<Container, Raw>::difference_type index , const Container* instance ) noexcept :
+			reverse_iterator<Container, Raw>( index , const_cast<Container*>(instance) )
 		{}
 		
 		//! Ctor from non const
-		const_reverse_iterator( const reverse_iterator<Container>& it ) noexcept :
-			reverse_iterator<Container>( it.get_index() , it.get_instance() )
+		const_reverse_iterator( const reverse_iterator<Container, Raw>& other ) noexcept :
+			reverse_iterator<Container, Raw>( other )
+		{}
+		const_reverse_iterator( const reverse_iterator<Container, !Raw>& other ) noexcept :
+			reverse_iterator<Container, Raw>( other )
 		{}
 		
 		//! Ctor from normal iterator
-		const_reverse_iterator( const const_iterator<Container>& it ) noexcept :
-			reverse_iterator<Container>( it.get_index() , it.get_instance() )
+		const_reverse_iterator( const const_iterator<Container, Raw>& other ) noexcept :
+			reverse_iterator<Container, Raw>( other )
+		{}
+		const_reverse_iterator( const const_iterator<Container, !Raw>& other ) noexcept :
+			reverse_iterator<Container, Raw>( other )
 		{}
 		
 		//! Default Functions
@@ -529,61 +617,75 @@ namespace tiny_utf8
 		const_reverse_iterator& operator=( const const_reverse_iterator& ) noexcept = default;
 		
 		//! Returns the (raw) value behind the iterator
-		typename iterator<Container>::value_type operator*() const noexcept { return this->get_value(); }
+		typename iterator<Container, Raw>::value_type operator*() const noexcept { return this->get_value(); }
 		
 		//! Get the underlying iterator instance
-		const_iterator<Container> base() const noexcept { return { this->t_raw_index , this->t_instance }; }
+		const_iterator<Container, Raw> base() const noexcept { return { this->t_index , this->t_instance }; }
 	};
 	
 	
 	//! Compare two iterators
-	template<typename Container>
-	static inline bool operator>( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() > rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator>( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() < rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator>=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() >= rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator>=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() <= rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator<( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() < rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator<( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() > rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator<=( const const_iterator<Container>& lhs , const const_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() <= rhs.get_index();
-	}
-	template<typename Container>
-	static inline bool operator<=( const const_reverse_iterator<Container>& lhs , const const_reverse_iterator<Container>& rhs ) noexcept {
-		return lhs.get_index() >= rhs.get_index();
-	}
+	// Non-raw and "don't care"
+	template<typename Container, bool Raw>
+	static inline bool operator>( const const_iterator<Container, false>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() > rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>( const const_reverse_iterator<Container, false>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() < rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>=( const const_iterator<Container, false>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() >= rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>=( const const_reverse_iterator<Container, false>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() <= rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<( const const_iterator<Container, false>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() < rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<( const const_reverse_iterator<Container, false>& lhs , const const_reverse_iterator<Container, false>& rhs ) noexcept { return lhs.get_index() > rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<=( const const_iterator<Container, false>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() <= rhs.get_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<=( const const_reverse_iterator<Container, false>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() >= rhs.get_index(); }
+	// Raw and "don't care"
+	template<typename Container, bool Raw>
+	static inline bool operator>( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() > rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() < rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>=( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() >= rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator>=( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, true>& rhs ) noexcept { return lhs.get_raw_index() <= rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() < rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, true>& rhs ) noexcept { return lhs.get_raw_index() > rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<=( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() <= rhs.get_raw_index(); }
+	template<typename Container, bool Raw>
+	static inline bool operator<=( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() >= rhs.get_raw_index(); }
 	
-	//! Iterator difference computation functions (difference is in terms of codepoints)
+	/**
+	 * Iterator difference computation functions (difference is in terms of codepoints)
+	 */
+	// Non-raw iterators
 	template<typename Container>
-	typename iterator<Container>::difference_type operator-( const iterator<Container>& lhs , const iterator<Container>& rhs ) noexcept {
-		typename iterator<Container>::difference_type minIndex = std::min( lhs.get_index() , rhs.get_index() );
-		typename iterator<Container>::difference_type max_index = std::max( lhs.get_index() , rhs.get_index() );
-		typename iterator<Container>::difference_type num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
-		return max_index == lhs.get_index() ? num_codepoints : -num_codepoints;
+	typename iterator<Container, true>::difference_type operator-( const iterator<Container, false>& lhs , const iterator<Container, false>& rhs ) noexcept {
+		return lhs.get_index() - rhs.get_index();
 	}
 	template<typename Container>
-	typename reverse_iterator<Container>::difference_type operator-( const reverse_iterator<Container>& lhs , const reverse_iterator<Container>& rhs ) noexcept {
-		typename reverse_iterator<Container>::difference_type	minIndex = std::min( lhs.get_index() , rhs.get_index() );
-		typename reverse_iterator<Container>::difference_type	max_index = std::max( lhs.get_index() , rhs.get_index() );
-		typename reverse_iterator<Container>::difference_type	num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
-		return max_index == rhs.get_index() ? num_codepoints : -num_codepoints;
+	typename reverse_iterator<Container, true>::difference_type operator-( const reverse_iterator<Container, false>& lhs , const reverse_iterator<Container, false>& rhs ) noexcept {
+		return rhs.get_index() - lhs.get_index();
+	}
+	// Raw Iterators
+	template<typename Container>
+	typename iterator<Container, true>::difference_type operator-( const iterator<Container, true>& lhs , const iterator<Container, true>& rhs ) noexcept {
+		typename iterator<Container, true>::difference_type	minIndex = std::min( lhs.get_raw_index() , rhs.get_raw_index() );
+		typename iterator<Container, true>::difference_type	max_index = std::max( lhs.get_raw_index() , rhs.get_raw_index() );
+		typename iterator<Container, true>::difference_type	num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
+		return max_index == lhs.get_raw_index() ? num_codepoints : -num_codepoints;
+	}
+	template<typename Container>
+	typename reverse_iterator<Container, true>::difference_type operator-( const reverse_iterator<Container, true>& lhs , const reverse_iterator<Container, true>& rhs ) noexcept {
+		typename reverse_iterator<Container, true>::difference_type	minIndex = std::min( lhs.get_raw_index() , rhs.get_raw_index() );
+		typename reverse_iterator<Container, true>::difference_type	max_index = std::max( lhs.get_raw_index() , rhs.get_raw_index() );
+		typename reverse_iterator<Container, true>::difference_type	num_codepoints = lhs.get_instance()->get_num_codepoints( minIndex , max_index - minIndex );
+		return max_index == rhs.get_raw_index() ? num_codepoints : -num_codepoints;
 	}
 
 
@@ -607,10 +709,14 @@ namespace tiny_utf8
 		typedef raw_codepoint_reference<basic_string, true> 				raw_checked_reference;
 		typedef value_type&													const_reference;
 		typedef std::uint_fast8_t											width_type; // Data type capable of holding the number of code units in a code point
-		typedef tiny_utf8::iterator<basic_string>							iterator;
-		typedef tiny_utf8::const_iterator<basic_string>						const_iterator;
-		typedef tiny_utf8::reverse_iterator<basic_string>					reverse_iterator;
-		typedef tiny_utf8::const_reverse_iterator<basic_string>				const_reverse_iterator;
+		typedef tiny_utf8::iterator<basic_string, false>					iterator;
+		typedef tiny_utf8::const_iterator<basic_string, false>				const_iterator;
+		typedef tiny_utf8::reverse_iterator<basic_string, false>			reverse_iterator;
+		typedef tiny_utf8::const_reverse_iterator<basic_string, false>		const_reverse_iterator;
+		typedef tiny_utf8::iterator<basic_string, true>						raw_iterator;
+		typedef tiny_utf8::const_iterator<basic_string, true>				raw_const_iterator;
+		typedef tiny_utf8::reverse_iterator<basic_string, true>				raw_reverse_iterator;
+		typedef tiny_utf8::const_reverse_iterator<basic_string, true>		raw_const_reverse_iterator;
 		typedef Allocator													allocator_type;
 		typedef size_type													indicator_type; // Typedef for the lut indicator. Note: Don't change this, because else the buffer will not be a multiple of sizeof(size_type)
 		enum : size_type{													npos = (size_type)-1 };
@@ -1419,8 +1525,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified code point index
 		 */
-		inline iterator get( size_type n ) noexcept { return iterator( get_num_bytes_from_start( n ) , this ); }
-		inline const_iterator get( size_type n ) const noexcept { return const_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline iterator get( size_type n ) noexcept { return { n , this }; }
+		inline const_iterator get( size_type n ) const noexcept { return { n , this }; }
 		/**
 		 * Returns an iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1429,8 +1535,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
-		inline iterator raw_get( size_type n ) noexcept { return iterator( n , this ); }
-		inline const_iterator raw_get( size_type n ) const noexcept { return const_iterator( n , this ); }
+		inline raw_iterator raw_get( size_type n ) noexcept { return { (difference_type)n , this }; }
+		inline raw_const_iterator raw_get( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		
 		
 		/**
@@ -1439,8 +1545,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified code point index
 		 */
-		inline reverse_iterator rget( size_type n ) noexcept { return reverse_iterator( get_num_bytes_from_start( n ) , this ); }
-		inline const_reverse_iterator rget( size_type n ) const noexcept { return const_reverse_iterator( get_num_bytes_from_start( n ) , this ); }
+		inline reverse_iterator rget( size_type n ) noexcept { return { n , this }; }
+		inline const_reverse_iterator rget( size_type n ) const noexcept { return { n , this }; }
 		/**
 		 * Returns a reverse iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1449,8 +1555,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
-		inline reverse_iterator raw_rget( size_type n ) noexcept { return reverse_iterator( n , this ); }
-		inline const_reverse_iterator raw_rget( size_type n ) const noexcept { return const_reverse_iterator( n , this ); }
+		inline raw_reverse_iterator raw_rget( size_type n ) noexcept { return { n , this }; }
+		inline raw_const_reverse_iterator raw_rget( size_type n ) const noexcept { return { n , this }; }
 		
 		
 		/**
@@ -1459,7 +1565,7 @@ namespace tiny_utf8
 		 * @param	n	The code point index of the code point to receive
 		 * @return	A reference wrapper to the code point at position 'n'
 		 */
-		inline reference operator[]( size_type n ) noexcept { return reference( n , this ); }
+		inline reference operator[]( size_type n ) noexcept { return { n , this }; }
 		inline value_type operator[]( size_type n ) const noexcept { return at( n , std::nothrow ); }
 		/**
 		 * Returns a reference to the code point at the supplied byte position
@@ -1491,7 +1597,7 @@ namespace tiny_utf8
 		 *			For the number of bytes, @see size()
 		 * @return	Number of codepoints (not bytes!)
 		 */
-		inline size_type length() const noexcept { return sso_inactive() ? get_non_sso_string_len() : cend() - cbegin(); }
+		inline size_type length() const noexcept { return sso_inactive() ? get_non_sso_string_len() : get_num_codepoints( 0 , get_sso_data_len() ); }
 		
 		
 		/**
@@ -1521,16 +1627,19 @@ namespace tiny_utf8
 		 * 
 		 * @return	An iterator class pointing to the beginning of this basic_string
 		 */
-		inline iterator begin() noexcept { return iterator( 0 , this ); }
-		inline const_iterator begin() const noexcept { return const_iterator( 0 , this ); }
+		inline iterator begin() noexcept { return { 0 , this }; }
+		inline const_iterator begin() const noexcept { return { 0 , this }; }
+		inline raw_iterator raw_begin() noexcept { return { 0 , this }; }
+		inline raw_const_iterator raw_begin() const noexcept { return { 0 , this }; }
 		/**
 		 * Get an iterator to the end of the basic_string
 		 * 
 		 * @return	An iterator class pointing to the end of this basic_string, that is pointing behind the last code point
 		 */
-		inline iterator end() noexcept { return iterator( size() , this ); }
-		inline const_iterator end() const noexcept { return const_iterator( size() , this ); }
-		
+		inline iterator end() noexcept { return { (difference_type)length() , this }; }
+		inline const_iterator end() const noexcept { return { (difference_type)length() , this }; }
+		inline raw_iterator raw_end() noexcept { return { (difference_type)size() , this }; }
+		inline raw_const_iterator raw_end() const noexcept { return { (difference_type)size() , this }; }
 		
 		/**
 		 * Get a reverse iterator to the end of this basic_string
@@ -1538,16 +1647,20 @@ namespace tiny_utf8
 		 * @return	A reverse iterator class pointing to the end of this basic_string,
 		 *			that is exactly to the last code point
 		 */
-		inline reverse_iterator rbegin() noexcept { return reverse_iterator( back_index() , this ); }
-		inline const_reverse_iterator rbegin() const noexcept { return const_reverse_iterator( back_index() , this ); }
+		inline reverse_iterator rbegin() noexcept { return { (difference_type)length() - 1 , this }; }
+		inline const_reverse_iterator rbegin() const noexcept { return { (difference_type)length() - 1 , this }; }
+		inline raw_reverse_iterator raw_rbegin() noexcept { return { (difference_type)raw_back_index() , this }; }
+		inline raw_const_reverse_iterator raw_rbegin() const noexcept { return { (difference_type)raw_back_index() , this }; }
 		/**
 		 * Get a reverse iterator to the beginning of this basic_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this basic_string,
 		 *			that is pointing before the first code point
 		 */
-		inline reverse_iterator rend() noexcept { return reverse_iterator( -1 , this ); }
-		inline const_reverse_iterator rend() const noexcept { return const_reverse_iterator( -1 , this ); }
+		inline reverse_iterator rend() noexcept { return { -1 , this }; }
+		inline const_reverse_iterator rend() const noexcept { return { -1 , this }; }
+		inline raw_reverse_iterator raw_rend() noexcept { return { -1 , this }; }
+		inline raw_const_reverse_iterator raw_rend() const noexcept { return { -1 , this }; }
 		
 		
 		/**
@@ -1556,14 +1669,16 @@ namespace tiny_utf8
 		 * @return	A const iterator class pointing to the beginning of this basic_string,
 		 * 			which cannot alter things inside this basic_string
 		 */
-		inline const_iterator cbegin() const noexcept { return const_iterator( 0 , this ); }
+		inline const_iterator cbegin() const noexcept { return { 0 , this }; }
+		inline raw_const_iterator raw_cbegin() const noexcept { return { 0 , this }; }
 		/**
 		 * Get an iterator to the end of the basic_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this basic_string, pointing to
 		 *			the end of this basic_string, that is pointing behind the last code point
 		 */
-		inline const_iterator cend() const noexcept { return const_iterator( size() , this ); }
+		inline const_iterator cend() const noexcept { return { (difference_type)length() , this }; }
+		inline raw_const_iterator raw_cend() const noexcept { return { (difference_type)size() , this }; }
 		
 		
 		/**
@@ -1572,14 +1687,16 @@ namespace tiny_utf8
 		 * @return	A const reverse iterator class, which cannot alter this basic_string, pointing to
 		 *			the end of this basic_string, that is exactly to the last code point
 		 */
-		inline const_reverse_iterator crbegin() const noexcept { return const_reverse_iterator( back_index() , this ); }
+		inline const_reverse_iterator crbegin() const noexcept { return { (difference_type)length() - 1 , this }; }
+		inline raw_const_reverse_iterator raw_crbegin() const noexcept { return { (difference_type)raw_back_index() , this }; }
 		/**
 		 * Get a const reverse iterator to the beginning of this basic_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this basic_string, pointing to
 		 *			the end of this basic_string, that is pointing before the first code point
 		 */
-		inline const_reverse_iterator crend() const noexcept { return const_reverse_iterator( -1 , this ); }
+		inline const_reverse_iterator crend() const noexcept { return { -1 , this }; }
+		inline raw_const_reverse_iterator raw_crend() const noexcept { return { -1 , this }; }
 		
 		
 		/**
@@ -1594,7 +1711,7 @@ namespace tiny_utf8
 		 * 
 		 * @return	A reference wrapper to the last code point in the basic_string
 		 */
-		inline raw_reference back() noexcept { return { back_index() , this }; }
+		inline raw_reference back() noexcept { return { raw_back_index() , this }; }
 		inline value_type back() const noexcept {
 			size_type			my_size = size();
 			const data_type*	buffer = get_buffer();
@@ -1639,10 +1756,10 @@ namespace tiny_utf8
 		 * @param	n		The number of code point that will replace the old ones
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
-		inline basic_string& replace( iterator first , iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
+		inline basic_string& replace( raw_iterator first , raw_iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , basic_string( n , repl ) );
 		}
-		inline basic_string& replace( iterator first , iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) {
+		inline basic_string& replace( raw_iterator first , raw_iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , basic_string( repl ) );
 		}
 		/**
@@ -1653,7 +1770,7 @@ namespace tiny_utf8
 		 * @param	repl	The basic_string to replace all codepoints in the range
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
-		inline basic_string& replace( iterator first , iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) {
+		inline basic_string& replace( raw_iterator first , raw_iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , repl );
 		}
 		/**
@@ -1872,8 +1989,8 @@ namespace tiny_utf8
 		 * @param	cp	The code point to be inserted
 		 * @return	A reference to this basic_string, with the supplied code point inserted
 		 */
-		inline basic_string& insert( iterator it , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_insert( it.t_raw_index , basic_string( cp ) );
+		inline basic_string& insert( raw_iterator it , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
+			return raw_insert( it.get_raw_index() , basic_string( cp ) );
 		}
 		/**
 		 * Inserts a given basic_string into this basic_string at the supplied iterator position
@@ -1882,8 +1999,8 @@ namespace tiny_utf8
 		 * @param	cp	The basic_string to be inserted
 		 * @return	A reference to this basic_string, with the supplied code point inserted
 		 */
-		inline basic_string& insert( iterator it , const basic_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_insert( it.t_raw_index , str );
+		inline basic_string& insert( raw_iterator it , const basic_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
+			return raw_insert( it.get_raw_index() , str );
 		}
 		/**
 		 * Inserts a given basic_string into this basic_string at the supplied byte position
@@ -1911,7 +2028,7 @@ namespace tiny_utf8
 		
 		//! Removes the last code point in the basic_string
 		inline basic_string& pop_back() noexcept(TINY_UTF8_NOEXCEPT) {
-			size_type pos = back_index();
+			size_type pos = raw_back_index();
 			return raw_erase( pos , get_index_bytes( pos ) );
 		}
 		
@@ -1922,8 +2039,8 @@ namespace tiny_utf8
 		 * @param	pos		The iterator pointing to the position being erased
 		 * @return	A reference to this basic_string, which now has the code point erased
 		 */
-		inline basic_string& erase( iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_erase( pos.t_raw_index , get_index_bytes( pos.t_raw_index ) );
+		inline basic_string& erase( raw_iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
+			return raw_erase( pos.get_raw_index() , get_index_bytes( pos.get_raw_index() ) );
 		}
 		/**
 		 * Erases the codepoints inside the supplied range
@@ -1932,8 +2049,8 @@ namespace tiny_utf8
 		 * @param	last	An iterator pointing to the code point behind the last code point to be erased
 		 * @return	A reference to this basic_string, which now has the codepoints erased
 		 */
-		inline basic_string& erase( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_erase( first.t_raw_index , last.t_raw_index - first.t_raw_index );
+		inline basic_string& erase( raw_iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
+			return raw_erase( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() );
 		}
 		/**
 		 * Erases a portion of this string
@@ -1965,9 +2082,9 @@ namespace tiny_utf8
 		 * @param	last	An iterator pointing to the code point behind the last code point in the substring
 		 * @return	The basic_string holding the specified range
 		 */
-		inline basic_string substr( iterator first , iterator last ) const noexcept(TINY_UTF8_NOEXCEPT) {
-			size_type byte_count = last.t_raw_index - first.t_raw_index;
-			return raw_substr( first.t_raw_index , byte_count );
+		inline basic_string substr( raw_iterator first , raw_iterator last ) const noexcept(TINY_UTF8_NOEXCEPT) {
+			size_type byte_count = last.get_raw_index() - first.get_raw_index();
+			return raw_substr( first.get_raw_index() , byte_count );
 		}
 		/**
 		 * Returns a portion of the basic_string
@@ -2489,7 +2606,7 @@ namespace tiny_utf8
 		
 		
 		//! Get the byte index of the last code point
-		inline size_type	back_index() const noexcept { size_type s = size(); return s - get_index_pre_bytes( s ); }
+		inline size_type	raw_back_index() const noexcept { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		
 		/**
 		 * Counts the number of codepoints
@@ -4771,7 +4888,7 @@ namespace tiny_utf8
 	template<typename V, typename D, typename A>
 	typename basic_string<V, D, A>::size_type basic_string<V, D, A>::raw_rfind( typename basic_string<V, D, A>::value_type cp , typename basic_string<V, D, A>::size_type index ) const noexcept {
 		if( index >= size() )
-			index = back_index();
+			index = raw_back_index();
 		for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 			if( raw_at(it) == cp )
 				return it;
@@ -4847,7 +4964,7 @@ namespace tiny_utf8
 			return basic_string::npos;
 		
 		if( index >= size() )
-			index = back_index();
+			index = raw_back_index();
 		
 		for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) ){
 			const value_type*	tmp = str;
@@ -4938,7 +5055,7 @@ namespace tiny_utf8
 			return basic_string::npos;
 		
 		if( index >= size() )
-			index = back_index();
+			index = raw_back_index();
 		
 		for( difference_type it = index ; it >= 0 ; it -= get_index_pre_bytes( it ) )
 		{
