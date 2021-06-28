@@ -1525,8 +1525,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the iterator to
 		 * @return	An iterator pointing to the specified code point index
 		 */
-		inline iterator get( size_type n ) noexcept { return { n , this }; }
-		inline const_iterator get( size_type n ) const noexcept { return { n , this }; }
+		inline iterator get( size_type n ) noexcept { return { (difference_type)n , this }; }
+		inline const_iterator get( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		/**
 		 * Returns an iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1545,8 +1545,8 @@ namespace tiny_utf8
 		 * @param	n	The index of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified code point index
 		 */
-		inline reverse_iterator rget( size_type n ) noexcept { return { n , this }; }
-		inline const_reverse_iterator rget( size_type n ) const noexcept { return { n , this }; }
+		inline reverse_iterator rget( size_type n ) noexcept { return { (difference_type)n , this }; }
+		inline const_reverse_iterator rget( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		/**
 		 * Returns a reverse iterator pointing to the code point at the supplied byte position
 		 * 
@@ -1555,8 +1555,8 @@ namespace tiny_utf8
 		 * @param	n	The byte position of the code point to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
-		inline raw_reverse_iterator raw_rget( size_type n ) noexcept { return { n , this }; }
-		inline raw_const_reverse_iterator raw_rget( size_type n ) const noexcept { return { n , this }; }
+		inline raw_reverse_iterator raw_rget( size_type n ) noexcept { return { (difference_type)n , this }; }
+		inline raw_const_reverse_iterator raw_rget( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		
 		
 		/**
