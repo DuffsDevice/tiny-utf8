@@ -1,4 +1,4 @@
-# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/docs/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.3
+# TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/docs/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.4
 
 [![Build Status](https://travis-ci.org/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.org/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)
 
@@ -7,18 +7,12 @@
 The library consists solely of the class `utf8_string`, which acts as a drop-in replacement for `std::string`.
 Its implementation is successfully in the middle between small memory footprint and fast access. All functionality of `std::string` is therefore replaced by the corresponding codepoint-based UTF-32 version - translating every access to UTF-8 under the hood.
 
-#### *CHANGES BETWEEN Version 4.3 and 4.2*
+#### *CHANGES BETWEEN Version 4.4 and 4.3*
 
-- Class `tiny_utf8::basic_utf8_string` has been renamed to `basic_string`, which better resembles its drop-in-capabilities for `std::string`.
-
-#### *CHANGES BETWEEN Version 4.1 and 4.0*
-
-- `tinyutf8.h` has been moved into the folder `include/tinyutf8/` in order to mimic the structuring of many other C++-based open source projects.
-
-#### *CHANGES BETWEEN Version 4.0 and 3.2.4*
-
-- Class `utf8_string` is now defined inside `namespace tiny_utf8`. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
-- Support for C++20: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
+- **tiny-utf8** used to only work with byte-index-based iterator types. The set of iterator types has now been completed with codepoint-based versions and
+- the **default has been changed**. That means (`c`)(`r`)`begin`/`end` now return codepoint-based iterators, while `raw_`(`c`)(`r`)`begin`/`end` now return byte-based iterators.
+- The upside with byte-based iterators is: they are usually quicker than code-point-based iterators. The downside is: They get invalidated **very quickly**. Example:
+`str.erase( std::remove_if( str.begin() , str.end() , U'W' ) , str.end() )` will work, but `str.erase( std::remove_if( str.raw_begin() , str.raw_end() , U'W' ) , str.raw_end() )` will not. The reason is: after the call to `std::remove_if`, the size of the underlying data might have been changed and `str.raw_end()` would have been invalidated.
 
 ### FEATURES
 - **Drop-in replacement for std::string**
@@ -89,9 +83,24 @@ int main()
 - If you would like **tiny-utf8** to use a different exception strategy, `#define` the macro `TINY_UTF8_THROW( location , failing_predicate )`. For using assertions, you would write `#define TINY_UTF8_THROW( _ , pred ) assert( pred )`.
 - *Hint:* If exceptions are disabled, `TINY_UTF8_THROW( ... )` is automatically defined as `void()`. This works well, because all uses of `TINY_UTF8_THROW` are immediately followed by a `;` as well as a proper `return` statement with a fallback value. That also means, `TINY_UTF8_THROW` can safely be a NO-OP.
 
-#### BACKWARDS-COMPATIBLE BUILD
+#### BACKWARDS-COMPATIBILITY
 
-If you would like to stay compatible with 3.2.* and have `utf8_string` defined in the global namespace, `#define` the macro `TINY_UTF8_GLOBAL_NAMESPACE`.
+#### *CHANGES BETWEEN Version 4.3 and 4.2*
+
+- Class `tiny_utf8::basic_utf8_string` has been renamed to `basic_string`, which better resembles its drop-in-capabilities for `std::string`.
+
+#### *CHANGES BETWEEN Version 4.1 and 4.0*
+
+- `tinyutf8.h` has been moved into the folder `include/tinyutf8/` in order to mimic the structuring of many other C++-based open source projects.
+
+#### *CHANGES BETWEEN Version 4.0 and 3.2.4*
+
+- Class `utf8_string` is now defined inside `namespace tiny_utf8`. If you want the old declaration in the global namespace, `#define TINY_UTF8_GLOBAL_NAMESPACE`
+- Support for C++20: Use class `tiny_utf8::u8string`, which uses `char8_t` as underlying data type (instead of `char`)
+
+#### *CHANGES BETWEEN Version 4.0 and Version 3.2*
+
+- If you would like to stay compatible with 3.2.* and have `utf8_string` defined in the global namespace, `#define` the macro `TINY_UTF8_GLOBAL_NAMESPACE`.
 
 ## BUGS
 
