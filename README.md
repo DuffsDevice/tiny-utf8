@@ -76,14 +76,14 @@ int main()
 }
 ```
 
-#### EXCEPTIONS
+### EXCEPTIONS
 
 - **Tiny-utf8** should automatically detect, whether your build system allows the use of exceptions or not. This is done by checking for the feature test macro `__cpp_exceptions`.
 - If you would like **tiny-utf8** to be `noexcept` anyway, `#define` the macro `TINY_UTF8_NOEXCEPT`.
 - If you would like **tiny-utf8** to use a different exception strategy, `#define` the macro `TINY_UTF8_THROW( location , failing_predicate )`. For using assertions, you would write `#define TINY_UTF8_THROW( _ , pred ) assert( pred )`.
 - *Hint:* If exceptions are disabled, `TINY_UTF8_THROW( ... )` is automatically defined as `void()`. This works well, because all uses of `TINY_UTF8_THROW` are immediately followed by a `;` as well as a proper `return` statement with a fallback value. That also means, `TINY_UTF8_THROW` can safely be a NO-OP.
 
-#### BACKWARDS-COMPATIBILITY
+### BACKWARDS-COMPATIBILITY
 
 #### *CHANGES BETWEEN Version 4.3 and 4.2*
 
