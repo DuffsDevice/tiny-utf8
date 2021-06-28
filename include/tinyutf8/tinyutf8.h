@@ -652,11 +652,11 @@ namespace tiny_utf8
 	template<typename Container, bool Raw>
 	static inline bool operator>=( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() <= rhs.get_raw_index(); }
 	template<typename Container, bool Raw>
-	static inline bool operator<( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() < rhs.get_raw_index(); }
+	static inline bool operator<( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() < rhs.get_raw_index(); }
 	template<typename Container, bool Raw>
 	static inline bool operator<( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() > rhs.get_raw_index(); }
 	template<typename Container, bool Raw>
-	static inline bool operator<=( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_index() <= rhs.get_raw_index(); }
+	static inline bool operator<=( const const_iterator<Container, true>& lhs , const const_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() <= rhs.get_raw_index(); }
 	template<typename Container, bool Raw>
 	static inline bool operator<=( const const_reverse_iterator<Container, true>& lhs , const const_reverse_iterator<Container, Raw>& rhs ) noexcept { return lhs.get_raw_index() >= rhs.get_raw_index(); }
 	
