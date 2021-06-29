@@ -108,7 +108,7 @@ namespace tiny_utf8
 	template<
 		typename ValueType = char32_t
 		, typename DataType = char
-		, typename Allocator = std::allocator<char>
+		, typename Allocator = std::allocator<DataType>
 	>
 	class basic_string;
 	
