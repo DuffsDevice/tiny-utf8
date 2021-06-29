@@ -120,6 +120,7 @@ I'll try to answer it soon!
 - @Megaxela
 - @vfiksdal
 - @maddouri
+- @Abdullah-AlAttar
 
 for taking your time to improve **tiny-utf8**.
 
