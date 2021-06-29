@@ -262,7 +262,7 @@ namespace tiny_utf8
 		//! Dereference operator to act as pointer type
 		raw_codepoint_reference& operator*() const noexcept { return *this; }
 		
-		//! Cast to normal (non-raw) code point reference
+		//! Cast to normal (non-raw) codepoint reference
 		template<bool RC>
 		explicit operator codepoint_reference<Container, RC>() const noexcept { return { t_instance->get_num_codepoints( 0 , t_index ) , t_instance }; }
 		
@@ -482,7 +482,7 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Returns the value of the code point behind the iterator
+		//! Returns the value of the codepoint behind the iterator
 		typename iterator::reference operator*() const noexcept { return this->get_reference(); }
 	};
 
@@ -580,7 +580,7 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Returns the value of the code point behind the iterator
+		//! Returns the value of the codepoint behind the iterator
 		typename iterator<Container, Raw>::reference operator*() const noexcept { return this->get_reference(); }
 		
 		//! Get the underlying iterator instance
@@ -708,7 +708,7 @@ namespace tiny_utf8
 		typedef raw_codepoint_reference<basic_string, false> 				raw_reference;
 		typedef raw_codepoint_reference<basic_string, true> 				raw_checked_reference;
 		typedef value_type&													const_reference;
-		typedef std::uint_fast8_t											width_type; // Data type capable of holding the number of code units in a code point
+		typedef std::uint_fast8_t											width_type; // Data type capable of holding the number of code units in a codepoint
 		typedef tiny_utf8::iterator<basic_string, false>					iterator;
 		typedef tiny_utf8::const_iterator<basic_string, false>				const_iterator;
 		typedef tiny_utf8::reverse_iterator<basic_string, false>			reverse_iterator;
@@ -875,7 +875,7 @@ namespace tiny_utf8
 		}
 		
 		/**
-		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 code point
+		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 codepoint
 		 */
 		// Data left is the number of bytes left in the buffer INCLUDING this one
 		#if defined(TINY_UTF8_HAS_CLZ) && TINY_UTF8_HAS_CLZ == true
@@ -897,7 +897,7 @@ namespace tiny_utf8
 		#endif
 		
 		/**
-		 * Returns the number of code units (bytes) a code point will translate to in utf8
+		 * Returns the number of code units (bytes) a codepoint will translate to in utf8
 		 */
 		static inline width_type			get_codepoint_bytes( value_type cp ) noexcept
 		{
@@ -930,7 +930,7 @@ namespace tiny_utf8
 		//! Returns the number of bytes to expect before this one (including this one) that belong to this utf8 char
 		static width_type					get_num_bytes_of_utf8_char_before( const data_type* data_start , size_type index ) noexcept ;
 		
-		//! Decodes a given input of rle utf8 data to a unicode code point, given the number of bytes it's made of
+		//! Decodes a given input of rle utf8 data to a unicode codepoint, given the number of bytes it's made of
 		static inline value_type			decode_utf8( const data_type* data , width_type num_bytes ) noexcept {
 			value_type cp = (unsigned char)*data;
 			if( num_bytes > 1 ){
@@ -943,7 +943,7 @@ namespace tiny_utf8
 		
 		/**
 		 * Decodes a given input of rle utf8 data to a
-		 * unicode code point and returns the number of bytes it used
+		 * unicode codepoint and returns the number of bytes it used
 		 */
 		static inline width_type			decode_utf8_and_len( const data_type* data , value_type& dest , size_type data_left ) noexcept {
 			// See 'get_codepoint_bytes' for 'data_left'
@@ -953,7 +953,7 @@ namespace tiny_utf8
 		}
 		
 		/**
-		 * Encodes a given code point (expected to use 'cp_bytes') to a character
+		 * Encodes a given codepoint (expected to use 'cp_bytes') to a character
 		 * buffer capable of holding that many bytes.
 		 */
 		inline static void					encode_utf8( value_type cp , data_type* dest , width_type cp_bytes ) noexcept {
@@ -973,7 +973,7 @@ namespace tiny_utf8
 		}
 		
 		/**
-		 * Encodes a given code point to a character buffer of at least 7 bytes
+		 * Encodes a given codepoint to a character buffer of at least 7 bytes
 		 * and returns the number of bytes it used
 		 */
 		inline static width_type			encode_utf8( value_type cp , data_type* dest ) noexcept {
@@ -1036,7 +1036,7 @@ namespace tiny_utf8
 		template<typename T>
 		static constexpr T	get_msb_mask( width_type bytes = sizeof(T) ) noexcept { return bytes ? ( T(1) << ( 8 * bytes - 1 ) ) | get_msb_mask<T>( bytes - 1 ) : T(0); }
 		
-		//! Check, whether the string contains code points > 127
+		//! Check, whether the string contains codepoints > 127
 		bool				requires_unicode_sso() const noexcept ;
 		
 		//! Get buffer
@@ -1228,7 +1228,7 @@ namespace tiny_utf8
 		 * 
 		 * @note	Creates an Instance of type basic_string that gets filled with 'n' codepoints
 		 * @param	n		The number of codepoints generated
-		 * @param	cp		The code point that the whole buffer will be set to
+		 * @param	cp		The codepoint that the whole buffer will be set to
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		basic_string( size_type n , value_type cp , const allocator_type& alloc = allocator_type() ) noexcept(TINY_UTF8_NOEXCEPT) ;
@@ -1245,8 +1245,8 @@ namespace tiny_utf8
 		 * Constructs the string with a portion of the supplied string
 		 * 
 		 * @param	str		The string that the constructed string shall be a substring of
-		 * @param	pos		The code point position indicating the start of the string to be used for construction
-		 * @param	count	The number of code points to be taken from 'str'
+		 * @param	pos		The codepoint position indicating the start of the string to be used for construction
+		 * @param	count	The number of codepoints to be taken from 'str'
 		 * @param	alloc	(Optional) The allocator instance to use
 		 */
 		basic_string( const basic_string& str , size_type pos , size_type count = basic_string::npos , const allocator_type& alloc = allocator_type() )
@@ -1254,9 +1254,9 @@ namespace tiny_utf8
 			: basic_string( str.substr( pos , count ) , alloc )
 		{}
 		/**
-		 * Constructs the string from the range of code points supplied. The resulting string will equal [first,last)
+		 * Constructs the string from the range of codepoints supplied. The resulting string will equal [first,last)
 		 * 
-		 * @note	The Range is expected to contain code points (rather than code units, i.e. bytes)
+		 * @note	The Range is expected to contain codepoints (rather than code units, i.e. bytes)
 		 * @param	first	The start of the range to construct from
 		 * @param	last	The end of the range
 		 * @param	alloc	(Optional) The allocator instance to use
@@ -1309,11 +1309,11 @@ namespace tiny_utf8
 			}
 		}
 		/**
-		 * Constructor taking a wide code point literal that will be copied to construct this basic_string
+		 * Constructor taking a wide codepoint literal that will be copied to construct this basic_string
 		 * 
 		 * @note	Creates an Instance of type basic_string that holds the given codepoints
 		 *			The data itself will be first converted to UTF-8
-		 * @param	str		The code point sequence to fill the basic_string with
+		 * @param	str		The codepoint sequence to fill the basic_string with
 		 * @param	len		(Optional) The maximum number of codepoints to read from the sequence
 		 */
 		basic_string( const value_type* str , size_type len , const allocator_type& alloc = allocator_type() ) noexcept(TINY_UTF8_NOEXCEPT) ;
@@ -1330,7 +1330,7 @@ namespace tiny_utf8
 		/**
 		 * Constructor taking an initializer list of codepoints.
 		 * 
-		 * @note	The initializer list is expected to contain code points (rather than code units, i.e. bytes)
+		 * @note	The initializer list is expected to contain codepoints (rather than code units, i.e. bytes)
 		 * @param	ilist	The initializer list with the contents to be applied to this string
 		 */
 		inline basic_string( std::initializer_list<value_type> ilist , const allocator_type& alloc = allocator_type() )
@@ -1341,7 +1341,7 @@ namespace tiny_utf8
 		 * Constructor that fills the string with the supplied codepoint
 		 * 
 		 * @note	Creates an Instance of type basic_string that gets filled with 'n' codepoints
-		 * @param	cp		The code point written at the beginning of the buffer
+		 * @param	cp		The codepoint written at the beginning of the buffer
 		 */
 		explicit inline basic_string( value_type cp , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
@@ -1354,7 +1354,7 @@ namespace tiny_utf8
 		 * Constructor that fills the string with the supplied character
 		 * 
 		 * @note	Creates an Instance of type basic_string that gets filled with 'n' codepoints
-		 * @param	ch		The code point written at the beginning of the buffer
+		 * @param	ch		The codepoint written at the beginning of the buffer
 		 */
 		explicit inline basic_string( data_type ch , const allocator_type& alloc = allocator_type() )
 			noexcept(TINY_UTF8_NOEXCEPT)
@@ -1481,10 +1481,10 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Returns the code point at the supplied index
+		 * Returns the codepoint at the supplied index
 		 * 
-		 * @param	n	The code point index of the code point to receive
-		 * @return	The code point at position 'n'
+		 * @param	n	The codepoint index of the codepoint to receive
+		 * @return	The codepoint at position 'n'
 		 */
 		inline value_type at( size_type n ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_at( get_num_bytes_from_start( n ) );
@@ -1495,12 +1495,12 @@ namespace tiny_utf8
 		inline checked_reference at( size_type n ) noexcept(TINY_UTF8_NOEXCEPT) { return { n , this }; }
 		inline reference at( size_type n , std::nothrow_t ) noexcept { return { n , this }; }
 		/**
-		 * Returns the code point at the supplied byte position
+		 * Returns the codepoint at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast.
-		 * @param	byte_index	The byte position of the code point to receive
-		 * @return	The code point at the supplied position
+		 * @param	byte_index	The byte position of the codepoint to receive
+		 * @return	The codepoint at the supplied position
 		 */
 		inline raw_checked_reference raw_at( size_type byte_index ) noexcept(TINY_UTF8_NOEXCEPT) { return { byte_index , this }; }
 		inline raw_reference raw_at( size_type byte_index , std::nothrow_t ) noexcept { return { byte_index , this }; }
@@ -1520,19 +1520,19 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Returns an iterator pointing to the supplied code point index
+		 * Returns an iterator pointing to the supplied codepoint index
 		 * 
-		 * @param	n	The index of the code point to get the iterator to
-		 * @return	An iterator pointing to the specified code point index
+		 * @param	n	The index of the codepoint to get the iterator to
+		 * @return	An iterator pointing to the specified codepoint index
 		 */
 		inline iterator get( size_type n ) noexcept { return { (difference_type)n , this }; }
 		inline const_iterator get( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		/**
-		 * Returns an iterator pointing to the code point at the supplied byte position
+		 * Returns an iterator pointing to the codepoint at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the code point to get the iterator to
+		 * @param	n	The byte position of the codepoint to get the iterator to
 		 * @return	An iterator pointing to the specified byte position
 		 */
 		inline raw_iterator raw_get( size_type n ) noexcept { return { (difference_type)n , this }; }
@@ -1540,19 +1540,19 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Returns a reverse iterator pointing to the supplied code point index
+		 * Returns a reverse iterator pointing to the supplied codepoint index
 		 * 
-		 * @param	n	The index of the code point to get the reverse iterator to
-		 * @return	A reverse iterator pointing to the specified code point index
+		 * @param	n	The index of the codepoint to get the reverse iterator to
+		 * @return	A reverse iterator pointing to the specified codepoint index
 		 */
 		inline reverse_iterator rget( size_type n ) noexcept { return { (difference_type)n , this }; }
 		inline const_reverse_iterator rget( size_type n ) const noexcept { return { (difference_type)n , this }; }
 		/**
-		 * Returns a reverse iterator pointing to the code point at the supplied byte position
+		 * Returns a reverse iterator pointing to the codepoint at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the code point to get the reverse iterator to
+		 * @param	n	The byte position of the codepoint to get the reverse iterator to
 		 * @return	A reverse iterator pointing to the specified byte position
 		 */
 		inline raw_reverse_iterator raw_rget( size_type n ) noexcept { return { (difference_type)n , this }; }
@@ -1560,20 +1560,20 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Returns a reference to the code point at the supplied index
+		 * Returns a reference to the codepoint at the supplied index
 		 * 
-		 * @param	n	The code point index of the code point to receive
-		 * @return	A reference wrapper to the code point at position 'n'
+		 * @param	n	The codepoint index of the codepoint to receive
+		 * @return	A reference wrapper to the codepoint at position 'n'
 		 */
 		inline reference operator[]( size_type n ) noexcept { return { n , this }; }
 		inline value_type operator[]( size_type n ) const noexcept { return at( n , std::nothrow ); }
 		/**
-		 * Returns a reference to the code point at the supplied byte position
+		 * Returns a reference to the codepoint at the supplied byte position
 		 * 
 		 * @note	As this access is raw, that is not looking up for the actual byte position,
 		 *			it is very fast
-		 * @param	n	The byte position of the code point to receive
-		 * @return	A reference wrapper to the code point at byte position 'n'
+		 * @param	n	The byte position of the codepoint to receive
+		 * @return	A reference wrapper to the codepoint at byte position 'n'
 		 */
 		inline raw_reference operator()( size_type n ) noexcept { return { n , this }; }
 		inline value_type operator()( size_type n ) const noexcept { return raw_at( n , std::nothrow ); }
@@ -1634,7 +1634,7 @@ namespace tiny_utf8
 		/**
 		 * Get an iterator to the end of the basic_string
 		 * 
-		 * @return	An iterator class pointing to the end of this basic_string, that is pointing behind the last code point
+		 * @return	An iterator class pointing to the end of this basic_string, that is pointing behind the last codepoint
 		 */
 		inline iterator end() noexcept { return { (difference_type)length() , this }; }
 		inline const_iterator end() const noexcept { return { (difference_type)length() , this }; }
@@ -1645,7 +1645,7 @@ namespace tiny_utf8
 		 * Get a reverse iterator to the end of this basic_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this basic_string,
-		 *			that is exactly to the last code point
+		 *			that is exactly to the last codepoint
 		 */
 		inline reverse_iterator rbegin() noexcept { return { (difference_type)length() - 1 , this }; }
 		inline const_reverse_iterator rbegin() const noexcept { return { (difference_type)length() - 1 , this }; }
@@ -1655,7 +1655,7 @@ namespace tiny_utf8
 		 * Get a reverse iterator to the beginning of this basic_string
 		 * 
 		 * @return	A reverse iterator class pointing to the end of this basic_string,
-		 *			that is pointing before the first code point
+		 *			that is pointing before the first codepoint
 		 */
 		inline reverse_iterator rend() noexcept { return { -1 , this }; }
 		inline const_reverse_iterator rend() const noexcept { return { -1 , this }; }
@@ -1675,7 +1675,7 @@ namespace tiny_utf8
 		 * Get an iterator to the end of the basic_string
 		 * 
 		 * @return	A const iterator class, which cannot alter this basic_string, pointing to
-		 *			the end of this basic_string, that is pointing behind the last code point
+		 *			the end of this basic_string, that is pointing behind the last codepoint
 		 */
 		inline const_iterator cend() const noexcept { return { (difference_type)length() , this }; }
 		inline raw_const_iterator raw_cend() const noexcept { return { (difference_type)size() , this }; }
@@ -1685,7 +1685,7 @@ namespace tiny_utf8
 		 * Get a const reverse iterator to the end of this basic_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this basic_string, pointing to
-		 *			the end of this basic_string, that is exactly to the last code point
+		 *			the end of this basic_string, that is exactly to the last codepoint
 		 */
 		inline const_reverse_iterator crbegin() const noexcept { return { (difference_type)length() - 1 , this }; }
 		inline raw_const_reverse_iterator raw_crbegin() const noexcept { return { (difference_type)raw_back_index() , this }; }
@@ -1693,23 +1693,23 @@ namespace tiny_utf8
 		 * Get a const reverse iterator to the beginning of this basic_string
 		 * 
 		 * @return	A const reverse iterator class, which cannot alter this basic_string, pointing to
-		 *			the end of this basic_string, that is pointing before the first code point
+		 *			the end of this basic_string, that is pointing before the first codepoint
 		 */
 		inline const_reverse_iterator crend() const noexcept { return { -1 , this }; }
 		inline raw_const_reverse_iterator raw_crend() const noexcept { return { -1 , this }; }
 		
 		
 		/**
-		 * Returns a reference to the first code point in the basic_string
+		 * Returns a reference to the first codepoint in the basic_string
 		 * 
-		 * @return	A reference wrapper to the first code point in the basic_string
+		 * @return	A reference wrapper to the first codepoint in the basic_string
 		 */
 		inline raw_reference front() noexcept { return { 0 , this }; }
 		inline value_type front() const noexcept { return raw_at( 0 , std::nothrow ); }
 		/**
-		 * Returns a reference to the last code point in the basic_string
+		 * Returns a reference to the last codepoint in the basic_string
 		 * 
-		 * @return	A reference wrapper to the last code point in the basic_string
+		 * @return	A reference wrapper to the last codepoint in the basic_string
 		 */
 		inline raw_reference back() noexcept { return { raw_back_index() , this }; }
 		inline value_type back() const noexcept {
@@ -1721,11 +1721,11 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Replace a code point of this basic_string by a number of codepoints
+		 * Replace a codepoint of this basic_string by a number of codepoints
 		 * 
 		 * @param	index	The codpoint index to be replaced
-		 * @param	repl	The wide character that will be used to replace the code point
-		 * @param	n		The number of code point that will be inserted
+		 * @param	repl	The wide character that will be used to replace the codepoint
+		 * @param	n		The number of codepoint that will be inserted
 		 *					instead of the one residing at position 'index'
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
@@ -1738,7 +1738,7 @@ namespace tiny_utf8
 		 * @param	index	The codpoint index at which the replacement is being started
 		 * @param	len		The number of codepoints that are being replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints
-		 * @param	n		The number of code point that will replace the old ones
+		 * @param	n		The number of codepoint that will replace the old ones
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
 		inline basic_string& replace( size_type index , size_type len , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -1750,10 +1750,10 @@ namespace tiny_utf8
 		/**
 		 * Replace a range of codepoints by a number of codepoints
 		 * 
-		 * @param	first	An iterator pointing to the first code point to be replaced
-		 * @param	last	An iterator pointing to the code point behind the last code point to be replaced
+		 * @param	first	An iterator pointing to the first codepoint to be replaced
+		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
 		 * @param	repl	The wide character that will be used to replace the codepoints in the range
-		 * @param	n		The number of code point that will replace the old ones
+		 * @param	n		(Optional) The number of codepoint that will replace the old ones
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
 		inline basic_string& replace( raw_iterator first , raw_iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -1762,17 +1762,26 @@ namespace tiny_utf8
 		inline basic_string& replace( raw_iterator first , raw_iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , basic_string( repl ) );
 		}
+		inline basic_string& replace( raw_iterator first , iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( first , (raw_iterator)last , repl , n ); }
+		inline basic_string& replace( iterator first , raw_iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , last , repl , n ); }
+		inline basic_string& replace( iterator first , iterator last , value_type repl , size_type n ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , (raw_iterator)last , repl , n ); }
+		inline basic_string& replace( raw_iterator first , iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( first , (raw_iterator)last , repl ); }
+		inline basic_string& replace( iterator first , raw_iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , last , repl ); }
+		inline basic_string& replace( iterator first , iterator last , value_type repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , (raw_iterator)last , repl ); }
 		/**
 		 * Replace a range of codepoints with the contents of the supplied basic_string
 		 * 
-		 * @param	first	An iterator pointing to the first code point to be replaced
-		 * @param	last	An iterator pointing to the code point behind the last code point to be replaced
+		 * @param	first	An iterator pointing to the first codepoint to be replaced
+		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be replaced
 		 * @param	repl	The basic_string to replace all codepoints in the range
 		 * @return	A reference to this basic_string, which now has the replaced part in it
 		 */
 		inline basic_string& replace( raw_iterator first , raw_iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_replace( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() , repl );
 		}
+		inline basic_string& replace( raw_iterator first , iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( first , (raw_iterator)last , repl ); }
+		inline basic_string& replace( iterator first , raw_iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , last , repl ); }
+		inline basic_string& replace( iterator first , iterator last , const basic_string& repl ) noexcept(TINY_UTF8_NOEXCEPT) { return replace( (raw_iterator)first , (raw_iterator)last , repl ); }
 		/**
 		 * Replace a number of codepoints of this basic_string with the contents of the supplied basic_string
 		 * 
@@ -1793,7 +1802,7 @@ namespace tiny_utf8
 		 * Replace a number of bytes of this basic_string with the contents of the supplied basic_string
 		 * 
 		 * @note	As this function is raw, that is not having to compute byte indices,
-		 *			it is much faster than the code point-base replace function
+		 *			it is much faster than the codepoint-base replace function
 		 * @param	start_byte	The byte position at which the replacement is being started
 		 * @param	byte_count	The number of bytes that are being replaced
 		 * @param	repl		The basic_string to replace all bytes inside the range
@@ -1821,10 +1830,10 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Appends the supplied code point to the end of this basic_string
+		 * Appends the supplied codepoint to the end of this basic_string
 		 * 
-		 * @param	cp	The code point to be appended
-		 * @return	A reference to this basic_string, which now has the supplied code point appended
+		 * @param	cp	The codepoint to be appended
+		 * @return	A reference to this basic_string, which now has the supplied codepoint appended
 		 */
 		inline basic_string& push_back( value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) { return append( basic_string( cp ) ); }
 		inline basic_string& operator+=( value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) { return append( basic_string( cp ) ); }
@@ -1860,8 +1869,8 @@ namespace tiny_utf8
 		/**
 		 * Sets the contents of this string to 'count' times 'cp'
 		 * 
-		 * @param	count	The number of times the supplied code point is to be repeated
-		 * @param	cp		The code point to repeat 'count' times
+		 * @param	count	The number of times the supplied codepoint is to be repeated
+		 * @param	cp		The codepoint to repeat 'count' times
 		 * @return	A reference to this basic_string, updated to the new string
 		 */
 		inline basic_string& assign( size_type count , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -1880,8 +1889,8 @@ namespace tiny_utf8
 		 * Sets the contents of this string to a substring of the supplied basic_string
 		 * 
 		 * @param	str	The basic_string this string shall be constructed a substring of
-		 * @param	pos	The code point position indicating the start of the string to be used for construction
-		 * @param	cp	The number of code points to be taken from 'str'
+		 * @param	pos	The codepoint position indicating the start of the string to be used for construction
+		 * @param	cp	The number of codepoints to be taken from 'str'
 		 * @return	A reference to this basic_string, updated to the new string
 		 */
 		inline basic_string& assign( const basic_string& str , size_type pos , size_type count ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -1941,9 +1950,9 @@ namespace tiny_utf8
 			return *this = basic_string( str );
 		}
 		/**
-		 * Assigns the range of code points supplied to this string. The resulting string will equal [first,last)
+		 * Assigns the range of codepoints supplied to this string. The resulting string will equal [first,last)
 		 * 
-		 * @note	The Range is expected to contain code points (rather than code units, i.e. bytes)
+		 * @note	The Range is expected to contain codepoints (rather than code units, i.e. bytes)
 		 * @param	first	The start of the range to read from
 		 * @param	last	The end of the range
 		 */
@@ -1954,7 +1963,7 @@ namespace tiny_utf8
 		/**
 		 * Assigns the supplied initializer list of codepoints to this string.
 		 * 
-		 * @note	The initializer list is expected to contain code points (rather than code units, i.e. bytes)
+		 * @note	The initializer list is expected to contain codepoints (rather than code units, i.e. bytes)
 		 * @param	ilist	The initializer list with the contents to be applied to this string
 		 */
 		inline basic_string& assign( std::initializer_list<value_type> ilist ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -1963,19 +1972,19 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Inserts a given code point into this basic_string at the supplied code point index
+		 * Inserts a given codepoint into this basic_string at the supplied codepoint index
 		 * 
-		 * @param	pos		The code point index to insert at
-		 * @param	cp		The code point to be inserted
-		 * @return	A reference to this basic_string, with the supplied code point inserted
+		 * @param	pos		The codepoint index to insert at
+		 * @param	cp		The codepoint to be inserted
+		 * @return	A reference to this basic_string, with the supplied codepoint inserted
 		 */
 		inline basic_string& insert( size_type pos , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( get_num_bytes_from_start( pos ) , cp );
 		}
 		/**
-		 * Inserts a given basic_string into this basic_string at the supplied code point index
+		 * Inserts a given basic_string into this basic_string at the supplied codepoint index
 		 * 
-		 * @param	pos		The code point index to insert at
+		 * @param	pos		The codepoint index to insert at
 		 * @param	str		The basic_string to be inserted
 		 * @return	A reference to this basic_string, with the supplied basic_string inserted
 		 */
@@ -1983,11 +1992,11 @@ namespace tiny_utf8
 			return raw_insert( get_num_bytes_from_start( pos ) , str );
 		}
 		/**
-		 * Inserts a given code point into this basic_string at the supplied iterator position
+		 * Inserts a given codepoint into this basic_string at the supplied iterator position
 		 * 
 		 * @param	it	The iterator position to insert at
-		 * @param	cp	The code point to be inserted
-		 * @return	A reference to this basic_string, with the supplied code point inserted
+		 * @param	cp	The codepoint to be inserted
+		 * @return	A reference to this basic_string, with the supplied codepoint inserted
 		 */
 		inline basic_string& insert( raw_iterator it , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( it.get_raw_index() , basic_string( cp ) );
@@ -1997,7 +2006,7 @@ namespace tiny_utf8
 		 * 
 		 * @param	it	The iterator position to insert at
 		 * @param	cp	The basic_string to be inserted
-		 * @return	A reference to this basic_string, with the supplied code point inserted
+		 * @return	A reference to this basic_string, with the supplied codepoint inserted
 		 */
 		inline basic_string& insert( raw_iterator it , const basic_string& str ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_insert( it.get_raw_index() , str );
@@ -2013,12 +2022,12 @@ namespace tiny_utf8
 		 */
 		basic_string& raw_insert( size_type pos , const basic_string& str ) noexcept(TINY_UTF8_NOEXCEPT) ;
 		/**
-		 * Inserts a given code point into this basic_string at the supplied byte position
+		 * Inserts a given codepoint into this basic_string at the supplied byte position
 		 * 
 		 * @note	As this function is raw, that is without having to compute
 		 *			actual byte indices, it is much faster that insert()
 		 * @param	pos		The byte position index to insert at
-		 * @param	cp		The code point to be inserted
+		 * @param	cp		The codepoint to be inserted
 		 * @return	A reference to this basic_string, with the supplied basic_string inserted
 		 */
 		inline basic_string& raw_insert( size_type pos , value_type cp ) noexcept(TINY_UTF8_NOEXCEPT) {
@@ -2026,7 +2035,7 @@ namespace tiny_utf8
 		}
 		
 		
-		//! Removes the last code point in the basic_string
+		//! Removes the last codepoint in the basic_string
 		inline basic_string& pop_back() noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type pos = raw_back_index();
 			return raw_erase( pos , get_index_bytes( pos ) );
@@ -2034,10 +2043,10 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Erases the code point at the supplied iterator position
+		 * Erases the codepoint at the supplied iterator position
 		 * 
 		 * @param	pos		The iterator pointing to the position being erased
-		 * @return	A reference to this basic_string, which now has the code point erased
+		 * @return	A reference to this basic_string, which now has the codepoint erased
 		 */
 		inline basic_string& erase( raw_iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_erase( pos.get_raw_index() , get_index_bytes( pos.get_raw_index() ) );
@@ -2045,17 +2054,20 @@ namespace tiny_utf8
 		/**
 		 * Erases the codepoints inside the supplied range
 		 * 
-		 * @param	first	An iterator pointing to the first code point to be erased
-		 * @param	last	An iterator pointing to the code point behind the last code point to be erased
+		 * @param	first	An iterator pointing to the first codepoint to be erased
+		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be erased
 		 * @return	A reference to this basic_string, which now has the codepoints erased
 		 */
 		inline basic_string& erase( raw_iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
 			return raw_erase( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() );
 		}
+		inline basic_string& erase( raw_iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( first , (raw_iterator)last ); }
+		inline basic_string& erase( iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( (raw_iterator)first , last ); }
+		inline basic_string& erase( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( (raw_iterator)first , (raw_iterator)last ); }
 		/**
 		 * Erases a portion of this string
 		 * 
-		 * @param	pos		The code point index to start eraseing from
+		 * @param	pos		The codepoint index to start eraseing from
 		 * @param	len		The number of codepoints to be erased from this basic_string
 		 * @return	A reference to this basic_string, with the supplied portion erased
 		 */
@@ -2078,18 +2090,21 @@ namespace tiny_utf8
 		/**
 		 * Returns a portion of the basic_string
 		 * 
-		 * @param	first	An iterator pointing to the first code point to be included in the substring
-		 * @param	last	An iterator pointing to the code point behind the last code point in the substring
+		 * @param	first	An iterator pointing to the first codepoint to be included in the substring
+		 * @param	last	An iterator pointing to the codepoint behind the last codepoint in the substring
 		 * @return	The basic_string holding the specified range
 		 */
 		inline basic_string substr( raw_iterator first , raw_iterator last ) const noexcept(TINY_UTF8_NOEXCEPT) {
 			size_type byte_count = last.get_raw_index() - first.get_raw_index();
 			return raw_substr( first.get_raw_index() , byte_count );
 		}
+		inline basic_string substr( raw_iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return substr( first , (raw_iterator)last ); }
+		inline basic_string substr( iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return substr( (raw_iterator)first , last ); }
+		inline basic_string substr( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return substr( (raw_iterator)first , (raw_iterator)last ); }
 		/**
 		 * Returns a portion of the basic_string
 		 * 
-		 * @param	pos		The code point index that should mark the start of the substring
+		 * @param	pos		The codepoint index that should mark the start of the substring
 		 * @param	len		The number codepoints to be included within the substring
 		 * @return	The basic_string holding the specified codepoints
 		 */
@@ -2113,11 +2128,11 @@ namespace tiny_utf8
 		
 		
 		/**
-		 * Finds a specific code point inside the basic_string starting at the supplied code point index
+		 * Finds a specific codepoint inside the basic_string starting at the supplied codepoint index
 		 * 
-		 * @param	cp				The code point to look for
-		 * @param	start_codepoint	The index of the first code point to start looking from
-		 * @return	The code point index where and if the code point was found or basic_string::npos
+		 * @param	cp				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
+		 * @return	The codepoint index where and if the codepoint was found or basic_string::npos
 		 */
 		size_type find( value_type cp , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
@@ -2128,11 +2143,11 @@ namespace tiny_utf8
 			return basic_string::npos;
 		}
 		/**
-		 * Finds a specific pattern within the basic_string starting at the supplied code point index
+		 * Finds a specific pattern within the basic_string starting at the supplied codepoint index
 		 * 
-		 * @param	cp				The code point to look for
-		 * @param	start_codepoint	The index of the first code point to start looking from
-		 * @return	The code point index where and if the pattern was found or basic_string::npos
+		 * @param	cp				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
+		 * @return	The codepoint index where and if the pattern was found or basic_string::npos
 		 */
 		size_type find( const basic_string& pattern , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
@@ -2145,11 +2160,11 @@ namespace tiny_utf8
 			return start_codepoint + get_num_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
-		 * Finds a specific pattern within the basic_string starting at the supplied code point index
+		 * Finds a specific pattern within the basic_string starting at the supplied codepoint index
 		 * 
-		 * @param	cp				The code point to look for
-		 * @param	start_codepoint	The index of the first code point to start looking from
-		 * @return	The code point index where and if the pattern was found or basic_string::npos
+		 * @param	cp				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from
+		 * @return	The codepoint index where and if the pattern was found or basic_string::npos
 		 */
 		size_type find( const data_type* pattern , size_type start_codepoint = 0 ) const noexcept {
 			if( sso_inactive() && start_codepoint >= length() ) // length() is only O(1), if sso is inactive
@@ -2162,11 +2177,11 @@ namespace tiny_utf8
 			return start_codepoint + get_num_codepoints( actual_start , result - ( buffer + actual_start ) );
 		}
 		/**
-		 * Finds a specific code point inside the basic_string starting at the supplied byte position
+		 * Finds a specific codepoint inside the basic_string starting at the supplied byte position
 		 * 
-		 * @param	cp			The code point to look for
-		 * @param	start_byte	The byte position of the first code point to start looking from
-		 * @return	The byte position where and if the code point was found or basic_string::npos
+		 * @param	cp			The codepoint to look for
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
+		 * @return	The byte position where and if the codepoint was found or basic_string::npos
 		 */
 		size_type raw_find( value_type cp , size_type start_byte = 0 ) const noexcept {
 			size_type my_size = size();
@@ -2181,7 +2196,7 @@ namespace tiny_utf8
 		 * Finds a specific pattern within the basic_string starting at the supplied byte position
 		 * 
 		 * @param	needle		The pattern to look for
-		 * @param	start_byte	The byte position of the first code point to start looking from
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
 		 * @return	The byte position where and if the pattern was found or basic_string::npos
 		 */
 		size_type raw_find( const basic_string& pattern , size_type start_byte = 0 ) const noexcept {
@@ -2197,7 +2212,7 @@ namespace tiny_utf8
 		 * Finds a specific pattern within the basic_string starting at the supplied byte position
 		 * 
 		 * @param	needle		The pattern to look for
-		 * @param	start_byte	The byte position of the first code point to start looking from
+		 * @param	start_byte	The byte position of the first codepoint to start looking from
 		 * @return	The byte position where and if the pattern was found or basic_string::npos
 		 */
 		size_type raw_find( const data_type* pattern , size_type start_byte = 0 ) const noexcept {
@@ -2211,12 +2226,12 @@ namespace tiny_utf8
 		}
 		
 		/**
-		 * Finds the last occourence of a specific code point inside the
-		 * basic_string starting backwards at the supplied code point index
+		 * Finds the last occourence of a specific codepoint inside the
+		 * basic_string starting backwards at the supplied codepoint index
 		 * 
-		 * @param	cp				The code point to look for
-		 * @param	start_codepoint	The index of the first code point to start looking from (backwards)
-		 * @return	The code point index where and if the code point was found or basic_string::npos
+		 * @param	cp				The codepoint to look for
+		 * @param	start_codepoint	The index of the first codepoint to start looking from (backwards)
+		 * @return	The codepoint index where and if the codepoint was found or basic_string::npos
 		 */
 		size_type rfind( value_type cp , size_type start_codepoint = basic_string::npos ) const noexcept {
 			const_reverse_iterator  end = rend(), it;
@@ -2231,12 +2246,12 @@ namespace tiny_utf8
 			return basic_string::npos;
 		}
 		/**
-		 * Finds the last occourence of a specific code point inside the
+		 * Finds the last occourence of a specific codepoint inside the
 		 * basic_string starting backwards at the supplied byte index
 		 * 
-		 * @param	cp				The code point to look for
-		 * @param	start_codepoint	The byte index of the first code point to start looking from (backwards)
-		 * @return	The code point index where and if the code point was found or basic_string::npos
+		 * @param	cp				The codepoint to look for
+		 * @param	start_codepoint	The byte index of the first codepoint to start looking from (backwards)
+		 * @return	The codepoint index where and if the codepoint was found or basic_string::npos
 		 */
 		size_type raw_rfind( value_type cp , size_type start_byte = basic_string::npos ) const noexcept ;
 		
@@ -2586,7 +2601,7 @@ namespace tiny_utf8
 		template<size_type LITLEN> inline bool operator<=( const value_type (&str)[LITLEN] ) const noexcept { return compare( str ) <= 0; }
 		
 		
-		//! Get the number of bytes of code point in basic_string
+		//! Get the number of bytes of codepoint in basic_string
 		inline width_type get_index_bytes( size_type byte_index ) const noexcept {
 			return get_codepoint_bytes( get_buffer()[byte_index] , size() - byte_index );
 		}
@@ -2595,7 +2610,7 @@ namespace tiny_utf8
 		}
 		
 		
-		//! Get the number of bytes before a code point, that build up a new code point
+		//! Get the number of bytes before a codepoint, that build up a new codepoint
 		inline width_type get_index_pre_bytes( size_type byte_index ) const noexcept {
 			const data_type* buffer = get_buffer();
 			return get_num_bytes_of_utf8_char_before( buffer , byte_index );
@@ -2605,7 +2620,7 @@ namespace tiny_utf8
 		}
 		
 		
-		//! Get the byte index of the last code point
+		//! Get the byte index of the last codepoint
 		inline size_type	raw_back_index() const noexcept { size_type s = size(); return s - get_index_pre_bytes( s ); }
 		
 		/**
@@ -2819,7 +2834,7 @@ namespace tiny_utf8
 		
 		// Iterate to the nth codepoint marking the start of the string to copy
 		while( *str && string_len < pos && data_left != 0u ){
-			width_type bytes = get_codepoint_bytes( str[data_len] , data_left ); // Read number of bytes of current code point
+			width_type bytes = get_codepoint_bytes( str[data_len] , data_left ); // Read number of bytes of current codepoint
 			data_left		-= bytes;
 			str				+= bytes;
 			++string_len;
@@ -2829,11 +2844,11 @@ namespace tiny_utf8
 		// Count bytes, multibytes and string length
 		while( str[data_len] && string_len < count )
 		{
-			// Read number of bytes of current code point
+			// Read number of bytes of current codepoint
 			width_type bytes = get_codepoint_bytes( str[data_len] , data_left );
 			data_len		+= bytes;				// Increase number of bytes
 			data_left		-= bytes;				// Decrease amount of bytes left
-			string_len		+= 1;					// Increase number of code points
+			string_len		+= 1;					// Increase number of codepoints
 			num_multibytes	+= bytes > 1 ? 1 : 0;	// Increase number of occoured multibytes?
 		}
 		
@@ -2931,10 +2946,10 @@ namespace tiny_utf8
 		// Count bytes, multibytes and string length
 		while( index < data_len )
 		{
-			// Read number of bytes of current code point
+			// Read number of bytes of current codepoint
 			width_type bytes = get_codepoint_bytes( str[index] , basic_string::npos );
 			index			+= bytes;				// Increase number of bytes
-			string_len		+= 1;					// Increase number of code points
+			string_len		+= 1;					// Increase number of codepoints
 			num_multibytes	+= bytes > 1 ? 1 : 0;	// Increase number of occoured multibytes?
 		}
 		
@@ -3034,11 +3049,11 @@ namespace tiny_utf8
 		// Count bytes, mutlibytes and string length
 		while( string_len < len && ( str[string_len] || len != basic_string::npos ) )
 		{
-			// Read number of bytes of current code point
+			// Read number of bytes of current codepoint
 			width_type bytes = get_codepoint_bytes( str[string_len] );
 			
 			data_len		+= bytes;		// Increase number of bytes
-			string_len		+= 1;			// Increase number of code points
+			string_len		+= 1;			// Increase number of codepoints
 			num_multibytes	+= bytes > 1 ;	// Increase number of occoured multibytes?
 		}
 		
@@ -3345,7 +3360,7 @@ namespace tiny_utf8
 		size_type	data_len		= t_non_sso.data_len;
 		size_type	buffer_size		= t_non_sso.buffer_size;
 		
-		// If empty, assume an average number of bytes per code point of '1' (and an empty lut)
+		// If empty, assume an average number of bytes per codepoint of '1' (and an empty lut)
 		if( !data_len )
 			return buffer_size - 1;
 		
@@ -3357,7 +3372,7 @@ namespace tiny_utf8
 		if( basic_string::is_lut_active( lut_base_ptr ) )
 			data_len += basic_string::get_lut_width( buffer_size ) * basic_string::get_lut_len( lut_base_ptr );
 		
-		// Return the buffer size (excluding the potential trailing '\0') divided by the average number of bytes per code point
+		// Return the buffer size (excluding the potential trailing '\0') divided by the average number of bytes per codepoint
 		return ( buffer_size - 1 ) * string_len / data_len;
 	}
 
@@ -3441,7 +3456,7 @@ namespace tiny_utf8
 					lut_iter -= lut_width; // Move cursor to the next lut entry
 				}
 				
-				// Now byte_count is the number of code points
+				// Now byte_count is the number of codepoints
 				return byte_count;
 			}
 		}
@@ -3461,7 +3476,7 @@ namespace tiny_utf8
 			byte_count -= bytes - 1;
 		}
 		
-		// Now byte_count is the number of code points
+		// Now byte_count is the number of codepoints
 		return byte_count;
 	}
 
@@ -3545,7 +3560,7 @@ namespace tiny_utf8
 					if( basic_string::get_lut( lut_iter , lut_width ) >= index )
 						break;
 				
-				// Add at least as many bytes as code points
+				// Add at least as many bytes as codepoints
 				index += cp_count;
 				
 				// Iterate over relevant multibyte indices
@@ -3635,7 +3650,7 @@ namespace tiny_utf8
 					break;
 				mb_index++;
 			}
-			substr_cps = byte_count; // Add at least as many bytes as code points
+			substr_cps = byte_count; // Add at least as many bytes as codepoints
 			for( ; lut_iter >= lut_begin ; lut_iter -= lut_width ){ // Iterate over relevant multibyte indices
 				size_type multibyte_index = basic_string::get_lut( lut_iter , lut_width );
 				if( multibyte_index >= end_index )
@@ -3643,13 +3658,13 @@ namespace tiny_utf8
 				substr_cps -= basic_string::get_codepoint_bytes( buffer[multibyte_index] , data_len - multibyte_index ); // Actually '- 1', but see[4]
 				++substr_mbs;
 			}
-			substr_cps += substr_mbs; // [4]: We subtracted all bytes of the relevant multibytes. We therefore need to re-add substr_mbs code points.
+			substr_cps += substr_mbs; // [4]: We subtracted all bytes of the relevant multibytes. We therefore need to re-add substr_mbs codepoints.
 		}
 		else
 		{
 			substr_cps		= 0;
 			size_type iter	= index;
-			while( iter < end_index ){ // Count REPLACED multibytes and code points
+			while( iter < end_index ){ // Count REPLACED multibytes and codepoints
 				width_type bytes = get_codepoint_bytes( buffer[iter] , data_len - iter );
 				substr_mbs += bytes > 1; iter += bytes; ++substr_cps;
 			}
@@ -3738,10 +3753,10 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Ok, obviously no small string, we have to update the data, the lut and the number of code points
+		//! Ok, obviously no small string, we have to update the data, the lut and the number of codepoints
 		
 		
-		// Count code points and multibytes of insertion
+		// Count codepoints and multibytes of insertion
 		bool				app_lut_active;
 		const data_type*	app_buffer;
 		const data_type*	app_lut_base_ptr;
@@ -3780,7 +3795,7 @@ namespace tiny_utf8
 			}
 		}
 		
-		// Count code points and multibytes of this string
+		// Count codepoints and multibytes of this string
 		data_type*	old_buffer;
 		data_type*	old_lut_base_ptr; // Ignore uninitialized warning, see [3]
 		size_type	old_buffer_size;
@@ -3815,7 +3830,7 @@ namespace tiny_utf8
 			old_lut_len		= 0;
 			size_type iter	= 0;
 			old_lut_active	= false;
-			while( iter < old_data_len ){ // Count multibytes and code points
+			while( iter < old_data_len ){ // Count multibytes and codepoints
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				old_lut_len += bytes > 1; iter += bytes; ++old_string_len;
 			}
@@ -4015,10 +4030,10 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Ok, obviously no small string, we have to update the data, the lut and the number of code points
+		//! Ok, obviously no small string, we have to update the data, the lut and the number of codepoints
 		
 		
-		// Count code points and multibytes of insertion
+		// Count codepoints and multibytes of insertion
 		bool				str_lut_active;
 		const data_type*	str_buffer;
 		const data_type*	str_lut_base_ptr;
@@ -4057,7 +4072,7 @@ namespace tiny_utf8
 			}
 		}
 		
-		// Count code points and multibytes of this string
+		// Count codepoints and multibytes of this string
 		data_type*	old_buffer;
 		data_type*	old_lut_base_ptr; // Ignore uninitialized warning, see [3]
 		size_type	old_buffer_size;
@@ -4072,7 +4087,7 @@ namespace tiny_utf8
 			old_buffer		= t_non_sso.data;
 			old_string_len	= get_non_sso_string_len();
 			size_type iter	= 0;
-			while( iter < index ){ // Count multibytes and code points BEFORE insertion
+			while( iter < index ){ // Count multibytes and codepoints BEFORE insertion
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				mb_index += bytes > 1; iter += bytes;
 			}
@@ -4097,12 +4112,12 @@ namespace tiny_utf8
 			old_lut_len		= 0;
 			size_type iter	= 0;
 			old_lut_active	= false;
-			while( iter < index ){ // Count multibytes and code points BEFORE insertion
+			while( iter < index ){ // Count multibytes and codepoints BEFORE insertion
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				mb_index += bytes > 1; iter += bytes; ++old_string_len;
 			}
 			old_lut_len = mb_index;
-			while( iter < old_data_len ){ // Count multibytes and code points AFTER insertion
+			while( iter < old_data_len ){ // Count multibytes and codepoints AFTER insertion
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				old_lut_len += bytes > 1; iter += bytes; ++old_string_len;
 			}
@@ -4401,9 +4416,9 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Ok, obviously no small string, we have to update the data, the lut and the number of code points
+		//! Ok, obviously no small string, we have to update the data, the lut and the number of codepoints
 		
-		// Count code points and multibytes of replacement
+		// Count codepoints and multibytes of replacement
 		bool				repl_lut_active;
 		const data_type*	repl_buffer;
 		const data_type*	repl_lut_base_ptr;
@@ -4442,7 +4457,7 @@ namespace tiny_utf8
 			}
 		}
 		
-		// Count code points and multibytes of this string
+		// Count codepoints and multibytes of this string
 		data_type*	old_buffer;
 		data_type*	old_lut_base_ptr; // Ignore uninitialized warning, see [3]
 		size_type	old_buffer_size;
@@ -4458,11 +4473,11 @@ namespace tiny_utf8
 			old_buffer		= t_non_sso.data;
 			old_string_len	= get_non_sso_string_len();
 			size_type iter	= 0;
-			while( iter < index ){ // Count multibytes and code points BEFORE replacement
+			while( iter < index ){ // Count multibytes and codepoints BEFORE replacement
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				mb_index += bytes > 1; iter += bytes;
 			}
-			while( iter < end_index ){ // Count REPLACED multibytes and code points
+			while( iter < end_index ){ // Count REPLACED multibytes and codepoints
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				replaced_mbs += bytes > 1; iter += bytes; ++replaced_cps;
 			}
@@ -4487,16 +4502,16 @@ namespace tiny_utf8
 			old_lut_len		= 0;
 			size_type iter	= 0;
 			old_lut_active	= false;
-			while( iter < index ){ // Count multibytes and code points BEFORE replacement
+			while( iter < index ){ // Count multibytes and codepoints BEFORE replacement
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				mb_index += bytes > 1; iter += bytes; ++old_string_len;
 			}
-			while( iter < end_index ){ // Count REPLACED multibytes and code points
+			while( iter < end_index ){ // Count REPLACED multibytes and codepoints
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				replaced_mbs += bytes > 1; iter += bytes; ++replaced_cps;
 			}
 			old_lut_len = mb_index + replaced_mbs;
-			while( iter < old_data_len ){ // Count multibytes and code points AFTER replacement
+			while( iter < old_data_len ){ // Count multibytes and codepoints AFTER replacement
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				old_lut_len += bytes > 1; iter += bytes; ++old_string_len;
 			}
@@ -4811,10 +4826,10 @@ namespace tiny_utf8
 			return *this;
 		}
 		
-		//! Ok, obviously no small string, we have to update the data, the lut and the number of code points.
+		//! Ok, obviously no small string, we have to update the data, the lut and the number of codepoints.
 		//! BUT: We will keep the lut in the mode it is: inactive stay inactive, active stays active
 		
-		// Count code points and multibytes of this string
+		// Count codepoints and multibytes of this string
 		data_type*	old_buffer = t_non_sso.data;
 		size_type	old_buffer_size = t_non_sso.buffer_size;
 		data_type*	old_lut_base_ptr = basic_string::get_lut_base_ptr( old_buffer , old_buffer_size );
@@ -4832,11 +4847,11 @@ namespace tiny_utf8
 			size_type	mb_end_index = 0;
 			size_type	replaced_mbs = 0;
 			size_type	iter	= 0;
-			while( iter < index ){ // Count multibytes and code points BEFORE erased part
+			while( iter < index ){ // Count multibytes and codepoints BEFORE erased part
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				mb_end_index += bytes > 1; iter += bytes;
 			}
-			while( iter < end_index ){ // Count REPLACED multibytes and code points
+			while( iter < end_index ){ // Count REPLACED multibytes and codepoints
 				width_type bytes = get_codepoint_bytes( old_buffer[iter] , old_data_len - iter );
 				replaced_mbs += bytes > 1; iter += bytes; ++replaced_cps;
 			}
