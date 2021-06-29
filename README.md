@@ -15,8 +15,8 @@ Its implementation is successfully in the middle between small memory footprint 
 `str.erase( std::remove( str.begin() , str.end() , U'W' ) , str.end() )` will work, but `str.erase( std::remove(`**`str.raw_begin()`**`,`**`str.raw_end()`**`, U'W' ) ,`**`str.raw_end()`**`)` will not (at least not always). The reason is: after the call to `std::remove`, the size of the string data might have changed and the second call to `str.raw_end()` might have yielded a now-invalidated iterator.
 
 ### FEATURES
-- **Drop-in replacement for std::string**
-- **Lightweight and self-contained** (~3K SLOC)
+- **Drop-in replacement for `std::string`**
+- **Lightweight and self-contained** (~5K SLOC)
 - **Very fast**, i.e. highly optimized decoder, encoder and traversal routines
 - **Advanced Memory Layout**, i.e. Random Access is
    - ***O(1) for ASCII-only strings (!)*** and
