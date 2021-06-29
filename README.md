@@ -25,7 +25,6 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Small String Optimization** (SSO) for strings up to an UTF8-encoded length of `sizeof(utf8_string)`! That is, including the trailing `\0`
 - **Growth in Constant Time** (Amortized)
 - **On-the-fly Conversion between UTF32 and UTF8**
-- Small Stack Size, i.e. `sizeof(utf8_string)` = 16 Bytes (32Bit) / 32 Bytes (64Bit)
 - Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but until now otherwise considered out of scope)
 - Complete support for **embedded zeros** (Note: all methods taking `const char*`/`const char32_t*` also have an overload for `const char (&)[N]`/`const char32_t (&)[N]`, allowing correct interpretation of string literals with embedded zeros)
 - Single Header File
