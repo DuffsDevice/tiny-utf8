@@ -33,6 +33,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - Supports raw (Byte-based) access for occasions where Speed is needed
 - Supports `shrink_to_fit()`
 - Malformed UTF8 sequences will **lead to defined behaviour**
+- `size()` returns the size of the data, `length()` returns the number of codepoints contained.
 
 ## THE PURPOSE OF TINY-UTF8
 Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, does it?
