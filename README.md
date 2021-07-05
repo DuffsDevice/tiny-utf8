@@ -36,7 +36,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - `size()` returns the size of the data in bytes, `length()` returns the number of codepoints contained.
 
 ## THE PURPOSE OF TINY-UTF8
-Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, does it?
+Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, eh?
 
 The opinion shared by many "experienced Unicode programmers" (e.g. published on [UTF-8 Everywhere](https://www.utf8everywhere.org)) is that "non-experienced" programmers both *under* and *over*estimate the need for Unicode- and encoding-specific treatment: This need is...
   1. **overestimated**, because many times we really should care less about codepoint/grapheme borders within string data;
@@ -58,7 +58,7 @@ Unicode is not rocket science but nonetheless hard to get *right*. **Tiny-utf8**
 
 Note: ANSI suppport was dropped in Version 2.0 in favor of execution speed.
 
-## EXAMPLE USAGE
+## EXAMPLE
 
 ```cpp
 #include <iostream>
@@ -76,14 +76,14 @@ int main()
 }
 ```
 
-### EXCEPTIONS
+## EXCEPTION BEHAVIOR
 
 - **Tiny-utf8** should automatically detect, whether your build system allows the use of exceptions or not. This is done by checking for the feature test macro `__cpp_exceptions`.
 - If you would like **tiny-utf8** to be `noexcept` anyway, `#define` the macro `TINY_UTF8_NOEXCEPT`.
 - If you would like **tiny-utf8** to use a different exception strategy, `#define` the macro `TINY_UTF8_THROW( location , failing_predicate )`. For using assertions, you would write `#define TINY_UTF8_THROW( _ , pred ) assert( pred )`.
 - *Hint:* If exceptions are disabled, `TINY_UTF8_THROW( ... )` is automatically defined as `void()`. This works well, because all uses of `TINY_UTF8_THROW` are immediately followed by a `;` as well as a proper `return` statement with a fallback value. That also means, `TINY_UTF8_THROW` can safely be a NO-OP.
 
-### BACKWARDS-COMPATIBILITY
+## BACKWARDS-COMPATIBILITY
 
 #### *CHANGES BETWEEN Version 4.3 and 4.2*
 
