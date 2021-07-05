@@ -707,7 +707,7 @@ namespace tiny_utf8
 		typedef codepoint_reference<basic_string, true> 					checked_reference;
 		typedef raw_codepoint_reference<basic_string, false> 				raw_reference;
 		typedef raw_codepoint_reference<basic_string, true> 				raw_checked_reference;
-		typedef value_type&													const_reference;
+		typedef const value_type&											const_reference;
 		typedef std::uint_fast8_t											width_type; // Data type capable of holding the number of code units in a codepoint
 		typedef tiny_utf8::iterator<basic_string, false>					iterator;
 		typedef tiny_utf8::const_iterator<basic_string, false>				const_iterator;
