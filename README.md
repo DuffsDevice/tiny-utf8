@@ -46,7 +46,7 @@ Unicode is not rocket science but nonetheless hard to get *right*. **Tiny-utf8**
   - bridge as many gaps to "supporting Unicode" as possible by 'just' replacing `std::string` with a custom class which means to
   - provide you with a Codepoint Abstraction Layer that takes care of the Run-Length Encoding, without you noticing.
 
-**Tiny-utf8** aims to be the simple-and-dependable groundwork which you build Unicode infrastructure upon. And, if *1)* C++2xyz should happen to make your Unicode life easier than **tiny-utf8** or *2)* you decide to go enterprise, you have not wasted much time replacing `std::string` with `tiny_utf8::string` either. This is what makes **tiny-utf8** so agreeable.
+**Tiny-utf8** aims to be the simple-and-dependable groundwork which you build Unicode infrastructure upon. And, if *1)* C++2xyz should happen to make your Unicode life easier than **tiny-utf8** or *2)* you decide to go enterprise, you have not wasted much time replacing `std::string` with `tiny_utf8::string` either. That's what makes **tiny-utf8** so agreeable.
 
 #### WHAT TINY-UTF8 IS NOT AIMED AT
 - Conversion between ISO encodings and UTF8
