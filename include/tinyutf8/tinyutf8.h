@@ -3401,7 +3401,7 @@ namespace tiny_utf8
 	std::basic_string<typename basic_string<V, D, A>::data_type> basic_string<V, D, A>::cpp_str_bom() const noexcept
 	{
 		// Create std::string
-		std::basic_string<data_type>	result = std::string( size() + 3 , ' ' );
+		std::basic_string<data_type>	result = std::basic_string<data_type>( size() + 3 , ' ' );
 		data_type*						tmp_buffer = const_cast<data_type*>( result.data() );
 		
 		// Write BOM
