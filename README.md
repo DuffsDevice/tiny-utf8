@@ -1,6 +1,6 @@
 # TINY <img src="https://github.com/DuffsDevice/tiny-utf8/raw/master/docs/UTF8.png" width="47" height="47" align="top" alt="UTF8 Art" style="display:inline;"> 4.4
 
-[![Build Status](https://api.travis-ci.com/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.com/github/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)&nbsp;&nbsp;[![Donation](https://img.shields.io/badge/donate-paypal-fcd303.svg)](https://www.paypal.me/jakobriedle)
+[![Build Status](https://api.travis-ci.com/DuffsDevice/tiny-utf8.svg?branch=master)](https://travis-ci.com/github/DuffsDevice/tiny-utf8)&nbsp;&nbsp;[![Licence](https://img.shields.io/badge/licence-BSD--3-e20000.svg)](https://github.com/DuffsDevice/tiny-utf8/blob/master/LICENCE)&nbsp;&nbsp;[![Donation](https://img.shields.io/badge/buy%20me%20a%20coffee-paypal-fcd303.svg)](https://www.paypal.me/jakobriedle)
 
 ### DESCRIPTION
 **Tiny-utf8** is a library for extremely easy integration of Unicode into an arbitrary C++11 project.
