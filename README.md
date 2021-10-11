@@ -21,7 +21,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Advanced Memory Layout**, i.e. Random Access is
    - ***O(1) for ASCII-only strings (!)*** and
    - O(#Codepoints ∉ ASCII) for the average case.
-   - O(n) for strings with a high amount of non-ASCII code points >25%)
+   - O(n) for strings with a high amount of non-ASCII code points (>25%)
 - **Small String Optimization** (SSO) for strings up to an UTF8-encoded length of `sizeof(utf8_string)`! That is, including the trailing `\0`
 - **Growth in Constant Time** (Amortized)
 - **On-the-fly Conversion between UTF32 and UTF8**
