@@ -57,7 +57,7 @@
 //! Determine portable __cplusplus macro
 #if defined(_MSC_VER) && defined(_MSVC_LANG)
 	#define TINY_UTF8_CPLUSPLUS _MSVC_LANG
-#endif
+#else
 	#define TINY_UTF8_CPLUSPLUS __cplusplus
 #endif
 
