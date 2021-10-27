@@ -121,6 +121,7 @@ I'll try to answer it soon!
 - @vfiksdal
 - @maddouri
 - @Abdullah-AlAttar
+- @s9w
 
 for taking your time to improve **tiny-utf8**.
 
