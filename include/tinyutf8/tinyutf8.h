@@ -139,22 +139,18 @@ namespace tiny_utf8
 		
 		//! Count leading zeros utility
 		#if defined(__GNUC__)
-			#ifndef TINY_UTF8_HAS_CLZ
-				#define TINY_UTF8_HAS_CLZ true
-			#endif
+			#define TINY_UTF8_HAS_CLZ true
 			static inline unsigned int clz( unsigned int value ) noexcept { return (unsigned int)__builtin_clz( value ); }
 			static inline unsigned int clz( unsigned long int value ) noexcept { return (unsigned int)__builtin_clzl( value ); }
 			static inline unsigned int clz( char32_t value ) noexcept {
 				return sizeof(char32_t) == sizeof(unsigned long int) ? (unsigned int)__builtin_clzl( value ) : (unsigned int)__builtin_clz( value );
 			}
 		#elif defined(_MSC_VER)
-			#ifndef TINY_UTF8_HAS_CLZ
-				#define TINY_UTF8_HAS_CLZ true
-			#endif
+			#define TINY_UTF8_HAS_CLZ true
 			template<typename T>
 			static inline unsigned int lzcnt( T value ) noexcept {
 				unsigned long value_log2;
-				#if !defined( WIN32 ) && !defined( _WIN32 ) && !defined( __WIN32__ )
+				#if INTPTR_MAX >= INT64_MAX
 					_BitScanReverse64( &value_log2 , value );
 				#else
 					_BitScanReverse( &value_log2 , value );
@@ -163,11 +159,14 @@ namespace tiny_utf8
 			}
 			static inline unsigned int clz( std::uint16_t value ) noexcept { return lzcnt( value ); }
 			static inline unsigned int clz( std::uint32_t value ) noexcept { return lzcnt( value ); }
-			#ifndef WIN32
+			#if INTPTR_MAX >= INT64_MAX
 				static inline unsigned int clz( std::uint64_t value ) noexcept { return lzcnt( value ); }
-			#endif // WIN32
+			#endif
 			static inline unsigned int clz( char32_t value ) noexcept { return lzcnt( value ); }
+		#else
+			#define TINY_UTF8_HAS_CLZ false
 		#endif
+
 		
 		//! Helper to detect little endian
 		class is_little_endian
@@ -883,7 +882,7 @@ namespace tiny_utf8
 		 * Returns the number of code units (bytes) using the supplied first byte of a utf8 codepoint
 		 */
 		// Data left is the number of bytes left in the buffer INCLUDING this one
-		#if defined(TINY_UTF8_HAS_CLZ) && TINY_UTF8_HAS_CLZ == true
+		#if TINY_UTF8_HAS_CLZ
 		static inline width_type			get_codepoint_bytes( data_type first_byte , size_type data_left ) noexcept 
 		{
 			if( first_byte ){
@@ -906,7 +905,7 @@ namespace tiny_utf8
 		 */
 		static inline width_type			get_codepoint_bytes( value_type cp ) noexcept
 		{
-			#if defined(TINY_UTF8_HAS_CLZ) && TINY_UTF8_HAS_CLZ == true
+			#if TINY_UTF8_HAS_CLZ
 				if( !cp )
 					return 1;
 				static const width_type lut[32] = {
@@ -3176,7 +3175,7 @@ namespace tiny_utf8
 		}
 	}
 
-	#if !defined(TINY_UTF8_HAS_CLZ) || TINY_UTF8_HAS_CLZ == false
+	#if !TINY_UTF8_HAS_CLZ
 	template<typename V, typename D, typename A>
 	typename basic_string<V, D, A>::width_type basic_string<V, D, A>::get_codepoint_bytes( typename basic_string<V, D, A>::data_type first_byte , typename basic_string<V, D, A>::size_type data_left ) noexcept
 	{
@@ -3184,29 +3183,29 @@ namespace tiny_utf8
 		switch( data_left )
 		{
 			default:
-				if( ((unsigned char)first_byte & 0xFFu) == 0xFEu )	// 11111110 seven bytes
+				if( ( (unsigned char)first_byte & 0xFFu ) == 0xFEu ) // 11111110 -> seven bytes
 					return 7;
 			case 6:
-				if( ((unsigned char)first_byte & 0xFEu) == 0xFCu )	// 1111110X six bytes
+				if( ( (unsigned char)first_byte & 0xFEu ) == 0xFCu ) // 1111110X -> six bytes
 					return 6;
 			case 5:
-				if( ((unsigned char)first_byte & 0xFCu) == 0xF8u )	// 111110XX five bytes
+				if( ( (unsigned char)first_byte & 0xFCu ) == 0xF8u ) // 111110XX -> five bytes
 					return 5;
 			case 4:
-				if( ((unsigned char)first_byte & 0xF8u) == 0xF0u )	// 11110XXX four bytes
+				if( ( (unsigned char)first_byte & 0xF8u ) == 0xF0u ) // 11110XXX -> four bytes
 					return 4;
 			case 3:
-				if( ((unsigned char)first_byte & 0xF0u) == 0xE0u )	// 1110XXXX three bytes
+				if( ( (unsigned char)first_byte & 0xF0u ) == 0xE0u ) // 1110XXXX -> three bytes
 					return 3;
 			case 2:
-				if( ((unsigned char)first_byte & 0xE0u) == 0xC0u )	// 110XXXXX two bytes
+				if( ( (unsigned char)first_byte & 0xE0u ) == 0xC0u ) // 110XXXXX -> two bytes
 					return 2;
 			case 1:
 			case 0:
-				return 1;
+				return 1; // one byte
 		}
 	}
-	#endif // !defined(TINY_UTF8_HAS_CLZ) || TINY_UTF8_HAS_CLZ == false
+	#endif // !TINY_UTF8_HAS_CLZ
 
 	template<typename V, typename D, typename A>
 	basic_string<V, D, A>& basic_string<V, D, A>::operator=( const basic_string<V, D, A>& str ) noexcept(TINY_UTF8_NOEXCEPT)
