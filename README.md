@@ -25,6 +25,7 @@ Its implementation is successfully in the middle between small memory footprint 
 - **Small String Optimization** (SSO) for strings up to an UTF8-encoded length of `sizeof(utf8_string)`! That is, including the trailing `\0`
 - **Growth in Constant Time** (Amortized)
 - **On-the-fly Conversion between UTF32 and UTF8**
+- **`size()`** returns the size of the data **in bytes**, **`length()`** returns the number of **codepoints** contained.
 - Codepoint Range of `0x0` - `0xFFFFFFFF`, i.e. 1-7 Code Units/Bytes per Codepoint (Note: This is more than specified by UTF8, but until now otherwise considered out of scope)
 - Complete support for **embedded zeros** (Note: all methods taking `const char*`/`const char32_t*` also have an overload for `const char (&)[N]`/`const char32_t (&)[N]`, allowing correct interpretation of string literals with embedded zeros)
 - Single Header File
@@ -33,7 +34,6 @@ Its implementation is successfully in the middle between small memory footprint 
 - Supports raw (Byte-based) access for occasions where Speed is needed
 - Supports `shrink_to_fit()`
 - Malformed UTF8 sequences will **lead to defined behaviour**
-- `size()` returns the size of the data in bytes, `length()` returns the number of codepoints contained.
 
 ## THE PURPOSE OF TINY-UTF8
 Back when I decided to write a UTF8 solution for C++, I knew I wanted a drop-in replacement for `std::string`. At the time mostly because I found it neat to have one and felt C++ always lacked accessible support for UTF8. Since then, several years have passed and the situation has not improved much. That said, things currently look like they are about to improve - but that doesn't say much, eh?
