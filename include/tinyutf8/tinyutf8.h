@@ -54,8 +54,15 @@
 	#endif
 #endif
 
+//! Determine portable __cplusplus macro
+#if defined(_MSC_VER) && defined(_MSVC_LANG)
+	#define TINY_UTF8_CPLUSPLUS _MSVC_LANG
+#endif
+	#define TINY_UTF8_CPLUSPLUS __cplusplus
+#endif
+
 //! Determine the way to inform about fallthrough behavior
-#if __cplusplus >= 201700L
+#if TINY_UTF8_CPLUSPLUS >= 201703L
 	#define TINY_UTF8_FALLTHROUGH [[fallthrough]];
 #elif defined(__clang__)
 	// Clang does not warn about implicit fallthrough
@@ -81,7 +88,7 @@
 #endif
 
 //! Create macro that yields its arguments, if C++17 or later is present (used for "if constexpr")
-#if __cplusplus >= 201700L
+#if TINY_UTF8_CPLUSPLUS >= 201703L
 	#define TINY_UTF8_CPP17( ... ) __VA_ARGS__
 #else
 	#define TINY_UTF8_CPP17( ... )
@@ -117,12 +124,10 @@ namespace tiny_utf8
 	using utf8_string = basic_string<char32_t, char>; // For backwards compatibility
 	
 	//! Typedef of u8string (data type char8_t)
-	#if __cplusplus > 201703L
-		#if defined(__cpp_char8_t)
-			using u8string = basic_string<char32_t, char8_t>;
-		#else
-			using u8string = utf8_string;
-		#endif
+	#if defined(__cpp_char8_t)
+		using u8string = basic_string<char32_t, char8_t>;
+	#else
+		using u8string = utf8_string;
 	#endif
 	
 	//! Implementation Detail
