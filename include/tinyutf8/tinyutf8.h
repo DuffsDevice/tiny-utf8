@@ -4820,7 +4820,7 @@ namespace tiny_utf8
 				this->deallocate( old_buffer , old_buffer_size ); // Delete the old buffer
 			}
 			// Copy AFTER replaced part, if it has moved in position
-			else if( new_data_len != old_data_len )
+			else
 				std::memmove( t_sso.data + index , t_sso.data + index + len , old_data_len - index );
 			
 			// Finish the new string object
