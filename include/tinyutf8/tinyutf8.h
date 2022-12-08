@@ -1210,6 +1210,18 @@ namespace tiny_utf8
 			: basic_string( str.data() , str.size() , alloc , tiny_utf8_detail::read_bytes_tag() )
 		{}
 		/**
+		 * Constructor taking an std::string_view
+		 * 
+		 * @note	Creates an Instance of type basic_string copying the string data from the supplied std::basic_string_view
+		 * @param	str		The string object from which the data will be copied (interpreted as UTF-8)
+		 * @param	alloc	(Optional) The allocator instance to use
+		 */
+		template<typename C>
+		inline basic_string( std::basic_string_view<data_type, C> str , const allocator_type& alloc = allocator_type() )
+			noexcept(TINY_UTF8_NOEXCEPT)
+			: basic_string( str.data() , str.size() , alloc , tiny_utf8_detail::read_bytes_tag() )
+		{}
+		/**
 		 * Constructor taking an std::string
 		 * 
 		 * @note	Creates an Instance of type basic_string copying the string data from the supplied std::basic_string
@@ -2692,6 +2704,15 @@ namespace tiny_utf8
 		 * @return	UTF-8 formatted data, wrapped inside an std::string
 		 */
 		inline std::basic_string<data_type> cpp_str( bool prepend_bom = false ) const noexcept(TINY_UTF8_NOEXCEPT) { return prepend_bom ? cpp_str_bom() : std::basic_string<DataType>( c_str() , size() ); }
+		
+		
+		/**
+		 * Get the raw data contained in this basic_string wrapped by an std::string_view
+		 * 
+		 * @note	Returns the UTF-8 formatted content of this basic_string
+		 * @return	UTF-8 formatted data, wrapped inside an std::string_view
+		 */
+		inline std::basic_string_view<data_type> cpp_str_view() const noexcept(TINY_UTF8_NOEXCEPT) { return std::basic_string_view<DataType>( c_str() , size() ); }
 	};
 } // Namespace 'tiny_utf8'
 

@@ -74,6 +74,22 @@ TEST(TinyUTF8, CTor_TakeAnAnsiString)
 	EXPECT_TRUE(str.lut_active());
 }
 
+TEST(TinyUTF8, CTor_TakeAStringView)
+{
+	const std::string str_orig("Löwen, Bären, Vögel und Käfer sind Tiere.");
+	const std::string_view str_view(str_orig);
+	tiny_utf8::string str(str_view);
+
+	EXPECT_EQ(str_view.length(), 45);
+	EXPECT_EQ(str_view.size(), 45);
+	EXPECT_EQ(str.length(), 41);
+	EXPECT_EQ(str.size(), 45);
+
+	EXPECT_TRUE(str.requires_unicode());
+	EXPECT_FALSE(str.sso_active());
+	EXPECT_TRUE(str.lut_active());
+}
+
 TEST(TinyUTF8, CopyCTor)
 {
 	tiny_utf8::string str_orig(U"Hello  ツ  World");

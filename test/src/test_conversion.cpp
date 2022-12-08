@@ -18,3 +18,11 @@ TEST(TinyUTF8, ToWideLiteral)
 		++it_fwd;
 	}
 }
+
+TEST(TinyUTF8, ToCppStr)
+{
+	const std::string str_orig("Löwen, Bären, Vögel und Käfer sind Tiere.");
+	tiny_utf8::string str(str_orig);
+	EXPECT_EQ(str.cpp_str(), str_orig);
+	EXPECT_EQ(str.cpp_str_view(), str_orig);
+}
