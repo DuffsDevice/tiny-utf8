@@ -1160,7 +1160,10 @@ namespace tiny_utf8
 		{
 			std::memcpy( t_sso.data , str , LITLEN );
 			if( str[LITLEN-1] ){
-				t_sso.data[LITLEN] = '\0';
+				// Note that writing to t_sso.data[SSO::size] is perfectly fine. For strings
+				// with length SSO::size, the data_len = 0 acts as a terminating '\0' character.
+				data_type *buffer = t_sso.data;
+				buffer[LITLEN] = '\0';
 				set_sso_data_len( LITLEN );
 			}
 			else
