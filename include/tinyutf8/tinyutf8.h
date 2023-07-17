@@ -2065,8 +2065,9 @@ namespace tiny_utf8
 		 * @param	pos		The iterator pointing to the position being erased
 		 * @return	A reference to this basic_string, which now has the codepoint erased
 		 */
-		inline basic_string& erase( raw_iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_erase( pos.get_raw_index() , get_index_bytes( pos.get_raw_index() ) );
+		inline raw_iterator erase( raw_iterator pos ) noexcept(TINY_UTF8_NOEXCEPT) {
+			raw_erase( pos.get_raw_index() , get_index_bytes( pos.get_raw_index() ) );
+			return pos;
 		}
 		/**
 		 * Erases the codepoints inside the supplied range
@@ -2075,12 +2076,22 @@ namespace tiny_utf8
 		 * @param	last	An iterator pointing to the codepoint behind the last codepoint to be erased
 		 * @return	A reference to this basic_string, which now has the codepoints erased
 		 */
-		inline basic_string& erase( raw_iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
-			return raw_erase( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() );
+		inline raw_iterator erase( raw_iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
+			raw_erase( first.get_raw_index() , last.get_raw_index() - first.get_raw_index() );
+			return first;
 		}
-		inline basic_string& erase( raw_iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( first , (raw_iterator)last ); }
-		inline basic_string& erase( iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( (raw_iterator)first , last ); }
-		inline basic_string& erase( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) { return erase( (raw_iterator)first , (raw_iterator)last ); }
+		inline raw_iterator erase( raw_iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
+			erase( first , (raw_iterator)last );
+			return first;
+		}
+		inline iterator erase( iterator first , raw_iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
+			erase( (raw_iterator)first , last );
+			return first;
+		}
+		inline iterator erase( iterator first , iterator last ) noexcept(TINY_UTF8_NOEXCEPT) {
+			erase( (raw_iterator)first , (raw_iterator)last );
+			return first;
+		}
 		/**
 		 * Erases a portion of this string
 		 * 

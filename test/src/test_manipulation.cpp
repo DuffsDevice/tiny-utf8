@@ -96,17 +96,27 @@ TEST(TinyUTF8, EraseString)
 	EXPECT_TRUE(str.sso_active());
 	EXPECT_FALSE(str.lut_active());
 
-	str.erase(14);
+	auto res1 = str.erase(14);
 
+	EXPECT_EQ(res1, str);
 	EXPECT_EQ(str.length(), 14);
 	EXPECT_EQ(str.size(), 16);
 	EXPECT_TRUE(str.requires_unicode());
 	EXPECT_TRUE(str.sso_active());
 
-	str.erase(str.begin(), str.begin() + 9);
+	auto res2 = str.erase(str.begin(), str.begin() + 9);
 
+	EXPECT_EQ(res2, str.begin());
 	EXPECT_EQ(str.length(), 5);
 	EXPECT_EQ(str.size(), 5);
+	EXPECT_FALSE(str.requires_unicode());
+	EXPECT_TRUE(str.sso_active());
+
+	auto res3 = str.erase(str.begin() + 2);
+
+	EXPECT_EQ(res3, str.begin() + 2);
+	EXPECT_EQ(str.length(), 4);
+	EXPECT_EQ(str.size(), 4);
 	EXPECT_FALSE(str.requires_unicode());
 	EXPECT_TRUE(str.sso_active());
 }
