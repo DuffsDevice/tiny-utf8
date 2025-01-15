@@ -79,6 +79,7 @@
 	// #pragma clang diagnostic ignored "-Wmaybe-uninitialized" // Clang is missing it. See https://bugs.llvm.org/show_bug.cgi?id=24979
 #elif defined(__GNUC__)
 	#pragma GCC diagnostic push
+	#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #elif defined(_MSC_VER)
 	#pragma warning(push)
 	#pragma warning(disable:4701) // Maybe unitialized
