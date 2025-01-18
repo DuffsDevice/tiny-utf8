@@ -98,7 +98,7 @@ TEST(TinyUTF8, EraseString)
 
 	auto res1 = str.erase(14);
 
-	EXPECT_EQ(res1, str);
+	EXPECT_EQ(res1, str.end());
 	EXPECT_EQ(str.length(), 14);
 	EXPECT_EQ(str.size(), 16);
 	EXPECT_TRUE(str.requires_unicode());
